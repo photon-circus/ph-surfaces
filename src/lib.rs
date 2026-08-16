@@ -33,6 +33,8 @@
     clippy::alloc_instead_of_core
 )]
 
+mod interp;
+
 #[cfg(test)]
 mod tests {
     #[test]
