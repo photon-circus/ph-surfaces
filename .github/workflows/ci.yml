@@ -1,0 +1,48 @@
+# Hosted CI is a subset of `./scripts/ci.sh`, which remains authoritative.
+#
+# This workflow runs the same script so PASS/FAIL/SKIP reporting stays in one
+# place. On GitHub-hosted runners it typically SKIPs:
+#   - cargo-deny (not preinstalled)
+#   - nightly core-only `-Z build-std=core` (nightly + rust-src not installed)
+#   - extra embedded `--target` checks (targets not installed)
+#   - GitHub topics/custom-property verification if the token cannot read them
+#
+# A skipped check is not a passed check. Before merge or any release decision,
+# run the full local matrix:
+#
+#   ./scripts/ci.sh
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    name: scripts/ci.sh (hosted subset)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
+        with:
+          toolchain: "1.92.0"
+          components: rustfmt, clippy
+      - name: Run canonical CI script
+        run: ./scripts/ci.sh
+        env:
+          # Hosted runners do not install extra embedded targets by default.
+          # The script still attempts them and records SKIP when missing.
+          SKIP_EMBEDDED: "0"

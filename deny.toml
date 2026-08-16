@@ -1,0 +1,36 @@
+# cargo-deny policy for ph-surfaces.
+#
+# Run with `./scripts/ci.sh`, or directly:
+#   cargo deny check
+#
+# The runtime graph is empty on purpose. This file is a ratchet: it fails as
+# soon as an undiscussed crate, licence, or source appears. `ph-curves` is
+# banned by name so it cannot return as a direct, transitive, optional, path,
+# or Git dependency.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+allow = ["MIT"]
+confidence-threshold = 0.93
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = false
+deny = [
+    { name = "ph-curves" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
