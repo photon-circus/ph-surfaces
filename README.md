@@ -13,8 +13,9 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > **Domain:** Libraries.
 
 This repository is a private Incubating Libraries project. It exposes the
-validated static surface representation and its boundary and error vocabulary.
-There is no evaluator yet, no crates.io publication, and no docs.rs page.
+validated static surface representation, its deterministic X-then-Y evaluator,
+and its boundary and error vocabulary. There is no crates.io publication and no
+docs.rs page.
 
 ## What this is
 
@@ -25,9 +26,27 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > deterministic X-then-Y bilinear interpolation, four independent Error/Clamp
 > boundary sides, no allocation, and no floating point at runtime.
 
-That evaluator is not implemented yet. `BilinearSurface` declares and validates
-the representation, and the private scalar interpolation helper and private axis
-lookup are in place; a later issue adds public evaluation.
+`BilinearSurface::evaluate` implements that mapping today. The order is part of
+the contract: X is resolved before Y, so the X-side error wins when both
+coordinates leave the domain, and the value is composed by interpolating along X
+on each of the two Y rows and then interpolating those two already-rounded
+results along Y. Because every step rounds to nearest with exact half-way values
+away from zero, a Y-then-X composition would return different values.
+
+```rust
+use ph_surfaces::BilinearSurface;
+
+static X: [u16; 3] = [0, 10, 30];
+static Y: [u16; 2] = [0, 100];
+static VALUES: [[i32; 3]; 2] = [[0, 10, 30], [100, 110, 130]];
+
+static SURFACE: BilinearSurface<3, 2> = BilinearSurface::new(&X, &Y, &VALUES);
+
+fn main() {
+    assert_eq!(SURFACE.evaluate(10, 100), Ok(110)); // a declared knot
+    assert_eq!(SURFACE.evaluate(20, 50), Ok(70)); // an interior point
+}
+```
 
 ## What it is for
 
@@ -40,8 +59,11 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 Incubating and unpublished. The package, license, lockfile, dependency policy,
 and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
 `Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, the private
-scalar interpolation helper, and the private binary axis lookup with four-sided
-boundary handling exist. `BilinearSurface::evaluate` does not.
+scalar interpolation helper, the private binary axis lookup with four-sided
+boundary handling, and the public `BilinearSurface::evaluate` all exist. Still
+outstanding for v0.1: the black-box conformance suite, the mechanical
+dependency, `no_std`, no-allocation, storage, and target proofs, and the
+documentation and package-readiness gate.
 
 ## Responsibility
 
