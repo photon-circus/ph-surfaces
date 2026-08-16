@@ -26,8 +26,8 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > boundary sides, no allocation, and no floating point at runtime.
 
 That evaluator is not implemented yet. `BilinearSurface` declares and validates
-the representation, and the private scalar interpolation helper is in place;
-later issues add axis lookup and public evaluation.
+the representation, and the private scalar interpolation helper and private axis
+lookup are in place; a later issue adds public evaluation.
 
 ## What it is for
 
@@ -39,8 +39,9 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 
 Incubating and unpublished. The package, license, lockfile, dependency policy,
 and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
-`Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, and the private
-scalar interpolation helper exist. `BilinearSurface::evaluate` does not.
+`Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, the private
+scalar interpolation helper, and the private binary axis lookup with four-sided
+boundary handling exist. `BilinearSurface::evaluate` does not.
 
 ## Responsibility
 

@@ -9,15 +9,22 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository is on issue #4 of the v0.1 umbrella: the repository floor,
-the private scalar segment interpolation helper in `src/interp.rs`, and the
-validated static `BilinearSurface` representation with its boundary and error
-vocabulary. Do not implement axis lookup or the public evaluator here. Those
-are issues #5 and #6.
+This repository is on issue #5 of the v0.1 umbrella: the repository floor, the
+private scalar segment interpolation helper in `src/interp.rs`, the validated
+static `BilinearSurface` representation with its boundary and error vocabulary,
+and the private axis lookup in `src/lookup.rs` that brackets a coordinate and
+applies the four-sided boundary policy. Do not implement the public evaluator
+here. That is issue #6.
 
 `src/interp.rs` owns the only rounding policy in the crate: round to nearest,
 exact half-way values away from zero. Route every interpolated value through
 `div_round_half_away_from_zero` rather than adding a second implementation.
+
+`src/lookup.rs` owns the only axis search in the crate, and one algorithm serves
+both axes. Do not add a second search, an early exit on an exact match, or any
+extrapolation path. Route new axis work through `locate`, and keep the
+axis-specific `SurfaceError` mapping in the two thin wrappers so the shared
+algorithm stays axis-neutral.
 
 ## Hard invariants
 
