@@ -9,10 +9,11 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository is on issue #3 of the v0.1 umbrella: the repository floor plus
-the private scalar segment interpolation helper in `src/interp.rs`. Do not
-implement `BilinearSurface`, axis lookup, or the public evaluator here. Those
-are issues #4–#6.
+This repository is on issue #4 of the v0.1 umbrella: the repository floor,
+the private scalar segment interpolation helper in `src/interp.rs`, and the
+validated static `BilinearSurface` representation with its boundary and error
+vocabulary. Do not implement axis lookup or the public evaluator here. Those
+are issues #5 and #6.
 
 `src/interp.rs` owns the only rounding policy in the crate: round to nearest,
 exact half-way values away from zero. Route every interpolated value through
@@ -67,6 +68,7 @@ or failed hosted run as a local-CI failure.
 | Version or `publish` | `README.md` status, `CHANGELOG.md`, `scripts/ci.sh` manifest assertions |
 | New packaged file | `include` in `Cargo.toml` and the package-list check in `scripts/ci.sh` |
 | New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
+| New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md` |
 
 ## Validating
 

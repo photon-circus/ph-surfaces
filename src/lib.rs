@@ -3,10 +3,15 @@
 //! # Status
 //!
 //! **Lifecycle:** Incubating. **Distribution:** unpublished (`publish = false`),
-//! version `0.1.0-incubating.1`. This crate currently exposes no public mapping
-//! API. The accepted v0.1 destination is a static rectilinear
-//! `u16 × u16 → i32` bilinear surface; that representation and evaluator are
-//! later issues, not this scaffold.
+//! version `0.1.0-incubating.1`. This crate exposes the validated static
+//! representation [`BilinearSurface`] together with its boundary policy
+//! vocabulary ([`Boundary`], [`BoundaryPolicy`]) and its out-of-domain outcome
+//! type ([`SurfaceError`]). It does not yet expose an evaluator: axis lookup
+//! and evaluation are later issues.
+//!
+//! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
+//! bilinear surface with deterministic X-then-Y interpolation and four
+//! independent Error/Clamp boundary sides.
 //!
 //! # Runtime guarantees
 //!
@@ -33,7 +38,14 @@
     clippy::alloc_instead_of_core
 )]
 
+mod boundary;
+mod error;
 mod interp;
+mod surface;
+
+pub use boundary::{Boundary, BoundaryPolicy};
+pub use error::SurfaceError;
+pub use surface::BilinearSurface;
 
 #[cfg(test)]
 mod tests {
