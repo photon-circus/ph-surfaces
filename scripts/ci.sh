@@ -131,17 +131,11 @@ check_manifest_floor() {
         printf 'Cargo.toml rust-version must be 1.92.0.\n' >&2
         return 1
     fi
-    if grep -Eq '^\[(dev-|build-)?dependencies\]' Cargo.toml; then
-        :
+    if ! metadata=$(cargo metadata --format-version 1 --offline --no-deps); then
+        printf 'cargo metadata failed while checking dependency tables.\n' >&2
+        return 1
     fi
-    if awk '
-        /^\[(dev-|build-)?dependencies\]/ { in_deps=1; next }
-        /^\[/ { in_deps=0 }
-        in_deps && $0 ~ /^[[:space:]]*[A-Za-z0-9_-]+/ { found=1 }
-        END { exit found ? 1 : 0 }
-    ' Cargo.toml; then
-        :
-    else
+    if ! printf '%s\n' "$metadata" | grep -q '"dependencies":\[\]'; then
         printf 'dependency tables must stay empty on this scaffold.\n' >&2
         return 1
     fi
@@ -230,17 +224,36 @@ check_github_metadata() {
         printf 'missing GitHub topics:%s\n' "$missing" >&2
         return 1
     fi
-    if ! props=$(gh api repos/photon-circus/ph-surfaces/properties/values 2>/dev/null); then
+    if ! props=$(gh api repos/photon-circus/ph-surfaces/properties/values \
+        --jq '.[] | [.property_name, (.value // "")] | @tsv' 2>/dev/null); then
         printf 'GitHub custom properties are not readable with this token; skipping\n'
         return 2
     fi
     printf '%s\n' "$props"
-    if ! printf '%s\n' "$props" | grep -qi 'Incubating'; then
-        printf 'Lifecycle custom property is not Incubating; skipping unset properties\n'
-        return 2
+
+    lifecycle=$(printf '%s\n' "$props" | awk -F '\t' '
+        $1 == "Lifecycle" { print $2; exit }
+    ')
+    domain=$(printf '%s\n' "$props" | awk -F '\t' '
+        $1 == "Domain" { print $2; exit }
+    ')
+
+    properties_unset=0
+    if [ -z "$lifecycle" ]; then
+        printf 'Lifecycle custom property is unset; skipping unset properties\n'
+        properties_unset=1
+    elif [ "$lifecycle" != "Incubating" ]; then
+        printf 'Lifecycle custom property must be Incubating, found: %s\n' "$lifecycle" >&2
+        return 1
     fi
-    if ! printf '%s\n' "$props" | grep -qi 'Libraries'; then
-        printf 'Domain custom property is not Libraries; skipping unset properties\n'
+    if [ -z "$domain" ]; then
+        printf 'Domain custom property is unset; skipping unset properties\n'
+        properties_unset=1
+    elif [ "$domain" != "Libraries" ]; then
+        printf 'Domain custom property must be Libraries, found: %s\n' "$domain" >&2
+        return 1
+    fi
+    if [ "$properties_unset" -ne 0 ]; then
         return 2
     fi
     return 0
