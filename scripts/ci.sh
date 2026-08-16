@@ -96,9 +96,12 @@ check_integer_only() {
         printf 'src: runtime code names a floating-point type.\n' >&2
         return 1
     fi
-    # A decimal point in code means a float literal here: the crate has no
-    # tuple structs, so `.0.1`-style index chains cannot produce a match.
-    if printf '%s\n' "$code" | grep -nE '[0-9]\.[0-9]'; then
+    # Cover every Rust float-literal shape without mistaking an integer range
+    # such as `1..2` for a trailing-dot float. The surrounding identifier
+    # boundaries keep digits embedded in names from matching.
+    float_literal='(^|[^[:alnum:]_])([0-9][0-9_]*\.[0-9_]+([eE][+-]?[0-9_]+)?(_?(f32|f64))?|[0-9][0-9_]*[eE][+-]?[0-9_]+(_?(f32|f64))?|[0-9][0-9_]*_?(f32|f64))([^[:alnum:]_]|$)'
+    trailing_dot_float='(^|[^[:alnum:]_])[0-9][0-9_]*\.([^[:alnum:]_.]|$)'
+    if printf '%s\n' "$code" | grep -nE "$float_literal|$trailing_dot_float"; then
         printf 'src: runtime code contains a floating-point literal.\n' >&2
         return 1
     fi
