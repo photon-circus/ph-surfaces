@@ -45,10 +45,12 @@
   lower-Y row, along X on the upper-Y row, and then interpolating those two
   already-rounded results along Y; that order is normative and observable,
   because a Y-then-X composition returns different values. Evaluation is
-  deterministic, integer only, allocation free, and stateless, performs two
-  logarithmic axis lookups plus exactly three scalar interpolations and four
-  reads of the value grid, and never extrapolates or overflows for any surface
-  this crate can define.
+  deterministic, integer only, allocation free, and stateless. A successful
+  evaluation performs exactly three scalar interpolations and four reads of the
+  value grid; in-domain axis lookups are logarithmic, clamped lookups perform no
+  search probes, and rejected coordinates return before interpolation or grid
+  access, with an X rejection also skipping Y lookup. Evaluation never
+  extrapolates or overflows for any surface this crate can define.
 
 ### Known issues
 

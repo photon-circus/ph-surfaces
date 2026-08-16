@@ -90,12 +90,17 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
     ///
     /// # Cost
     ///
-    /// Two axis lookups, each two endpoint comparisons plus `ceil(log2(len))`
-    /// probes, then exactly three scalar interpolations and exactly four reads
-    /// of the value grid. The value grid is never scanned and its size affects
-    /// only the two logarithmic searches. Evaluation allocates nothing, keeps
-    /// no state, and has no warm-up, reset, cache, or lifecycle behaviour: the
-    /// same handle and the same coordinates always produce the same result.
+    /// A successful evaluation performs exactly three scalar interpolations and
+    /// exactly four reads of the value grid. Each in-domain axis lookup costs
+    /// two endpoint comparisons plus `ceil(log2(len))` probes; a clamped lookup
+    /// costs one or two endpoint comparisons and performs no probes. A rejected
+    /// coordinate returns before any interpolation or value-grid read, and an X
+    /// rejection also skips the Y lookup because X is resolved first.
+    ///
+    /// The value grid is never scanned and its size affects only in-domain
+    /// lookup cost. Evaluation allocates nothing, keeps no state, and has no
+    /// warm-up, reset, cache, or lifecycle behaviour: the same handle and the
+    /// same coordinates always produce the same result.
     ///
     /// The arithmetic cannot overflow for any surface this crate can define.
     /// That is the bound proven for the private scalar helper: both weights are
