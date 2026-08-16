@@ -25,7 +25,18 @@
 - Public `SurfaceError`, distinguishing the four domain sides and carrying the
   rejected coordinate and the applicable bound. Implements `Display` and
   `core::error::Error`.
-- Evaluation is not implemented yet: there is no axis lookup and no
+- Private allocation-free binary axis lookup in `src/lookup.rs`. One algorithm
+  serves both axes: it brackets a coordinate to the adjacent lower and upper
+  knots, and accepts both inclusive endpoints and every exact interior knot
+  without changing the coordinate. The X-below, X-above, Y-below, and Y-above
+  selections apply independently; an Error side reports the matching
+  `SurfaceError` variant with the coordinate as supplied and the applicable
+  bound, and a Clamp side normalizes to the nearest endpoint cell and never
+  extrapolates. An in-domain lookup costs two endpoint comparisons plus exactly
+  `ceil(log2(len))` probes, independent of the stored knots and of the
+  coordinate; an out-of-domain coordinate costs one or two comparisons and never
+  searches. The lookup is crate private and does not change the public API.
+- Public evaluation is not implemented yet: there is no
   `BilinearSurface::evaluate`.
 
 ### Known issues
