@@ -9,12 +9,13 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository is on issue #5 of the v0.1 umbrella: the repository floor, the
+This repository is on issue #6 of the v0.1 umbrella: the repository floor, the
 private scalar segment interpolation helper in `src/interp.rs`, the validated
 static `BilinearSurface` representation with its boundary and error vocabulary,
-and the private axis lookup in `src/lookup.rs` that brackets a coordinate and
-applies the four-sided boundary policy. Do not implement the public evaluator
-here. That is issue #6.
+the private axis lookup in `src/lookup.rs`, and the public evaluator in
+`src/evaluate.rs`. Still to come: the black-box conformance suite (#7), the
+mechanical claim proofs (#8), and the documentation and package-readiness gate
+(#9).
 
 `src/interp.rs` owns the only rounding policy in the crate: round to nearest,
 exact half-way values away from zero. Route every interpolated value through
@@ -25,6 +26,13 @@ both axes. Do not add a second search, an early exit on an exact match, or any
 extrapolation path. Route new axis work through `locate`, and keep the
 axis-specific `SurfaceError` mapping in the two thin wrappers so the shared
 algorithm stays axis-neutral.
+
+`src/evaluate.rs` owns the only composition order in the crate. X is resolved
+before Y, X interpolates on each of the two Y rows before Y interpolates between
+those two already-rounded results, and the X-side error wins when both
+coordinates are out of domain. That order is observable, because every step
+rounds. Do not add a second evaluation path, a selectable order, a cached cell,
+or arithmetic that bypasses `interp.rs`.
 
 ## Hard invariants
 

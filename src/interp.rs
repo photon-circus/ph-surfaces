@@ -8,19 +8,6 @@
 //! Everything here is core integer arithmetic. There is no floating point, no
 //! fixed-point layer, no allocator, and no external dependency.
 
-// Nothing calls these yet; the axis lookup and the public evaluator arrive in
-// later issues. Scoping the expectation to non-test builds keeps it fulfilled
-// in the library build (where the helpers really are unused) and absent in the
-// test build (where the tests below use them). Once the evaluator wires them
-// up, this expectation goes unfulfilled and CI fails until it is deleted.
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "wired into the axis lookup and evaluator in later issues"
-    )
-)]
-
 /// Interpolates linearly between the two endpoints of one axis segment.
 ///
 /// Given `offset = x - x0` and `span = x1 - x0`, this returns the signed value

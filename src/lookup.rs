@@ -23,16 +23,6 @@
 //! Everything here is core integer arithmetic over indices. There is no
 //! allocation, no floating point, and no extrapolation path.
 
-// Nothing outside the tests calls these yet; the public evaluator arrives in a
-// later issue. Scoping the expectation to non-test builds keeps it fulfilled in
-// the library build (where the items really are unreachable) and absent in the
-// test build (where the tests below use them). Once the evaluator wires them
-// up, this expectation goes unfulfilled and CI fails until it is deleted.
-#![cfg_attr(
-    not(test),
-    expect(dead_code, reason = "wired into the public evaluator in a later issue")
-)]
-
 use crate::boundary::Boundary;
 use crate::error::SurfaceError;
 use crate::surface::BilinearSurface;

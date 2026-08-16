@@ -36,8 +36,21 @@
   `ceil(log2(len))` probes, independent of the stored knots and of the
   coordinate; an out-of-domain coordinate costs one or two comparisons and never
   searches. The lookup is crate private and does not change the public API.
-- Public evaluation is not implemented yet: there is no
-  `BilinearSurface::evaluate`.
+- Public `BilinearSurface::evaluate(&self, x: u16, y: u16) -> Result<i32,
+  SurfaceError>` in `src/evaluate.rs`, composing the axis lookup and the scalar
+  interpolation helper into the first public runtime capability. X is resolved
+  before Y, so the X-side error is reported when both coordinates leave the
+  domain on Error sides and a clamped X is still followed by a Y resolved under
+  its own selections. The value is composed by interpolating along X on the
+  lower-Y row, along X on the upper-Y row, and then interpolating those two
+  already-rounded results along Y; that order is normative and observable,
+  because a Y-then-X composition returns different values. Evaluation is
+  deterministic, integer only, allocation free, and stateless. A successful
+  evaluation performs exactly three scalar interpolations and four reads of the
+  value grid; in-domain axis lookups are logarithmic, clamped lookups perform no
+  search probes, and rejected coordinates return before interpolation or grid
+  access, with an X rejection also skipping Y lookup. Evaluation never
+  extrapolates or overflows for any surface this crate can define.
 
 ### Known issues
 
