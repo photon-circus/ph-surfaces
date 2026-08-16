@@ -1,0 +1,14 @@
+# Clippy configuration for ph-surfaces.
+# Lint levels are defined in src/lib.rs; this file only stores values.
+
+msrv = "1.92.0"
+
+too-many-lines-threshold = 150
+too-many-arguments-threshold = 10
+type-complexity-threshold = 350
+max-struct-bools = 4
+max-fn-params-bools = 4
+cognitive-complexity-threshold = 30
+
+allowed-idents-below-min-chars = ["i", "n", "x", "y", "id", "ok"]
+single-char-binding-names-threshold = 5

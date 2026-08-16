@@ -1,0 +1,30 @@
+[package]
+name = "ph-surfaces"
+version = "0.1.0-incubating.1"
+edition = "2024"
+rust-version = "1.92.0"
+description = "Deterministic no-std, no-alloc integer surface mappings for embedded Rust"
+authors = ["Steven Giacomelli <steve@giacomelli.ca>"]
+license = "MIT"
+repository = "https://github.com/photon-circus/ph-surfaces"
+readme = "README.md"
+keywords = ["no-std", "embedded", "interpolation"]
+categories = ["no-std", "embedded", "mathematics"]
+publish = false
+
+# Allowlist, not a denylist: anything new stays out of the packaged crate until
+# it is added here on purpose. Agent notes, CI, and deny config must not ship.
+include = [
+    "src/**/*.rs",
+    "Cargo.toml",
+    "LICENSE",
+    "/README.md",
+]
+
+# Runtime, tests, and build scripts stay free of `ph-curves` and of any other
+# crate. Do not add optional, target-specific, path, or Git dependencies.
+[dependencies]
+
+[dev-dependencies]
+
+[build-dependencies]
