@@ -9,9 +9,14 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository is on issue #2 of the v0.1 umbrella: crate and repository
-floor only. Do not implement interpolation, `BilinearSurface`, axis lookup, or
-the public evaluator here. Those are issues #3–#6.
+This repository is on issue #3 of the v0.1 umbrella: the repository floor plus
+the private scalar segment interpolation helper in `src/interp.rs`. Do not
+implement `BilinearSurface`, axis lookup, or the public evaluator here. Those
+are issues #4–#6.
+
+`src/interp.rs` owns the only rounding policy in the crate: round to nearest,
+exact half-way values away from zero. Route every interpolated value through
+`div_round_half_away_from_zero` rather than adding a second implementation.
 
 ## Hard invariants
 
@@ -32,9 +37,12 @@ unrelated crate enabling a host feature silently turns a firmware build into a
 
 ### 3. Core-only, no allocator, no unsafe
 
-Do not introduce `alloc`, `std`, or `unsafe`. A plain `--target` build does not
-prove no-alloc: bare-metal `rust-std` ships `alloc` in the sysroot. The proof
-is:
+Do not introduce `alloc`, `std`, `unsafe`, or floating point. The `integer
+only` check in `scripts/ci.sh` greps `src/` for those code paths, ignoring full
+line comments so documentation may still discuss them.
+
+A plain `--target` build does not prove no-alloc: bare-metal `rust-std` ships
+`alloc` in the sysroot. The proof is:
 
 ```sh
 cargo +nightly build --target thumbv7em-none-eabi -Z build-std=core

@@ -78,6 +78,47 @@ check_no_std_unconditional() {
     return 0
 }
 
+check_integer_only() {
+    # The runtime is integer-only, core-only, and unsafe-free. `cargo test`
+    # cannot observe the absence of a code path, so this grep is the mechanical
+    # evidence for that claim; the nightly `-Z build-std=core` check below is
+    # the matching proof for the allocator.
+    #
+    # Full-line comments are stripped first. Doc comments legitimately discuss
+    # floating point, magnitude bounds such as 4.23e14, and the banned crate by
+    # name, and none of that is a code path.
+    code=$(find src -name '*.rs' -print0 \
+        | sort -z \
+        | xargs -0 cat \
+        | grep -vE '^[[:space:]]*(//|/\*|\*)')
+
+    if printf '%s\n' "$code" | grep -nE '\bf32\b|\bf64\b'; then
+        printf 'src: runtime code names a floating-point type.\n' >&2
+        return 1
+    fi
+    # A decimal point in code means a float literal here: the crate has no
+    # tuple structs, so `.0.1`-style index chains cannot produce a match.
+    if printf '%s\n' "$code" | grep -nE '[0-9]\.[0-9]'; then
+        printf 'src: runtime code contains a floating-point literal.\n' >&2
+        return 1
+    fi
+    if printf '%s\n' "$code" | grep -nE '\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)'; then
+        printf 'src: runtime code reaches for alloc or std.\n' >&2
+        return 1
+    fi
+    if printf '%s\n' "$code" | grep -nE 'ph.curves'; then
+        printf 'src: runtime code references ph-curves.\n' >&2
+        return 1
+    fi
+    # A negative grep for `unsafe` would match this very declaration, so assert
+    # the crate-level ban is present instead.
+    if ! grep -qxF '#![forbid(unsafe_code)]' src/lib.rs; then
+        printf 'src/lib.rs must declare #![forbid(unsafe_code)].\n' >&2
+        return 1
+    fi
+    return 0
+}
+
 check_no_ph_curves() {
     if [ ! -f Cargo.lock ]; then
         printf 'Cargo.lock is missing; the lockfile is part of the repository floor.\n' >&2
@@ -161,7 +202,7 @@ check_manifest_floor() {
 check_package_list() {
     list=$(cargo package --list --allow-dirty) || return 1
     printf '%s\n' "$list"
-    for required in Cargo.toml LICENSE README.md src/lib.rs; do
+    for required in Cargo.toml LICENSE README.md src/lib.rs src/interp.rs; do
         if ! printf '%s\n' "$list" | grep -qx "$required"; then
             printf 'packaged crate is missing %s\n' "$required" >&2
             return 1
@@ -265,6 +306,7 @@ run_check 'test' cargo test --locked
 run_check 'clippy' cargo clippy --locked --all-targets -- -D warnings
 run_check 'doc' env RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps
 run_check 'no_std unconditional' check_no_std_unconditional
+run_check 'integer only' check_integer_only
 run_check 'no ph-curves' check_no_ph_curves
 run_check 'manifest floor' check_manifest_floor
 run_check 'package list' check_package_list
