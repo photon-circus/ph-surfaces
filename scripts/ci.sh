@@ -205,7 +205,8 @@ check_manifest_floor() {
 check_package_list() {
     list=$(cargo package --list --allow-dirty) || return 1
     printf '%s\n' "$list"
-    for required in Cargo.toml LICENSE README.md src/lib.rs src/interp.rs; do
+    for required in Cargo.toml LICENSE README.md \
+        src/lib.rs src/interp.rs src/boundary.rs src/error.rs src/surface.rs; do
         if ! printf '%s\n' "$list" | grep -qx "$required"; then
             printf 'packaged crate is missing %s\n' "$required" >&2
             return 1

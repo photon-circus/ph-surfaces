@@ -12,9 +12,9 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > **Distribution:** Unpublished. `publish = false`. Version `0.1.0-incubating.1`.
 > **Domain:** Libraries.
 
-This repository is a private Incubating Libraries project. It currently
-bootstraps the independent core-only crate. There is no public mapping API, no
-crates.io publication, and no docs.rs page.
+This repository is a private Incubating Libraries project. It exposes the
+validated static surface representation and its boundary and error vocabulary.
+There is no evaluator yet, no crates.io publication, and no docs.rs page.
 
 ## What this is
 
@@ -25,8 +25,9 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > deterministic X-then-Y bilinear interpolation, four independent Error/Clamp
 > boundary sides, no allocation, and no floating point at runtime.
 
-That evaluator is not in this scaffold. Later issues add the private
-interpolation helper, `BilinearSurface`, lookup, and public evaluation.
+That evaluator is not implemented yet. `BilinearSurface` declares and validates
+the representation, and the private scalar interpolation helper is in place;
+later issues add axis lookup and public evaluation.
 
 ## What it is for
 
@@ -37,7 +38,9 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 ## What state it is in
 
 Incubating and unpublished. The package, license, lockfile, dependency policy,
-and canonical CI exist. The public surface type does not.
+and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
+`Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, and the private
+scalar interpolation helper exist. `BilinearSurface::evaluate` does not.
 
 ## Responsibility
 
