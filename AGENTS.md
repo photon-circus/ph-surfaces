@@ -45,8 +45,12 @@ cargo +nightly build --target thumbv7em-none-eabi -Z build-std=core
 ### 4. Local CI is authoritative
 
 `./scripts/ci.sh` is the verification entry point. It reports `PASS`, `FAIL`,
-and `SKIP` distinctly. Hosted Actions are a subset and must not be treated as
-the full gate. A skipped check is not a passed check.
+and `SKIP` distinctly. A skipped check is not a passed check.
+
+Hosted GitHub Actions are a known gap until this repository is public:
+private workflow runs fail before any step starts. Do not re-enable
+`pull_request` / `push` triggers to "fix" a red check. Do not treat a missing
+or failed hosted run as a local-CI failure.
 
 ## Coupled edits
 

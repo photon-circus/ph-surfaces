@@ -94,7 +94,10 @@ The canonical entry point is local:
 ```
 
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
-not a passed check. Hosted GitHub Actions, when present, run a subset of the
-same script and skip deny, nightly core-only, and extra embedded targets unless
-those tools are installed on the runner. Local `./scripts/ci.sh` remains
-authoritative.
+not a passed check. Local `./scripts/ci.sh` is authoritative.
+
+Hosted GitHub Actions are a **known gap until this repository is public**:
+private runs fail before any step starts, so `pull_request` / `push` triggers
+are not enabled. The workflow file remains for a manual `workflow_dispatch`
+after the repository is public; it is a subset and may still skip deny,
+nightly core-only, extra embedded targets, and GitHub metadata.

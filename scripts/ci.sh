@@ -1,11 +1,13 @@
 #!/usr/bin/env sh
 # Canonical local CI for ph-surfaces.
 #
-# This script is the authoritative verification entry point. Hosted GitHub
-# Actions, when present, run a subset of the same checks and skip deny, the
-# nightly core-only build, and extra embedded targets unless those tools are
-# installed on the runner. A green hosted check is not a substitute for this
-# run.
+# This script is the authoritative verification entry point.
+#
+# Hosted GitHub Actions are a known gap until this repository is public:
+# private runs fail before any step starts, so the workflow has no
+# pull_request/push triggers. When hosted CI exists, it is a subset and may
+# skip deny, nightly core-only, extra embedded targets, and GitHub metadata.
+# A green or missing hosted check is not a substitute for this run.
 #
 # There is no PowerShell twin. On Windows, use Git Bash.
 #
