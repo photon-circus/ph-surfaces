@@ -49,10 +49,21 @@ fn div_round_ties_away(numerator: i128, denominator: i128) -> i128 {
     }
 }
 
-/// Round `numerator / denominator` toward zero: the *rejected* rounding
-/// policy, kept for discrimination only.
-fn div_round_toward_zero(numerator: i128, denominator: i128) -> i128 {
-    numerator / denominator
+/// Round `numerator / denominator` to nearest, with exact half-way values
+/// toward zero: the *rejected* tie policy, kept for discrimination only.
+fn div_round_ties_toward_zero(numerator: i128, denominator: i128) -> i128 {
+    let quotient = numerator / denominator;
+    let remainder = numerator % denominator;
+
+    if remainder.abs() * 2 > denominator {
+        if numerator < 0 {
+            quotient - 1
+        } else {
+            quotient + 1
+        }
+    } else {
+        quotient
+    }
 }
 
 /// The exact signed rational value of the segment before rounding, as a
@@ -82,7 +93,7 @@ pub fn segment(t: u16, t0: u16, t1: u16, v0: i32, v1: i32) -> i32 {
 /// Mutant: the same segment with half-way values rounded toward zero.
 pub fn mutant_segment_ties_toward_zero(t: u16, t0: u16, t1: u16, v0: i32, v1: i32) -> i32 {
     let (numerator, span) = segment_rational(t, t0, t1, v0, v1);
-    narrow(div_round_toward_zero(numerator, span))
+    narrow(div_round_ties_toward_zero(numerator, span))
 }
 
 /// Mutant: the segment extended linearly past its endpoints, without any

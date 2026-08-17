@@ -188,6 +188,20 @@ fn ties_toward_zero_would_fail_on_named_points() {
 }
 
 #[test]
+fn ties_toward_zero_mutant_preserves_nearest_rounding_on_non_ties() {
+    // At two thirds, both tie policies round to the nearest integer. The
+    // mutant differs from the accepted policy only when the remainder is
+    // exactly half the denominator.
+    assert_eq!(reference::segment(2, 0, 3, 0, 1), 1);
+    assert_eq!(reference::mutant_segment_ties_toward_zero(2, 0, 3, 0, 1), 1);
+    assert_eq!(reference::segment(2, 0, 3, 0, -1), -1);
+    assert_eq!(
+        reference::mutant_segment_ties_toward_zero(2, 0, 3, 0, -1),
+        -1
+    );
+}
+
+#[test]
 fn the_inset_domain_agrees_with_the_reference_exhaustively() {
     // 31 x 301 = 9_331 points under the default all-Error policy.
     let count = reference::assert_exhaustive_domain(&INSET, "INSET");
