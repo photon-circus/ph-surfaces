@@ -133,8 +133,9 @@
   `SKIP`, not `PASS`, if either target is unavailable. `package list`
   additionally rejects `docs/` and `tests/` from the archive.
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
-  implemented binary baseline, explicitly recording #18, #19, and the final
-  #9 gate as pending. It remains repository material and is not packaged.
+  implemented binary baseline, recording #18 and #19 as implemented, #9 as
+  closed, and embedded-focused guidance #22 as the remaining pre-release
+  work. It remains repository material and is not packaged.
 - Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
   (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
   (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),
@@ -172,6 +173,33 @@
   core-only sysroot; the check reports `SKIP` if nightly with `rust-src` is
   unavailable. `package list` and the exact packaged file set now include
   `src/axis/`.
+- Associated cost constants on `BilinearSurface`: `VALUE_BYTES`,
+  `PAYLOAD_BYTES`, `HANDLE_BYTES` (target-dependent), `SUCCESS_INTERPOLATIONS`
+  (3), and `SUCCESS_GRID_READS` (4). Default binary `PAYLOAD_BYTES` equals
+  `2*NX + 2*NY + 4*NX*NY`. Host tests match `size_of` of the declared tables;
+  Uniform/Uniform payload is only the grid.
+- Black-box cross-strategy suite in `tests/conformance/strategies.rs`. Every
+  applicable Linear/Binary/Uniform/Bucketed pairing is compared to a
+  table-based `i128` linear-scan oracle (`evaluate_tables`); production
+  locators are never the expected-value source. Lookup fixtures cover Linear
+  and Bucketed on the existing axes and Uniform on an even-spaced axis.
+  Locator mutants (off-by-one cell, Uniform origin/step off-by-one, Bucketed
+  cluster vs tail) disagree on named points. Nested `bucket_index` /
+  `max_local_comparisons` never increases the local bound when `B` is
+  multiplied.
+- Selection matrix and three exact worked storage/work doctests (default
+  binary `ELEVATION` 5×4, tiny Linear×Linear 3×2, and a mixed
+  Bucketed×Uniform 17×9 example whose index reduces the documented search
+  bound) in the README and crate rustdoc, wired through the new constants.
+- `scripts/measure-code-size.sh` (not packaged) records compiler-object
+  `.text` totals for four named single-pairing consumers on ARM and RISC-V
+  with the pinned 1.92.0 toolchain. It identifies normally mangled safe Rust
+  symbols with `llvm-nm --demangle`; no exported unsafe attributes are
+  generated. Output is committed as `docs/code-size-snapshot.txt` and labelled
+  non-normative. The `code size snapshot` CI check diffs it and returns SKIP
+  if a target or `llvm-tools-preview` is missing.
+- The `package build` consumer asserts `VALUE_BYTES` / `PAYLOAD_BYTES` /
+  `SUCCESS_*` on the default binary surface and one mixed pairing.
 
 ### Known issues
 

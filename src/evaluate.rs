@@ -93,16 +93,19 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
     ///
     /// # Cost
     ///
-    /// A successful evaluation performs exactly three scalar interpolations and
-    /// exactly four reads of the value grid. Each in-domain axis lookup costs
-    /// two endpoint comparisons plus the search work of that axis's strategy —
+    /// A successful evaluation performs exactly
+    /// [`BilinearSurface::SUCCESS_INTERPOLATIONS`] scalar interpolations and
+    /// exactly [`BilinearSurface::SUCCESS_GRID_READS`] reads of the value grid.
+    /// Each in-domain axis lookup costs two endpoint comparisons plus the
+    /// search work of that axis's strategy —
     /// `ceil(log2(len))` probes for the default
     /// [`BinaryAxis`](crate::BinaryAxis), and at most
     /// [`AxisLookup::MAX_SEARCH_COMPARISONS`](crate::AxisLookup::MAX_SEARCH_COMPARISONS)
-    /// comparisons for any of them; a clamped lookup
-    /// costs one or two endpoint comparisons and performs no probes. A rejected
-    /// coordinate returns before any interpolation or value-grid read, and an X
-    /// rejection also skips the Y lookup because X is resolved first.
+    /// comparisons for any of them. A clamped lookup costs one or two endpoint
+    /// comparisons and performs no probes: the endpoint path, not a search. A
+    /// rejected coordinate returns before any interpolation or value-grid
+    /// read, and an X rejection also skips the Y lookup because X is resolved
+    /// first.
     ///
     /// The value grid is never scanned and its size affects only in-domain
     /// lookup cost. Evaluation allocates nothing, keeps no state, and has no
