@@ -60,10 +60,11 @@ Incubating and unpublished. The package, license, lockfile, dependency policy,
 and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
 `Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, the private
 scalar interpolation helper, the private binary axis lookup with four-sided
-boundary handling, and the public `BilinearSurface::evaluate` all exist. Still
-outstanding for v0.1: the black-box conformance suite, the mechanical
-dependency, `no_std`, no-allocation, storage, and target proofs, and the
-documentation and package-readiness gate.
+boundary handling, and the public `BilinearSurface::evaluate` all exist. The
+mechanical dependency, `no_std`, no-allocation, storage, work-bound, packaging,
+and target proofs exist as the local gate described under [How it is
+verified](#how-it-is-verified). Still outstanding for v0.1: the black-box
+conformance suite and the documentation and package-readiness gate.
 
 ## Responsibility
 
@@ -100,6 +101,29 @@ v0.1 also does not include:
 - Version `0.1.0-incubating.1` with `publish = false` until a separate release
   decision
 
+## Resource accounting and cost
+
+**Storage.** A `BilinearSurface<NX, NY>` references three static tables whose
+element payload is exactly `2*NX + 2*NY + 4*NX*NY` bytes: `NX` X knots of
+`u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`. That figure is exact
+and target-independent, and it is only the referenced element payload. It is
+not total RAM, flash, binary, or linker cost; alignment, section placement,
+code, and stack are outside it. The handle is separate and target-dependent:
+three thin references (one pointer width each), four one-byte boundary
+selections, and any padding the target's alignment requires. It does not grow
+with `NX` or `NY`. Host tests assert both figures without assuming a pointer
+width or a field layout beyond Rust's guarantees.
+
+**Work.** A worst-case `evaluate` is two axis searches and three scalar
+interpolations. Each in-domain axis search is two endpoint comparisons plus
+exactly `ceil(log2(len))` probes of that axis; a clamped coordinate costs one or
+two comparisons and no probes; a rejected coordinate returns before any
+interpolation, and a rejected X also skips the Y search. Exactly four grid
+elements are read on success, and the grid is never scanned. That is operation
+structure derived from the implementation and asserted by its tests. It is not
+a cycle count or a WCET figure: no timing has been measured and none is
+claimed.
+
 ## Repository classification
 
 These GitHub fields must agree with the manifest and this README. The bootstrap
@@ -120,10 +144,37 @@ The canonical entry point is local:
 ```
 
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
-not a passed check. Local `./scripts/ci.sh` is authoritative.
+not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
+
+- formatting, host tests and doctests, clippy with warnings denied, and rustdoc
+  with warnings denied;
+- unconditional `#![no_std]`: no `[features]` table, no `cfg_attr` on the
+  attribute, and no feature-gated code anywhere in `src/`;
+- an integer-only, core-only, `unsafe`-free runtime, by grepping code paths;
+- no `ph-curves` in any form — the manifest text (normal, optional,
+  target-specific, development, build, path, Git, `[patch]`, `[replace]`),
+  `Cargo.lock`, `cargo metadata --all-features`, and `cargo deny` all reject
+  the name;
+- the manifest floor (version, `publish = false`, licence, edition, MSRV,
+  empty dependency tables);
+- the exact packaged file set, a `cargo package` build of the artifact, and a
+  minimal downstream `#![no_std]` consumer compiled against the unpacked
+  package on the host and on both embedded targets;
+- a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
+  tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
+  dependency — and requires the matching guard to fail;
+- representative bare-metal builds on ARM (`thumbv7em-none-eabi`) and RISC-V
+  (`riscv32imac-unknown-none-elf`) with the pinned toolchain;
+- the no-allocation proof: nightly `-Z build-std=core` builds of the same two
+  targets against a sysroot containing only `core`. A plain `--target` build
+  is not that proof, because bare-metal `rust-std` sysroots still ship `alloc`.
+
+Not proven, and not claimed: every Rust target, Xtensa, cycle counts,
+code-size ceilings, or hard real-time WCET.
 
 Hosted GitHub Actions are a **known gap until this repository is public**:
 private runs fail before any step starts, so `pull_request` / `push` triggers
 are not enabled. The workflow file remains for a manual `workflow_dispatch`
-after the repository is public; it is a subset and may still skip deny,
-nightly core-only, extra embedded targets, and GitHub metadata.
+after the repository is public; it is a bounded subset (least privilege, a job
+timeout, cancellation, SHA-pinned actions, one job as the aggregate status) and
+still skips deny, nightly core-only, and GitHub metadata.

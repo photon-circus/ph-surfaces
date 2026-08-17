@@ -51,6 +51,34 @@
   search probes, and rejected coordinates return before interpolation or grid
   access, with an X rejection also skipping Y lookup. Evaluation never
   extrapolates or overflows for any surface this crate can define.
+- Mechanical proofs of the runtime contract in `scripts/ci.sh`. Bare-metal
+  targets are now built rather than checked, on ARM (`thumbv7em-none-eabi`)
+  and RISC-V (`riscv32imac-unknown-none-elf`), and both are also built with a
+  nightly `-Z build-std=core` core-only sysroot as the no-allocation proof. The
+  `no ph-curves` guard rejects the name in the manifest text (normal, optional,
+  target-specific, development, build, path, Git, `[patch]`, `[replace]`),
+  in `Cargo.lock`, and in `cargo metadata --all-features`. The `no_std
+  unconditional` guard additionally rejects a `[features]` table, a `cfg_attr`
+  on `no_std`, and any feature-gated code in `src/`. A `package build` check
+  builds the `.crate`, asserts its exact file set, and compiles a minimal
+  downstream `#![no_std]` consumer against the unpacked artifact on the host
+  and on both embedded targets. `CI_ONLY=<name>` runs a single check.
+- `scripts/guard-selftest.sh` (run by `scripts/ci.sh` as `guards fire on
+  mutation`): copies the tracked tree, applies a feature-conditional `no_std`,
+  an allocator path, and a `ph-curves` dependency, and requires the matching
+  guard — including the core-only build — to fail on the copy.
+- Host tests asserting the documented storage figures: the referenced element
+  payload equals `2*NX + 2*NY + 4*NX*NY` bytes for representative shapes, and
+  the handle is three thin references plus the four-byte policy plus at most
+  alignment padding, without assuming a pointer width or field order.
+- Public resource and cost accounting in the crate docs and README: the exact
+  payload formula stated separately from the target-dependent handle and never
+  as total RAM, flash, binary, or linker cost; and the worst-case evaluation
+  structure — two logarithmic axis searches of `2 + ceil(log2(len))`
+  comparisons each and three scalar interpolations — stated as operation
+  structure, not as a measured cycle or WCET figure.
+- The manual hosted workflow now installs both embedded targets, carries a job
+  timeout, and documents which checks it still skips.
 
 ### Known issues
 

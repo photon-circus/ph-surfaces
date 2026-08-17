@@ -277,7 +277,7 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
 mod tests {
     use super::BilinearSurface;
     use crate::boundary::{Boundary, BoundaryPolicy};
-    use core::mem::size_of;
+    use core::mem::{align_of, size_of, size_of_val};
 
     static X2: [u16; 2] = [0, 10];
     static Y2: [u16; 2] = [0, 20];
@@ -383,6 +383,73 @@ mod tests {
             size_of::<BilinearSurface<2, 2>>(),
             size_of::<BilinearSurface<64, 64>>()
         );
+    }
+
+    /// The documented referenced element payload: `2*NX + 2*NY + 4*NX*NY`.
+    const fn documented_payload(nx: usize, ny: usize) -> usize {
+        2 * nx + 2 * ny + 4 * nx * ny
+    }
+
+    /// The size of the three tables a `BilinearSurface<NX, NY>` references.
+    const fn referenced_payload<const NX: usize, const NY: usize>() -> usize {
+        size_of::<[u16; NX]>() + size_of::<[u16; NY]>() + size_of::<[[i32; NX]; NY]>()
+    }
+
+    #[test]
+    fn referenced_payload_matches_the_documented_formula() {
+        // `u16` and `i32` have guaranteed sizes and arrays have no padding, so
+        // this holds on every target; the fixtures below merely spell out
+        // representative shapes, including the asymmetric and large ones.
+        assert_eq!(referenced_payload::<2, 2>(), documented_payload(2, 2));
+        assert_eq!(referenced_payload::<2, 2>(), 24);
+        assert_eq!(referenced_payload::<3, 2>(), documented_payload(3, 2));
+        assert_eq!(referenced_payload::<3, 2>(), 34);
+        assert_eq!(referenced_payload::<2, 3>(), documented_payload(2, 3));
+        assert_eq!(referenced_payload::<16, 8>(), documented_payload(16, 8));
+        assert_eq!(referenced_payload::<64, 64>(), documented_payload(64, 64));
+        assert_eq!(referenced_payload::<64, 64>(), 16_640);
+
+        // The same figure measured on the live tables behind a handle.
+        let measured = size_of_val(SURFACE.x_axis())
+            + size_of_val(SURFACE.y_axis())
+            + size_of_val(SURFACE.values());
+        assert_eq!(measured, documented_payload(SURFACE.nx(), SURFACE.ny()));
+
+        let measured =
+            size_of_val(WIDE.x_axis()) + size_of_val(WIDE.y_axis()) + size_of_val(WIDE.values());
+        assert_eq!(measured, documented_payload(WIDE.nx(), WIDE.ny()));
+    }
+
+    #[test]
+    fn handle_is_three_references_plus_four_policy_bytes_and_padding() {
+        // The handle holds three references to sized arrays (thin, so each is
+        // one target-width pointer) and one four-byte policy. Its size is
+        // therefore that sum rounded up to the handle's alignment: at least the
+        // sum, less than the sum plus one alignment unit, and a multiple of
+        // the alignment. Nothing here assumes a particular pointer width or a
+        // particular field order.
+        let reference = size_of::<&'static [u16; 2]>();
+        assert_eq!(
+            reference,
+            size_of::<usize>(),
+            "a reference to a sized array is thin"
+        );
+        assert_eq!(size_of::<&'static [[i32; 2]; 2]>(), reference);
+
+        let fields = 3 * reference + size_of::<BoundaryPolicy>();
+        let handle = size_of::<BilinearSurface<2, 2>>();
+        let align = align_of::<BilinearSurface<2, 2>>();
+
+        assert_eq!(size_of::<BoundaryPolicy>(), 4);
+        assert!(
+            handle >= fields,
+            "handle {handle} smaller than its fields {fields}"
+        );
+        assert!(
+            handle < fields + align,
+            "handle {handle} carries more than alignment padding over {fields}"
+        );
+        assert_eq!(handle % align, 0);
     }
 
     #[test]
