@@ -31,6 +31,13 @@ use crate::boundary::BoundaryPolicy;
 /// independently, and the choice is a type rather than a value: there is no
 /// runtime discriminant and no branch among strategies.
 ///
+/// Choose [`LinearAxis`](crate::LinearAxis) for a tiny axis when the minimum
+/// auxiliary structure is what matters; [`BinaryAxis`] as the general default;
+/// [`UniformAxis`](crate::UniformAxis) when knots are evenly spaced, so the
+/// knot arrays can be dropped and location is constant work;
+/// [`BucketedAxis`](crate::BucketedAxis) for a long irregular axis when
+/// `2*B` extra index bytes buy a smaller local bound.
+///
 /// Whichever strategies a surface names, it locates the same cell, evaluates
 /// the same value, and reports the same errors. Only the stored bytes and the
 /// search work differ.
@@ -45,21 +52,22 @@ use crate::boundary::BoundaryPolicy;
 ///
 /// # Storage
 ///
-/// For the default binary surface the referenced table element payload is
-/// exactly `2*NX + 2*NY + 4*NX*NY` bytes. In general it is
-/// `X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY`,
-/// which the axis strategies state exactly: see
+/// The referenced table element payload is exactly
+/// [`BilinearSurface::PAYLOAD_BYTES`]: the two axes'
 /// [`AxisLookup::KNOT_BYTES`](crate::AxisLookup::KNOT_BYTES) and
-/// [`AxisLookup::INDEX_BYTES`](crate::AxisLookup::INDEX_BYTES). That figure
-/// excludes this handle, alignment, linker effects, code, stack, and binary or
-/// flash placement. It is not a total memory cost.
+/// [`AxisLookup::INDEX_BYTES`](crate::AxisLookup::INDEX_BYTES) plus
+/// [`BilinearSurface::VALUE_BYTES`] (`4*NX*NY`). For the default binary
+/// surface that equals `2*NX + 2*NY + 4*NX*NY` bytes. That figure excludes
+/// this handle, alignment, linker effects, code, stack, and binary or flash
+/// placement. It is not a total memory cost.
 ///
 /// The handle always contains the value-grid reference and the four-byte
 /// boundary policy. Its remaining fields depend on the axis strategies:
 /// [`UniformAxis`] stores no reference, [`LinearAxis`] and [`BinaryAxis`] each
 /// store one knot-array reference, and [`BucketedAxis`] stores a knot-array and
 /// an index-array reference. The default binary/binary handle is therefore
-/// three thin references plus the policy and alignment padding.
+/// three thin references plus the policy and alignment padding. Its size is
+/// [`BilinearSurface::HANDLE_BYTES`], which is target-dependent.
 ///
 /// # Equality
 ///
@@ -269,6 +277,45 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY, BinaryAxis<NX>, B
 impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
     BilinearSurface<NX, NY, X, Y>
 {
+    /// Bytes of the referenced value grid: `NX*NY` elements of `i32`.
+    ///
+    /// Exact and target-independent. It excludes the axis tables, the handle,
+    /// alignment, code, and stack, and it is not a total memory figure.
+    pub const VALUE_BYTES: usize = 4 * NX * NY;
+
+    /// Bytes of referenced table elements this surface names:
+    /// `X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + VALUE_BYTES`.
+    ///
+    /// Exact and target-independent. For the default binary pairing it equals
+    /// `2*NX + 2*NY + 4*NX*NY`. It is only the referenced element payload: not
+    /// total RAM, flash, binary, or linker cost.
+    pub const PAYLOAD_BYTES: usize =
+        X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + Self::VALUE_BYTES;
+
+    /// Size of this handle on the current target, including alignment padding.
+    ///
+    /// Target-dependent: it follows pointer width and the selected strategies'
+    /// fields (Uniform stores no axis reference, Linear/Binary one, Bucketed
+    /// two), plus the value-grid reference and the four-byte policy. It does
+    /// not grow with `NX` or `NY` for a fixed pairing, and it is not a flash
+    /// or binary cost.
+    pub const HANDLE_BYTES: usize = core::mem::size_of::<Self>();
+
+    /// Scalar interpolations a successful [`evaluate`](Self::evaluate) performs.
+    ///
+    /// Always three: X on the lower-Y row, X on the upper-Y row, then Y
+    /// between those two already-rounded results. A rejected evaluation
+    /// returns before any of them. This is operation structure, not a cycle
+    /// count.
+    pub const SUCCESS_INTERPOLATIONS: u32 = 3;
+
+    /// Value-grid reads a successful [`evaluate`](Self::evaluate) performs.
+    ///
+    /// Always four: the corners of the located cell. A rejected evaluation
+    /// returns before any of them. The grid is never scanned. This is
+    /// operation structure, not a cycle count.
+    pub const SUCCESS_GRID_READS: u32 = 4;
+
     /// Declares a surface over two axes that have already chosen their lookup
     /// strategies, and a static row-major value grid.
     ///
@@ -557,7 +604,7 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, const ORIGIN: u16, con
 #[cfg(test)]
 mod tests {
     use super::BilinearSurface;
-    use crate::axis::{BinaryAxis, BucketedAxis, LinearAxis, UniformAxis};
+    use crate::axis::{AxisLookup, BinaryAxis, BucketedAxis, LinearAxis, UniformAxis};
     use crate::boundary::{Boundary, BoundaryPolicy};
     use core::mem::{align_of, size_of, size_of_val};
 
@@ -720,6 +767,79 @@ mod tests {
     /// The size of the three tables a `BilinearSurface<NX, NY>` references.
     const fn referenced_payload<const NX: usize, const NY: usize>() -> usize {
         size_of::<[u16; NX]>() + size_of::<[u16; NY]>() + size_of::<[[i32; NX]; NY]>()
+    }
+
+    #[test]
+    fn cost_constants_match_the_declared_tables() {
+        assert_eq!(
+            BilinearSurface::<3, 2>::VALUE_BYTES,
+            size_of::<[[i32; 3]; 2]>()
+        );
+        assert_eq!(
+            BilinearSurface::<3, 2>::PAYLOAD_BYTES,
+            size_of::<[u16; 3]>() + size_of::<[u16; 2]>() + size_of::<[[i32; 3]; 2]>()
+        );
+        assert_eq!(<LinearAxis<3>>::KNOT_BYTES, size_of::<[u16; 3]>());
+        assert_eq!(<LinearAxis<3>>::INDEX_BYTES, 0);
+        assert_eq!(<BucketedAxis<5, 8>>::KNOT_BYTES, size_of::<[u16; 5]>());
+        assert_eq!(<BucketedAxis<5, 8>>::INDEX_BYTES, size_of::<[u16; 8]>());
+        assert_eq!(<UniformAxis<3, 0, 50>>::KNOT_BYTES, 0);
+        assert_eq!(<UniformAxis<3, 0, 50>>::INDEX_BYTES, 0);
+    }
+
+    #[test]
+    fn uniform_uniform_payload_is_only_the_grid() {
+        type UniformUniform = BilinearSurface<2, 2, UniformAxis<2, 0, 10>, UniformAxis<2, 0, 20>>;
+
+        assert_eq!(UniformUniform::PAYLOAD_BYTES, UniformUniform::VALUE_BYTES);
+        assert_eq!(UniformUniform::PAYLOAD_BYTES, size_of::<[[i32; 2]; 2]>());
+        assert_eq!(UniformUniform::VALUE_BYTES, 16);
+    }
+
+    #[test]
+    fn handle_bytes_matches_size_of_self() {
+        assert_eq!(
+            BilinearSurface::<2, 2>::HANDLE_BYTES,
+            size_of::<BilinearSurface<2, 2>>()
+        );
+        assert_eq!(
+            BilinearSurface::<64, 64>::HANDLE_BYTES,
+            size_of::<BilinearSurface<64, 64>>()
+        );
+        type Mixed = BilinearSurface<2, 2, LinearAxis<2>, UniformAxis<2, 0, 20>>;
+        assert_eq!(Mixed::HANDLE_BYTES, size_of::<Mixed>());
+    }
+
+    #[test]
+    fn success_work_constants_are_three_interpolations_and_four_reads() {
+        assert_eq!(BilinearSurface::<2, 2>::SUCCESS_INTERPOLATIONS, 3);
+        assert_eq!(BilinearSurface::<2, 2>::SUCCESS_GRID_READS, 4);
+        type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
+        assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
+        assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
+    }
+
+    #[test]
+    fn default_binary_payload_matches_the_documented_formula() {
+        assert_eq!(
+            BilinearSurface::<5, 4>::PAYLOAD_BYTES,
+            2 * 5 + 2 * 4 + 4 * 5 * 4
+        );
+        assert_eq!(BilinearSurface::<5, 4>::PAYLOAD_BYTES, 98);
+        assert_eq!(BilinearSurface::<5, 4>::VALUE_BYTES, 80);
+        assert_eq!(
+            BilinearSurface::<2, 2>::PAYLOAD_BYTES,
+            documented_payload(2, 2)
+        );
+    }
+
+    #[test]
+    fn mixed_bucketed_uniform_payload_drops_the_uniform_knots() {
+        type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
+
+        assert_eq!(Mixed::VALUE_BYTES, 60);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 10 + 16 + 60);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 86);
     }
 
     #[test]

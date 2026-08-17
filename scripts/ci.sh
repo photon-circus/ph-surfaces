@@ -29,6 +29,9 @@
 #     included) passing from the unpacked package, and a downstream
 #     `#![no_std]` consumer that declares and evaluates both documented
 #     example maps compiling and testing against it.
+#   - code size snapshot: `scripts/measure-code-size.sh` vs
+#     `docs/code-size-snapshot.txt`. SKIP if a target or llvm-tools-preview is
+#     missing. Not a source ratchet.
 #   - guards fire on mutation: the three ratchets above are shown to fail on a
 #     mutated copy of the tree (scripts/guard-selftest.sh).
 #   - core-only <target>: nightly `-Z build-std=core` builds. These are the
@@ -280,7 +283,7 @@ check_manifest_floor() {
 }
 
 check_package_list() {
-    list=$(cargo package --list --allow-dirty) || return 1
+    list=$(cargo package --list --allow-dirty | tr '\\' '/') || return 1
     printf '%s\n' "$list"
     for required in Cargo.toml LICENSE README.md \
         src/lib.rs src/interp.rs src/lookup.rs src/evaluate.rs src/boundary.rs \
@@ -550,6 +553,22 @@ mod tests {
     }
 
     #[test]
+    fn cost_constants_on_the_default_binary_and_a_mixed_pairing() {
+        use ph_surfaces::{BilinearSurface, BucketedAxis, UniformAxis};
+
+        assert_eq!(BilinearSurface::<5, 4>::VALUE_BYTES, 80);
+        assert_eq!(BilinearSurface::<5, 4>::PAYLOAD_BYTES, 98);
+        assert_eq!(BilinearSurface::<5, 4>::SUCCESS_INTERPOLATIONS, 3);
+        assert_eq!(BilinearSurface::<5, 4>::SUCCESS_GRID_READS, 4);
+
+        type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
+        assert_eq!(Mixed::VALUE_BYTES, 60);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 86);
+        assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
+        assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
+    }
+
+    #[test]
     fn correction_matches_the_documented_points() {
         assert_eq!(correction(47, 5), Ok(86));
         assert_eq!(correction(145, 100), Ok(-242));
@@ -608,6 +627,24 @@ EOF
     consumer_status=$?
     case "$consumer_status" in
         0) return 0 ;;
+        2) return 2 ;;
+        *) return 1 ;;
+    esac
+}
+
+check_code_size_snapshot() {
+    mkdir -p "$SCRATCH"
+    sh scripts/measure-code-size.sh >"$SCRATCH/code-size-snapshot.txt"
+    status=$?
+    case "$status" in
+        0)
+            if ! diff -u docs/code-size-snapshot.txt "$SCRATCH/code-size-snapshot.txt"; then
+                printf 'code-size snapshot differs from docs/code-size-snapshot.txt.\n' >&2
+                printf 'Re-run scripts/measure-code-size.sh and commit the output.\n' >&2
+                return 1
+            fi
+            return 0
+            ;;
         2) return 2 ;;
         *) return 1 ;;
     esac
@@ -730,6 +767,7 @@ run_check 'no ph-curves' check_no_ph_curves
 run_check 'manifest floor' check_manifest_floor
 run_check 'package list' check_package_list
 run_check 'package build' check_package_build
+run_check 'code size snapshot' check_code_size_snapshot
 run_check 'guards fire on mutation' check_guard_selftest
 run_check 'github metadata' check_github_metadata
 run_check 'deny' check_deny

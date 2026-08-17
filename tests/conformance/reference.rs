@@ -9,8 +9,8 @@
 //!   not `v0 * (span - offset) + v1 * offset`;
 //! - rounding compares the remainder against half the span instead of biasing
 //!   the numerator before dividing;
-//! - axis location is a linear scan, so it also serves as the simple oracle
-//!   for the crate's binary search;
+//! - axis location is a linear scan of the fixture knot arrays, so it also
+//!   serves as the simple oracle for every production locator;
 //! - the result is narrowed with `i32::try_from` and a panic, so the reference
 //!   itself asserts that every expected value is representable.
 //!
@@ -142,140 +142,407 @@ pub fn locate(
     Ok((lower.min(last - 1), t))
 }
 
-fn locate_x<const NX: usize, const NY: usize>(
-    surface: &BilinearSurface<NX, NY>,
-    x: u16,
-) -> Result<(usize, u16), SurfaceError> {
-    let policy = surface.policy();
-    locate(surface.x_axis(), x, policy.x_below(), policy.x_above()).map_err(|side| match side {
+fn map_x_side<const NX: usize>(x_axis: &[u16; NX], x: u16, side: Side) -> SurfaceError {
+    match side {
         Side::Below => SurfaceError::XBelow {
             coordinate: x,
-            bound: surface.x_min(),
+            bound: x_axis[0],
         },
         Side::Above => SurfaceError::XAbove {
             coordinate: x,
-            bound: surface.x_max(),
+            bound: x_axis[NX - 1],
         },
-    })
+    }
 }
 
-fn locate_y<const NX: usize, const NY: usize>(
-    surface: &BilinearSurface<NX, NY>,
-    y: u16,
-) -> Result<(usize, u16), SurfaceError> {
-    let policy = surface.policy();
-    locate(surface.y_axis(), y, policy.y_below(), policy.y_above()).map_err(|side| match side {
+fn map_y_side<const NY: usize>(y_axis: &[u16; NY], y: u16, side: Side) -> SurfaceError {
+    match side {
         Side::Below => SurfaceError::YBelow {
             coordinate: y,
-            bound: surface.y_min(),
+            bound: y_axis[0],
         },
         Side::Above => SurfaceError::YAbove {
             coordinate: y,
-            bound: surface.y_max(),
+            bound: y_axis[NY - 1],
         },
-    })
+    }
+}
+
+fn locate_x_tables<const NX: usize>(
+    x_axis: &[u16; NX],
+    x: u16,
+    policy: BoundaryPolicy,
+) -> Result<(usize, u16), SurfaceError> {
+    locate(x_axis, x, policy.x_below(), policy.x_above())
+        .map_err(|side| map_x_side(x_axis, x, side))
+}
+
+fn locate_y_tables<const NY: usize>(
+    y_axis: &[u16; NY],
+    y: u16,
+    policy: BoundaryPolicy,
+) -> Result<(usize, u16), SurfaceError> {
+    locate(y_axis, y, policy.y_below(), policy.y_above())
+        .map_err(|side| map_y_side(y_axis, y, side))
 }
 
 /// X on the lower-Y row, X on the upper-Y row, then Y between the two rounded
 /// results, given already-located cells.
-fn compose_x_then_y<const NX: usize, const NY: usize>(
-    surface: &BilinearSurface<NX, NY>,
+fn compose_x_then_y_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
     (xi, xc): (usize, u16),
     (yi, yc): (usize, u16),
     seg: fn(u16, u16, u16, i32, i32) -> i32,
 ) -> i32 {
-    let xs = surface.x_axis();
-    let ys = surface.y_axis();
-    let values = surface.values();
-
-    let row = |r: usize| seg(xc, xs[xi], xs[xi + 1], values[r][xi], values[r][xi + 1]);
+    let row = |r: usize| {
+        seg(
+            xc,
+            x_axis[xi],
+            x_axis[xi + 1],
+            values[r][xi],
+            values[r][xi + 1],
+        )
+    };
     let lower = row(yi);
     let upper = row(yi + 1);
-    seg(yc, ys[yi], ys[yi + 1], lower, upper)
+    seg(yc, y_axis[yi], y_axis[yi + 1], lower, upper)
 }
 
-/// The accepted contract: X located before Y, X interpolated on each row,
-/// then Y between the two rounded row results.
+fn compose_y_then_x_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    (xi, xc): (usize, u16),
+    (yi, yc): (usize, u16),
+) -> i32 {
+    let column = |c: usize| {
+        segment(
+            yc,
+            y_axis[yi],
+            y_axis[yi + 1],
+            values[yi][c],
+            values[yi + 1][c],
+        )
+    };
+    let left = column(xi);
+    let right = column(xi + 1);
+    segment(xc, x_axis[xi], x_axis[xi + 1], left, right)
+}
+
+fn extrapolating_cell(axis: &[u16], t: u16) -> (usize, u16) {
+    let last = axis.len() - 1;
+    if t < axis[0] {
+        (0, t)
+    } else if t > axis[last] {
+        (last - 1, t)
+    } else {
+        let (index, _) = locate(axis, t, Boundary::Error, Boundary::Error)
+            .expect("in-domain coordinate locates");
+        (index, t)
+    }
+}
+
+/// The accepted contract over fixture tables: X located before Y by a linear
+/// scan of the supplied knot arrays, X interpolated on each row, then Y
+/// between the two rounded row results.
+///
+/// Location never consults a production strategy. Callers that have a
+/// `UniformAxis` surface pass the even-spaced knot array the descriptor
+/// describes, not a search of `BinaryAxis`.
+pub fn evaluate_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let x_cell = locate_x_tables(x_axis, x, policy)?;
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    Ok(compose_x_then_y_tables(
+        x_axis, y_axis, values, x_cell, y_cell, segment,
+    ))
+}
+
+/// Thin wrapper so existing default-binary tests keep calling `evaluate`.
 pub fn evaluate<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
     x: u16,
     y: u16,
 ) -> Result<i32, SurfaceError> {
-    let x_cell = locate_x(surface, x)?;
-    let y_cell = locate_y(surface, y)?;
-    Ok(compose_x_then_y(surface, x_cell, y_cell, segment))
+    evaluate_tables(
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        surface.policy(),
+        x,
+        y,
+    )
 }
 
 /// Mutant: Y interpolated on each of the two columns first, then X between
 /// the two rounded column results. Domain handling is unchanged.
+pub fn mutant_evaluate_y_then_x_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let x_cell = locate_x_tables(x_axis, x, policy)?;
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    Ok(compose_y_then_x_tables(
+        x_axis, y_axis, values, x_cell, y_cell,
+    ))
+}
+
+/// Thin wrapper for existing default-binary tests.
 pub fn mutant_evaluate_y_then_x<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
     x: u16,
     y: u16,
 ) -> Result<i32, SurfaceError> {
-    let (xi, xc) = locate_x(surface, x)?;
-    let (yi, yc) = locate_y(surface, y)?;
-    let xs = surface.x_axis();
-    let ys = surface.y_axis();
-    let values = surface.values();
-
-    let column = |c: usize| segment(yc, ys[yi], ys[yi + 1], values[yi][c], values[yi + 1][c]);
-    let left = column(xi);
-    let right = column(xi + 1);
-    Ok(segment(xc, xs[xi], xs[xi + 1], left, right))
+    mutant_evaluate_y_then_x_tables(
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        surface.policy(),
+        x,
+        y,
+    )
 }
 
 /// Mutant: the accepted composition with the rejected rounding.
-pub fn mutant_evaluate_ties_toward_zero<const NX: usize, const NY: usize>(
-    surface: &BilinearSurface<NX, NY>,
+pub fn mutant_evaluate_ties_toward_zero_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
     x: u16,
     y: u16,
 ) -> Result<i32, SurfaceError> {
-    let x_cell = locate_x(surface, x)?;
-    let y_cell = locate_y(surface, y)?;
-    Ok(compose_x_then_y(
-        surface,
+    let x_cell = locate_x_tables(x_axis, x, policy)?;
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    Ok(compose_x_then_y_tables(
+        x_axis,
+        y_axis,
+        values,
         x_cell,
         y_cell,
         mutant_segment_ties_toward_zero,
     ))
 }
 
+/// Thin wrapper for existing default-binary tests.
+pub fn mutant_evaluate_ties_toward_zero<const NX: usize, const NY: usize>(
+    surface: &BilinearSurface<NX, NY>,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    mutant_evaluate_ties_toward_zero_tables(
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        surface.policy(),
+        x,
+        y,
+    )
+}
+
 /// Mutant: Y resolved before X, so a Y-side error wins over an X-side one.
 /// Values are unchanged; only the reported error can differ.
+pub fn mutant_evaluate_y_precedence_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    let x_cell = locate_x_tables(x_axis, x, policy)?;
+    Ok(compose_x_then_y_tables(
+        x_axis, y_axis, values, x_cell, y_cell, segment,
+    ))
+}
+
+/// Thin wrapper for existing default-binary tests.
 pub fn mutant_evaluate_y_precedence<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
     x: u16,
     y: u16,
 ) -> Result<i32, SurfaceError> {
-    let y_cell = locate_y(surface, y)?;
-    let x_cell = locate_x(surface, x)?;
-    Ok(compose_x_then_y(surface, x_cell, y_cell, segment))
+    mutant_evaluate_y_precedence_tables(
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        surface.policy(),
+        x,
+        y,
+    )
 }
 
 /// Mutant: every out-of-domain coordinate extrapolates from the nearest
 /// boundary cell instead of erroring or clamping. This is what "permit
 /// extrapolation" would look like.
+pub fn mutant_evaluate_extrapolating_tables<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    x: u16,
+    y: u16,
+) -> i32 {
+    compose_x_then_y_tables(
+        x_axis,
+        y_axis,
+        values,
+        extrapolating_cell(x_axis, x),
+        extrapolating_cell(y_axis, y),
+        mutant_segment_extrapolating,
+    )
+}
+
+/// Thin wrapper for existing default-binary tests.
 pub fn mutant_evaluate_extrapolating<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
     x: u16,
     y: u16,
 ) -> i32 {
-    let clamp_cell = |axis: &[u16], t: u16| -> (usize, u16) {
-        let last = axis.len() - 1;
-        if t < axis[0] {
-            (0, t)
-        } else if t > axis[last] {
-            (last - 1, t)
-        } else {
-            let (index, _) = locate(axis, t, Boundary::Error, Boundary::Error)
-                .expect("in-domain coordinate locates");
-            (index, t)
-        }
+    mutant_evaluate_extrapolating_tables(surface.x_axis(), surface.y_axis(), surface.values(), x, y)
+}
+
+/// Mutant locator: the neighbouring cell, not the one that holds `t`.
+///
+/// Interpolation uses the wrong cell's knots with the original coordinate, so
+/// the segment is extended past its endpoints. That is the "used the next
+/// cell" mistake; `segment` would refuse it because `t` is then outside the
+/// cell.
+fn locate_off_by_one(
+    axis: &[u16],
+    t: u16,
+    below: Boundary,
+    above: Boundary,
+) -> Result<(usize, u16), Side> {
+    let (lower, coord) = locate(axis, t, below, above)?;
+    let last_cell = axis.len() - 2;
+    let wrong = if lower < last_cell {
+        lower + 1
+    } else if lower > 0 {
+        lower - 1
+    } else {
+        lower
     };
-    let x_cell = clamp_cell(surface.x_axis(), x);
-    let y_cell = clamp_cell(surface.y_axis(), y);
-    compose_x_then_y(surface, x_cell, y_cell, mutant_segment_extrapolating)
+    Ok((wrong, coord))
+}
+
+/// Evaluates with an off-by-one X cell and a correctly located Y cell.
+pub fn mutant_evaluate_off_by_one_cell<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let x_cell = locate_off_by_one(x_axis, x, policy.x_below(), policy.x_above())
+        .map_err(|side| map_x_side(x_axis, x, side))?;
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    Ok(compose_x_then_y_tables(
+        x_axis,
+        y_axis,
+        values,
+        x_cell,
+        y_cell,
+        mutant_segment_extrapolating,
+    ))
+}
+
+/// Evenly spaced knots `ORIGIN + i * STEP` for `i` in `0..N`.
+///
+/// Used only to build a *wrong* Uniform descriptor for locator mutants. The
+/// accepted oracle still scans the fixture knot array.
+pub const fn uniform_knots<const N: usize>(origin: u16, step: u16) -> [u16; N] {
+    let mut knots = [0u16; N];
+    let mut i = 0;
+    while i < N {
+        knots[i] = ((origin as u32) + (i as u32) * (step as u32)) as u16;
+        i += 1;
+    }
+    knots
+}
+
+/// Mutant: locate and interpolate X against a Uniform descriptor whose origin
+/// is one larger than the fixture's. The value grid is unchanged.
+pub fn mutant_evaluate_uniform_origin_off_by_one<const NX: usize, const NY: usize>(
+    origin: u16,
+    step: u16,
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let wrong = uniform_knots::<NX>(origin.saturating_add(1), step);
+    evaluate_tables(&wrong, y_axis, values, policy, x, y)
+}
+
+/// Mutant: locate and interpolate X against a Uniform descriptor whose step
+/// is one larger than the fixture's. The value grid is unchanged.
+pub fn mutant_evaluate_uniform_step_off_by_one<const NX: usize, const NY: usize>(
+    origin: u16,
+    step: u16,
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let wrong = uniform_knots::<NX>(origin, step.saturating_add(1));
+    evaluate_tables(&wrong, y_axis, values, policy, x, y)
+}
+
+/// The cell with the largest knot span: the tail of a clustered-then-tail axis.
+fn tail_cell(axis: &[u16]) -> usize {
+    let last_cell = axis.len() - 2;
+    let mut tail = 0;
+    let mut max_span = 0u16;
+    for i in 0..=last_cell {
+        let span = axis[i + 1] - axis[i];
+        if span >= max_span {
+            max_span = span;
+            tail = i;
+        }
+    }
+    tail
+}
+
+/// Mutant: a tail-cell coordinate is located in the last cluster cell, and a
+/// cluster coordinate is located in the tail. Discriminates a bucketed search
+/// that starts in the wrong region of a clustered-then-tail axis.
+pub fn mutant_evaluate_bucketed_cluster_vs_tail<const NX: usize, const NY: usize>(
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
+    x: u16,
+    y: u16,
+) -> Result<i32, SurfaceError> {
+    let (lower, xc) = locate_x_tables(x_axis, x, policy)?;
+    let tail = tail_cell(x_axis);
+    let cluster = tail.saturating_sub(1);
+    let wrong = if lower == tail { cluster } else { tail };
+    let y_cell = locate_y_tables(y_axis, y, policy)?;
+    Ok(compose_x_then_y_tables(
+        x_axis,
+        y_axis,
+        values,
+        (wrong, xc),
+        y_cell,
+        mutant_segment_extrapolating,
+    ))
 }
 
 /// Bit 0 selects X-below, bit 1 X-above, bit 2 Y-below, bit 3 Y-above; a set
@@ -299,12 +566,10 @@ pub const fn policy_from_bits(bits: usize) -> BoundaryPolicy {
 
 /// The smallest and largest value stored anywhere in the grid: the hull no
 /// non-extrapolating result may leave.
-pub fn value_hull<const NX: usize, const NY: usize>(
-    surface: &BilinearSurface<NX, NY>,
-) -> (i32, i32) {
+pub fn value_hull_tables<const NX: usize, const NY: usize>(values: &[[i32; NX]; NY]) -> (i32, i32) {
     let mut lo = i32::MAX;
     let mut hi = i32::MIN;
-    for row in surface.values() {
+    for row in values {
         for &v in row {
             lo = lo.min(v);
             hi = hi.max(v);
@@ -313,20 +578,31 @@ pub fn value_hull<const NX: usize, const NY: usize>(
     (lo, hi)
 }
 
-/// Evaluates every point of the declared Cartesian domain
-/// `[x_min, x_max] × [y_min, y_max]` against the reference and asserts exact
-/// agreement. Callers use this only where the domain is small enough that an
-/// exhaustive claim is honest; the count is returned so tests can state it.
-pub fn assert_exhaustive_domain<const NX: usize, const NY: usize>(
+/// Thin wrapper so existing default-binary tests keep calling `value_hull`.
+pub fn value_hull<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
+) -> (i32, i32) {
+    value_hull_tables(surface.values())
+}
+
+/// Evaluates every point of the declared Cartesian domain of the supplied
+/// knot arrays against the table-based reference and asserts exact agreement.
+/// Callers use this only where the domain is small enough that an exhaustive
+/// claim is honest; the count is returned so tests can state it.
+pub fn assert_exhaustive_domain_tables<const NX: usize, const NY: usize>(
+    evaluate_surface: impl Fn(u16, u16) -> Result<i32, SurfaceError>,
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    policy: BoundaryPolicy,
     name: &str,
 ) -> u64 {
     let mut count = 0u64;
-    for y in surface.y_min()..=surface.y_max() {
-        for x in surface.x_min()..=surface.x_max() {
+    for y in y_axis[0]..=y_axis[NY - 1] {
+        for x in x_axis[0]..=x_axis[NX - 1] {
             assert_eq!(
-                surface.evaluate(x, y),
-                evaluate(surface, x, y),
+                evaluate_surface(x, y),
+                evaluate_tables(x_axis, y_axis, values, policy, x, y),
                 "{name}: ({x}, {y}) disagrees with the reference"
             );
             count += 1;
@@ -335,20 +611,54 @@ pub fn assert_exhaustive_domain<const NX: usize, const NY: usize>(
     count
 }
 
-/// Asserts that every declared knot returns its stored value exactly.
-pub fn assert_every_knot_exact<const NX: usize, const NY: usize>(
+/// Thin wrapper so existing default-binary tests keep calling
+/// `assert_exhaustive_domain`.
+pub fn assert_exhaustive_domain<const NX: usize, const NY: usize>(
     surface: &BilinearSurface<NX, NY>,
     name: &str,
+) -> u64 {
+    assert_exhaustive_domain_tables(
+        |x, y| surface.evaluate(x, y),
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        surface.policy(),
+        name,
+    )
+}
+
+/// Asserts that every declared knot returns its stored value exactly.
+pub fn assert_every_knot_exact_tables<const NX: usize, const NY: usize>(
+    evaluate_surface: impl Fn(u16, u16) -> Result<i32, SurfaceError>,
+    x_axis: &[u16; NX],
+    y_axis: &[u16; NY],
+    values: &[[i32; NX]; NY],
+    name: &str,
 ) {
-    for (row, &y) in surface.y_axis().iter().enumerate() {
-        for (column, &x) in surface.x_axis().iter().enumerate() {
+    for (row, &y) in y_axis.iter().enumerate() {
+        for (column, &x) in x_axis.iter().enumerate() {
             assert_eq!(
-                surface.evaluate(x, y),
-                Ok(surface.values()[row][column]),
+                evaluate_surface(x, y),
+                Ok(values[row][column]),
                 "{name}: knot ({x}, {y}) at values[{row}][{column}]"
             );
         }
     }
+}
+
+/// Thin wrapper so existing default-binary tests keep calling
+/// `assert_every_knot_exact`.
+pub fn assert_every_knot_exact<const NX: usize, const NY: usize>(
+    surface: &BilinearSurface<NX, NY>,
+    name: &str,
+) {
+    assert_every_knot_exact_tables(
+        |x, y| surface.evaluate(x, y),
+        surface.x_axis(),
+        surface.y_axis(),
+        surface.values(),
+        name,
+    )
 }
 
 /// The coordinates a sampled sweep of `[lo, hi]` visits: both endpoints, their

@@ -1,0 +1,25 @@
+# ph-surfaces code-size snapshot (non-normative)
+# Date: 2026-08-17
+# Toolchain: rustc 1.92.0 (ded5c06cf 2025-12-08)
+# Profile: opt-level=s, lto=true, codegen-units=1, panic=abort, debug=false
+# Tool: llvm-nm --print-size (function .text, not whole-binary flash)
+# Pairings:
+#   ph_eval_binary   Binary×Binary ELEVATION 5×4
+#   ph_eval_linear   Linear×Linear 3×2
+#   ph_eval_uniform  Uniform×Uniform 2×2
+#   ph_eval_mixed    BucketedAxis<5, 8> × UniformAxis<3, 0, 50>
+#
+# This is not a guarantee, not total flash, and not WCET.
+
+thumbv7em-none-eabi
+ph_eval_binary 000000f0
+ph_eval_linear 000000ba
+ph_eval_mixed 00000124
+ph_eval_uniform 00000074
+
+riscv32imac-unknown-none-elf
+ph_eval_binary 0000016e
+ph_eval_linear 00000108
+ph_eval_mixed 00000198
+ph_eval_uniform 000000c4
+

@@ -7,9 +7,11 @@
 //! control flow with the implementation.
 //!
 //! Expected values come from `reference.rs`, an independent `i128`
-//! implementation with a linear axis scan and remainder-based rounding, or
-//! from hand computation shown in comments. `ph-curves` is not an oracle and
-//! `scripts/ci.sh` fails if this directory names it or a float.
+//! implementation with a linear axis scan of fixture knot arrays and
+//! remainder-based rounding, or from hand computation shown in comments.
+//! `ph-curves` is not an oracle and `scripts/ci.sh` fails if this directory
+//! names it or a float. `strategies.rs` extends that evidence across every
+//! applicable Linear/Binary/Uniform/Bucketed pairing.
 //!
 //! # Exhaustive vs sampled
 //!
@@ -35,3 +37,4 @@ mod order;
 mod range;
 mod reference;
 mod scalar;
+mod strategies;

@@ -14,9 +14,10 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 
 This repository is a private Incubating Libraries project. It currently exposes
 the validated surface representation, its deterministic X-then-Y evaluator, its
-boundary and error vocabulary, and the four compile-time per-axis lookup
-strategies. Cross-strategy conformance and cost evidence (#19) and the final
-documentation/package gate (#9) remain before v0.1 is complete. There is no
+boundary and error vocabulary, the four compile-time per-axis lookup
+strategies, and the const cost API. Cross-strategy conformance, the selection
+matrix, and a labelled code-size snapshot (#19) have landed. The final
+documentation/package gate (#9) remains before v0.1 is complete. There is no
 crates.io publication and no docs.rs page.
 
 ## What this is
@@ -107,12 +108,12 @@ Each axis chooses **in the type** how it locates a coordinate, and the two axes
 choose independently. There is no runtime discriminant and no branch among
 strategies: a firmware that names one combination compiles that one.
 
-| Strategy | Stored per axis | Search work, in knot comparisons |
-| --- | --- | --- |
-| `LinearAxis<N>` | `2*N` knot bytes | bounded scan, at most `N - 1` |
-| `BinaryAxis<N>` (default) | `2*N` knot bytes | exactly `ceil(log2(N))` |
-| `UniformAxis<N, ORIGIN, STEP>` | nothing | none: one subtraction, one division |
-| `BucketedAxis<N, B>` | `2*N` knot bytes plus `2*B` index bytes | one bucket read plus a local scan bounded by `max_local_comparisons` |
+| Strategy | Stored per axis | Search work, in knot comparisons | Choose when |
+| --- | --- | --- | --- |
+| `LinearAxis<N>` | `2*N` knot bytes | bounded scan, at most `N - 1` | tiny axis; minimum auxiliary structure |
+| `BinaryAxis<N>` (default) | `2*N` knot bytes | exactly `ceil(log2(N))` | the general default |
+| `UniformAxis<N, ORIGIN, STEP>` | nothing | none: one subtraction, one division | even spacing; drop knot arrays; constant location |
+| `BucketedAxis<N, B>` | `2*N` knot bytes plus `2*B` index bytes | one bucket read plus a local scan bounded by `max_local_comparisons` | irregular axis; extra index bytes for a smaller local bound |
 
 - `AxisLookup` and `KnotArray` are **sealed**. Those four types are the only
   implementations, and each validates its own invariants in a `const fn`
@@ -354,12 +355,11 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 ## What state it is in
 
 Incubating and unpublished. The binary-lookup baseline, its conformance suite,
-mechanical dependency and embedded proofs, examples, package checks, and the
-compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18)
-are implemented. The accepted pre-release work still proceeds in this order:
-#19 adds cross-strategy equivalence and exact cost evidence across the
-black-box suite; #9 then freezes the final documentation and
-package-readiness evidence. The interim
+mechanical dependency and embedded proofs, examples, package checks, the
+compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18),
+and cross-strategy conformance with a const cost API, selection matrix, and
+labelled code-size snapshot (#19) are implemented. #9 remains: it freezes the
+final documentation and package-readiness evidence. The interim
 [traceability checklist](docs/v0.1-traceability.md) records both implemented
 and pending claims. Publishing, tagging, and stable 1.0 compatibility remain
 separate maintainer decisions; `publish = false` stays until then.
@@ -407,46 +407,130 @@ v0.1 explicitly does not include:
 
 ## Resource accounting and cost
 
-**Storage.** The default binary `BilinearSurface<NX, NY>` references three
-static tables whose element payload is exactly `2*NX + 2*NY + 4*NX*NY` bytes:
-`NX` X knots of `u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`.
-Naming a strategy changes the two axis terms and nothing else: in general the
-payload is
-`X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY`
-bytes, which is `2*N` and no index for `LinearAxis` and `BinaryAxis`, nothing at
-all for `UniformAxis`, and `2*N` plus `2*B` for `BucketedAxis<N, B>`. Those
-figures are exact and target-independent, and they are only the referenced
-element payload. It is not total RAM, flash, binary, or linker cost; alignment, section
-placement, code, and stack are outside it. The handle is separate and
-target-dependent. Every handle has the value-grid reference and four one-byte
-boundary selections; each Uniform axis adds no reference, each Linear or Binary
-axis adds one knot-array reference, and each Bucketed axis adds both a knot-array
-and an index-array reference. The default binary/binary handle is therefore
-three thin references plus the policy and any alignment padding. It does not
-grow with `NX` or `NY` for a fixed strategy pairing. Host tests assert these
-figures without assuming a pointer width or field layout beyond Rust's
-guarantees. Code size, flash placement, and stack depth are properties of the
-consuming build and its linker; this crate states none of them.
+**Storage.** The referenced table element payload is exactly
+`BilinearSurface::PAYLOAD_BYTES`: `X::KNOT_BYTES + X::INDEX_BYTES +
+Y::KNOT_BYTES + Y::INDEX_BYTES + VALUE_BYTES`, with `VALUE_BYTES = 4*NX*NY`.
+For the default binary pairing that is `2*NX + 2*NY + 4*NX*NY` bytes. Naming a
+strategy changes the two axis terms and nothing else: `2*N` and no index for
+`LinearAxis` and `BinaryAxis`, nothing at all for `UniformAxis`, and `2*N`
+plus `2*B` for `BucketedAxis<N, B>`. Those figures are exact and
+target-independent, and they are only the referenced element payload. It is
+not total RAM, flash, binary, or linker cost; alignment, section placement,
+code, and stack are outside it. The handle is separate and target-dependent:
+`HANDLE_BYTES` is `size_of` of the handle on the current target. Every handle
+has the value-grid reference and four one-byte boundary selections; each
+Uniform axis adds no reference, each Linear or Binary axis adds one knot-array
+reference, and each Bucketed axis adds both a knot-array and an index-array
+reference. The default binary/binary handle is therefore three thin references
+plus the policy and any alignment padding. It does not grow with `NX` or `NY`
+for a fixed strategy pairing. Host tests assert these figures without assuming
+a pointer width or field layout beyond Rust's guarantees. Code size, flash
+placement, and stack depth are properties of the consuming build and its
+linker; this crate states none of them as a guarantee.
 
-**Work.** A worst-case `evaluate` is two axis searches and three scalar
-interpolations. Each in-domain axis search is two endpoint comparisons plus the
-search work of that axis's strategy — `AxisLookup::MAX_SEARCH_COMPARISONS`, and
-exactly `ceil(log2(len))` probes for the default binary strategy; a clamped
-coordinate costs one or two comparisons and no probes; a rejected coordinate
-returns before any interpolation, and a rejected X also skips the Y search.
-Exactly four grid elements are read on success, and the grid is never scanned.
-For a `BucketedAxis`, `max_local_comparisons` states the exact local bound for
-its own knots and index, and raising the bucket count to a multiple of itself
-splits buckets rather than moving their boundaries, so that bound never
-increases. That is operation structure derived from the implementation and
-asserted by its tests. It is not a cycle count or a WCET figure: no timing has
-been measured and none is claimed.
+Default binary `ELEVATION` 5×4: payload `10 + 8 + 80 = 98`. In-domain searches
+are two endpoint comparisons plus `ceil(log2(5))` and `ceil(log2(4))` probes.
+A successful evaluation is three interpolations and four grid reads:
+
+```rust
+use ph_surfaces::{AxisLookup, BilinearSurface, BinaryAxis};
+
+fn main() {
+    assert_eq!(BilinearSurface::<5, 4>::VALUE_BYTES, 80);
+    assert_eq!(BilinearSurface::<5, 4>::PAYLOAD_BYTES, 98);
+    assert_eq!(BilinearSurface::<5, 4>::SUCCESS_INTERPOLATIONS, 3);
+    assert_eq!(BilinearSurface::<5, 4>::SUCCESS_GRID_READS, 4);
+    assert_eq!(<BinaryAxis<5>>::MAX_SEARCH_COMPARISONS, 3);
+    assert_eq!(<BinaryAxis<4>>::MAX_SEARCH_COMPARISONS, 2);
+    assert_eq!(
+        BilinearSurface::<5, 4>::HANDLE_BYTES,
+        core::mem::size_of::<BilinearSurface<5, 4>>()
+    );
+}
+```
+
+Tiny Linear×Linear 3×2: six X knot bytes, four Y knot bytes, 24 value bytes,
+payload 34; each axis searches at most `N - 1` knot comparisons:
+
+```rust
+use ph_surfaces::{AxisLookup, BilinearSurface, LinearAxis};
+
+fn main() {
+    type Tiny = BilinearSurface<3, 2, LinearAxis<3>, LinearAxis<2>>;
+    assert_eq!(Tiny::VALUE_BYTES, 24);
+    assert_eq!(Tiny::PAYLOAD_BYTES, 34);
+    assert_eq!(<LinearAxis<3>>::MAX_SEARCH_COMPARISONS, 2);
+    assert_eq!(<LinearAxis<2>>::MAX_SEARCH_COMPARISONS, 1);
+    assert_eq!(Tiny::SUCCESS_INTERPOLATIONS, 3);
+    assert_eq!(Tiny::SUCCESS_GRID_READS, 4);
+}
+```
+
+Mixed `BucketedAxis<5, 8>` × `UniformAxis<3, 0, 50>`: X knots+index `10 + 16`,
+Y knots 0, grid 60, payload 86; Uniform search comparisons 0:
+
+```rust
+use ph_surfaces::{AxisLookup, BilinearSurface, BucketedAxis, UniformAxis};
+
+fn main() {
+    type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
+    assert_eq!(<BucketedAxis<5, 8>>::KNOT_BYTES, 10);
+    assert_eq!(<BucketedAxis<5, 8>>::INDEX_BYTES, 16);
+    assert_eq!(<UniformAxis<3, 0, 50>>::KNOT_BYTES, 0);
+    assert_eq!(Mixed::VALUE_BYTES, 60);
+    assert_eq!(Mixed::PAYLOAD_BYTES, 86);
+    assert_eq!(<UniformAxis<3, 0, 50>>::MAX_SEARCH_COMPARISONS, 0);
+    assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
+    assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
+}
+```
+
+**Work.** A worst-case `evaluate` is two axis searches and
+`SUCCESS_INTERPOLATIONS` (exactly 3) scalar interpolations. Each in-domain
+axis search is two endpoint comparisons plus the search work of that axis's
+strategy — `AxisLookup::MAX_SEARCH_COMPARISONS`, and exactly `ceil(log2(len))`
+probes for the default binary strategy. A clamped coordinate takes the
+endpoint path: one or two comparisons and no probes. A rejected evaluation
+returns before any interpolation or `SUCCESS_GRID_READS` (exactly 4) grid
+reads, and a rejected X also skips the Y search. Exactly four grid elements
+are read on success, and the grid is never scanned. For a `BucketedAxis`,
+`max_local_comparisons` states the exact local bound for its own knots and
+index, and raising the bucket count to a multiple of itself splits buckets
+rather than moving their boundaries, so that bound never increases. That is
+operation structure derived from the implementation and asserted by its tests.
+It is not a cycle count or a WCET figure: no timing has been measured and none
+is claimed.
 
 **Verification targets.** The claims above are verified on the host and on two
 representative bare-metal targets, `thumbv7em-none-eabi` (ARM Cortex-M4/M7)
 and `riscv32imac-unknown-none-elf`, including a nightly core-only sysroot build
 on both. Every other Rust target, and Xtensa in particular, is unproven and
 unclaimed.
+
+### Measured code-size (non-normative)
+
+A reproducible recipe records function `.text` sizes for four named pairings.
+It is not a guarantee, not total flash, and not WCET. The committed snapshot
+is [`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
+
+```sh
+./scripts/measure-code-size.sh
+```
+
+- Toolchain: pinned 1.92.0 from `rust-toolchain.toml`, not nightly
+- Targets: `thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`
+- Profile: `opt-level = "s"`, `lto = true`, `codegen-units = 1`,
+  `panic = "abort"`, `debug = false`
+- Tool: `llvm-nm --print-size` from `llvm-tools-preview` on `ph_eval_binary`,
+  `ph_eval_linear`, `ph_eval_uniform`, and `ph_eval_mixed` (function `.text`,
+  not whole-binary flash)
+- Pairings: default Binary×Binary elevation 5×4; Linear×Linear 3×2;
+  Uniform×Uniform 2×2; mixed `BucketedAxis<5, 8>` × `UniformAxis<3, 0, 50>`
+
+Compiler, linker, and `llvm-tools-preview` versions can move these numbers.
+Re-run the script and update the snapshot when they do. The `code size
+snapshot` CI check diffs the output and returns SKIP if either target or
+`llvm-tools-preview` is missing.
 
 ## Repository classification
 
@@ -494,6 +578,10 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 - a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
+- a code-size snapshot (`scripts/measure-code-size.sh`) that records function
+  `.text` sizes for four named pairings on both embedded targets and diffs
+  them against `docs/code-size-snapshot.txt`; the check reports `SKIP` if
+  either target or `llvm-tools-preview` is missing;
 - representative bare-metal builds on ARM (`thumbv7em-none-eabi`) and RISC-V
   (`riscv32imac-unknown-none-elf`) with the pinned toolchain;
 - the no-allocation proof: nightly `-Z build-std=core` builds of the same two
@@ -501,12 +589,16 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
   is not that proof, because bare-metal `rust-std` sysroots still ship `alloc`.
 
 Not proven, and not claimed: every Rust target, Xtensa, cycle counts,
-code-size ceilings, or hard real-time WCET.
+code-size ceilings, or hard real-time WCET. The committed code-size snapshot
+is labelled non-normative and is not a guarantee, not total flash, and not
+WCET.
 
 `cargo test` runs the crate's unit tests, its doctests, and the black-box
 conformance suite in `tests/conformance/`. The suite exercises only the public
-API and compares against an independent `i128` reference with a linear axis
-scan and remainder-based rounding; small declared domains are enumerated
+API and compares against an independent `i128` reference with a linear scan of
+fixture knot arrays and remainder-based rounding; `strategies.rs` extends that
+evidence across every applicable Linear/Binary/Uniform/Bucketed pairing.
+Small declared domains are enumerated
 exhaustively, the full `u16 × u16` range is sampled with a stated rule and is
 not claimed exhaustive, and the locked X-then-Y fixture (axes `[0, 2]`, rows
 `[[0, 0], [1, 3]]`, input `(1, 1)` → `1`) is retained. The two example maps

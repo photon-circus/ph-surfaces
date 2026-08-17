@@ -5,12 +5,12 @@
 //! this coordinate* — and answers it identically. They differ only in what they
 //! store and how much work the answer costs:
 //!
-//! | Strategy | Stored per axis | Search work |
-//! | --- | --- | --- |
-//! | [`LinearAxis`] | `2*N` knot bytes | bounded scan, at most `N - 1` comparisons |
-//! | [`BinaryAxis`] | `2*N` knot bytes | exactly `ceil(log2(N))` comparisons |
-//! | [`UniformAxis`] | none | no comparison at all |
-//! | [`BucketedAxis`] | `2*N` knot bytes plus `2*B` index bytes | one bucket read plus a bounded local scan |
+//! | Strategy | Stored per axis | Search work | Choose when |
+//! | --- | --- | --- | --- |
+//! | [`LinearAxis`] | `2*N` knot bytes | bounded scan, at most `N - 1` comparisons | tiny axis; minimum auxiliary structure |
+//! | [`BinaryAxis`] | `2*N` knot bytes | exactly `ceil(log2(N))` comparisons | the general default |
+//! | [`UniformAxis`] | none | no comparison at all | even spacing; drop knot arrays; constant location |
+//! | [`BucketedAxis`] | `2*N` knot bytes plus `2*B` index bytes | one bucket read plus a bounded local scan | irregular axis; extra index bytes for a smaller local bound |
 //!
 //! # Why the choice is in the type
 //!

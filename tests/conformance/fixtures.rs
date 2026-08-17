@@ -185,6 +185,13 @@ pub static LOOKUP_1024_V: [[i32; 1024]; 2] = convex::<1024>();
 pub static LOOKUP_1024: BilinearSurface<1024, 2> =
     BilinearSurface::new(&LOOKUP_1024_X, &LOOKUP_Y, &LOOKUP_1024_V);
 
+// Evenly spaced five-knot axis so Uniform location has a convex lookup fixture
+// of its own. Domain 0..=40 is enumerated exhaustively.
+pub static LOOKUP_UNIFORM_X: [u16; 5] = [0, 10, 20, 30, 40];
+pub static LOOKUP_UNIFORM_V: [[i32; 5]; 2] = convex::<5>();
+pub static LOOKUP_UNIFORM: BilinearSurface<5, 2> =
+    BilinearSurface::new(&LOOKUP_UNIFORM_X, &LOOKUP_Y, &LOOKUP_UNIFORM_V);
+
 // ---------------------------------------------------------------------------
 // Two unrelated device-neutral examples. They demonstrate shape and rounding
 // behaviour only. Neither claims anything about a sensor, a vendor, or total
