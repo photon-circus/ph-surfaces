@@ -96,6 +96,36 @@ enum Side {
     Above,
 }
 
+/// Classifies a coordinate with the one endpoint-testing path shared by direct
+/// public searches and surface lookups.
+#[inline(always)]
+fn classify<const N: usize, A: AxisLookup<N>>(
+    axis: &A,
+    coordinate: u16,
+) -> (Result<(), Side>, u32) {
+    if coordinate < axis.first() {
+        return (Err(Side::Below), 1);
+    }
+
+    if coordinate > axis.last() {
+        return (Err(Side::Above), 2);
+    }
+
+    (Ok(()), 2)
+}
+
+/// Performs a direct public axis search after the shared endpoint
+/// classification has established the strategy precondition.
+#[inline(always)]
+pub(crate) fn search<const N: usize, A: AxisLookup<N>>(axis: &A, coordinate: u16) -> (usize, u32) {
+    assert!(
+        classify(axis, coordinate).0.is_ok(),
+        "search coordinate must be inside the inclusive axis domain"
+    );
+
+    search_in_domain(axis, coordinate)
+}
+
 /// Resolves `coordinate` against one axis under that axis's two boundary
 /// selections, and reports the comparisons it took.
 ///
@@ -130,28 +160,30 @@ fn locate<const N: usize, A: AxisLookup<N>>(
     // worst. Neither subtraction below can underflow.
     let last = N - 1;
 
-    if coordinate < axis.first() {
+    let (domain, endpoint_comparisons) = classify(axis, coordinate);
+
+    if domain == Err(Side::Below) {
         return match below {
-            Boundary::Error => (Err(Side::Below), 1),
+            Boundary::Error => (Err(Side::Below), endpoint_comparisons),
             Boundary::Clamp => (
                 Ok(Cell {
                     coordinate: axis.first(),
                     lower: 0,
                 }),
-                1,
+                endpoint_comparisons,
             ),
         };
     }
 
-    if coordinate > axis.last() {
+    if domain == Err(Side::Above) {
         return match above {
-            Boundary::Error => (Err(Side::Above), 2),
+            Boundary::Error => (Err(Side::Above), endpoint_comparisons),
             Boundary::Clamp => (
                 Ok(Cell {
                     coordinate: axis.last(),
                     lower: last - 1,
                 }),
-                2,
+                endpoint_comparisons,
             ),
         };
     }
@@ -181,7 +213,7 @@ fn locate<const N: usize, A: AxisLookup<N>>(
         "the coordinate must not sit above its cell"
     );
 
-    let comparisons = probes + 2;
+    let comparisons = probes + endpoint_comparisons;
     debug_assert!(
         comparisons <= A::MAX_SEARCH_COMPARISONS + 2,
         "the comparison count must stay inside the strategy's documented bound"

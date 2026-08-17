@@ -52,19 +52,6 @@ const fn bucket_start(bucket: usize, first: u16, last: u16, b: usize) -> u16 {
     }
 }
 
-/// Returns the greatest index whose knot is at or below `coordinate`, by scan.
-///
-/// Used only at compile time, by the generator and the validator below.
-const fn knot_at_or_below<const N: usize>(knots: &[u16; N], coordinate: u16) -> u16 {
-    let mut index = 0;
-
-    while index + 1 < N && knots[index + 1] <= coordinate {
-        index += 1;
-    }
-
-    index as u16
-}
-
 /// Validates the dimensions shared by bucket-index generation and use.
 const fn assert_valid_bucket_dimensions<const N: usize, const B: usize>(knots: &[u16; N]) {
     assert_valid_knots(knots);
@@ -89,10 +76,18 @@ const fn assert_valid_bucket_index<const N: usize, const B: usize>(
     let first = knots[0];
     let last = knots[N - 1];
 
+    // Bucket starts are non-decreasing, so one knot cursor validates the whole
+    // table in O(B + N) rather than restarting an O(N) scan for every bucket.
+    let mut knot = 0;
     let mut bucket = 0;
     while bucket < B {
+        let start = bucket_start(bucket, first, last, B);
+        while knot + 1 < N && knots[knot + 1] <= start {
+            knot += 1;
+        }
+
         assert!(
-            index[bucket] == knot_at_or_below(knots, bucket_start(bucket, first, last, B)),
+            index[bucket] as usize == knot,
             "the bucket index does not match its knots; build it with bucket_index"
         );
         bucket += 1;
@@ -133,10 +128,16 @@ pub const fn bucket_index<const N: usize, const B: usize>(knots: &[u16; N]) -> [
     let last = knots[N - 1];
 
     let mut index = [0u16; B];
+    let mut knot = 0;
     let mut bucket = 0;
 
     while bucket < B {
-        index[bucket] = knot_at_or_below(knots, bucket_start(bucket, first, last, B));
+        let start = bucket_start(bucket, first, last, B);
+        while knot + 1 < N && knots[knot + 1] <= start {
+            knot += 1;
+        }
+
+        index[bucket] = knot as u16;
         bucket += 1;
     }
 

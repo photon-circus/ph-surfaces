@@ -103,9 +103,9 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed<N> + Copy {
     /// This counts comparisons against stored knots, not machine instructions,
     /// and it excludes the two endpoint comparisons performed before the
     /// strategy-specific search. The public [`search`](AxisLookup::search)
-    /// wrapper performs those checks itself; surface evaluation reuses the
-    /// endpoint checks it already needs for boundary handling. It is a work
-    /// bound, never a cycle count.
+    /// wrapper routes through the lookup module that owns those checks; surface
+    /// evaluation reuses the endpoint classification it already needs for
+    /// boundary handling. It is a work bound, never a cycle count.
     const MAX_SEARCH_COMPARISONS: u32;
 
     /// Returns the first knot: the inclusive lower bound of the axis domain.
@@ -146,12 +146,7 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed<N> + Copy {
     /// performs the same endpoint checks for boundary handling, then enters the
     /// sealed in-domain search directly.
     fn search(&self, coordinate: u16) -> (usize, u32) {
-        assert!(
-            self.first() <= coordinate && coordinate <= self.last(),
-            "search coordinate must be inside the inclusive axis domain"
-        );
-
-        search_in_domain(self, coordinate)
+        crate::lookup::search(self, coordinate)
     }
 }
 
