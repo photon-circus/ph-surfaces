@@ -79,6 +79,30 @@
   structure, not as a measured cycle or WCET figure.
 - The manual hosted workflow now installs both embedded targets, carries a job
   timeout, and documents which checks it still skips.
+- Black-box conformance suite in `tests/conformance/` for the public v0.1
+  contract. It exercises `BilinearSurface::evaluate` and the public policy and
+  error vocabulary only, with no dev-dependencies. Expected values come from an
+  independent `i128` reference (linear axis scan, remainder-based
+  ties-away-from-zero rounding, `i32::try_from` narrowing so every expected
+  value is shown representable) or from hand computation in comments. It
+  covers exact knots, a hand-computable 2x2 plane, nonuniform 3x3 grids,
+  signed interiors, flat rows and columns, decreasing data, positive and
+  negative half-way ties, sign reflection, all eight boundary side-by-policy
+  cases, all four corner interactions with X-before-Y precedence, every one of
+  the sixteen policies against every region, binary search against the linear
+  oracle over nonuniform axes up to 1024 knots, axes containing `0` and
+  `u16::MAX`, grids containing `i32::MIN` and `i32::MAX`, stateless
+  determinism, and the retained locked X-then-Y fixture. Small declared
+  domains are enumerated exhaustively; the full `u16 x u16` range is sampled
+  under a stated rule with no exhaustive claim. Two device-neutral example maps
+  (mixed-sign elevation, asymmetric process correction) show shape and
+  rounding only. Four in-suite mutant oracles (Y-then-X, ties toward zero,
+  Y-first precedence, extrapolation) are asserted to disagree with the
+  accepted results on named points, and each mutation applied to `src/` fails
+  the suite.
+- The `integer only` check in `scripts/ci.sh` now also greps `tests/` for
+  floating-point types and literals and for `ph-curves`, so the conformance
+  suite cannot acquire a float or `ph-curves` oracle.
 
 ### Known issues
 

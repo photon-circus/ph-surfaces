@@ -60,11 +60,12 @@ Incubating and unpublished. The package, license, lockfile, dependency policy,
 and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
 `Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, the private
 scalar interpolation helper, the private binary axis lookup with four-sided
-boundary handling, and the public `BilinearSurface::evaluate` all exist. The
-mechanical dependency, `no_std`, no-allocation, storage, work-bound, packaging,
-and target proofs exist as the local gate described under [How it is
-verified](#how-it-is-verified). Still outstanding for v0.1: the black-box
-conformance suite and the documentation and package-readiness gate.
+boundary handling, and the public `BilinearSurface::evaluate` all exist, and
+the black-box conformance suite in `tests/conformance/` checks the public
+contract against an independent integer reference. The mechanical dependency,
+`no_std`, no-allocation, storage, work-bound, packaging, and target proofs exist
+as the local gate described under [How it is verified](#how-it-is-verified).
+Still outstanding for v0.1: the documentation and package-readiness gate.
 
 ## Responsibility
 
@@ -171,6 +172,16 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 
 Not proven, and not claimed: every Rust target, Xtensa, cycle counts,
 code-size ceilings, or hard real-time WCET.
+
+`cargo test` runs the crate's unit tests and the black-box conformance suite in
+`tests/conformance/`. The suite exercises only the public API and compares
+against an independent `i128` reference with a linear axis scan and
+remainder-based rounding; small declared domains are enumerated exhaustively,
+the full `u16 × u16` range is sampled with a stated rule, and the locked
+X-then-Y fixture (axes `[0, 2]`, rows `[[0, 0], [1, 3]]`, input `(1, 1)` → `1`)
+is retained. Two device-neutral example maps (a mixed-sign elevation map and an
+asymmetric process-correction map) demonstrate shape and rounding behaviour
+only; they claim nothing about any sensor, vendor, or measurement accuracy.
 
 Hosted GitHub Actions are a **known gap until this repository is public**:
 private runs fail before any step starts, so `pull_request` / `push` triggers

@@ -9,13 +9,21 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository is on issue #8 of the v0.1 umbrella: the repository floor, the
-private scalar segment interpolation helper in `src/interp.rs`, the validated
-static `BilinearSurface` representation with its boundary and error vocabulary,
-the private axis lookup in `src/lookup.rs`, the public evaluator in
-`src/evaluate.rs`, and the mechanical claim proofs in `scripts/ci.sh` and
-`scripts/guard-selftest.sh`. Still to come: the black-box conformance suite
-(#7) and the documentation and package-readiness gate (#9).
+This repository contains the accepted work through issues #7 and #8 of the v0.1
+umbrella: the repository floor, the private scalar segment interpolation helper
+in `src/interp.rs`, the validated static `BilinearSurface` representation with
+its boundary and error vocabulary, the private axis lookup in `src/lookup.rs`,
+the public evaluator in `src/evaluate.rs`, the black-box conformance suite in
+`tests/conformance/`, and the mechanical claim proofs in `scripts/ci.sh` and
+`scripts/guard-selftest.sh`. Still to come: the documentation and
+package-readiness gate (#9).
+
+`tests/conformance/` is black-box evidence for the public contract. It goes
+through `ph_surfaces::*` only and must never import a private module, add a
+dev-dependency, or use `ph-curves` or floating point as an oracle; its expected
+values come from the independent `i128` reference in `tests/conformance/
+reference.rs` or from hand computation shown in comments. Keep the crate's own
+unit tests in `src/`; do not move them into the suite or duplicate them there.
 
 `src/interp.rs` owns the only rounding policy in the crate: round to nearest,
 exact half-way values away from zero. Route every interpolated value through
@@ -59,7 +67,10 @@ attribute.
 
 Do not introduce `alloc`, `std`, `unsafe`, or floating point. The `integer
 only` check in `scripts/ci.sh` greps `src/` for those code paths, ignoring full
-line comments so documentation may still discuss them.
+line comments so documentation may still discuss them. The float and
+`ph-curves` greps also cover `tests/`, so the conformance suite cannot acquire
+a floating-point or `ph-curves` oracle; the alloc/std grep stays on `src/`
+because integration tests run under the std harness.
 
 A plain `--target` build does not prove no-alloc: bare-metal `rust-std` ships
 `alloc` in the sysroot. The proof is the core-only build, run for both
