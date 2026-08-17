@@ -11,8 +11,9 @@
 //! - the stored-knot 9-way (Linear/Binary/Bucketed) on irregular X (`GRID`,
 //!   `SIGNED`, `EDGES`, `ELEVATION`);
 //! - mixed Uniform+stored where exactly one axis is uniform (`GRID` Y,
-//!   `EDGES` Y). `INSET` is irregular on both axes, so Uniform is skipped
-//!   there and a stored mixed pairing carries the sixteen-policy sweep.
+//!   `EDGES` Y);
+//! - all 16 pairings, including Uniform on both axes, over the evenly spaced
+//!   inset boundary fixture and every one of its 16 boundary policies.
 
 use crate::fixtures::*;
 use crate::reference::{self, policy_from_bits};
@@ -421,8 +422,11 @@ static EDGE_X_INDEX: [u16; 8] = bucket_index(&EDGE_X);
 static EDGE_Y_INDEX: [u16; 4] = bucket_index(&EDGE_Y);
 static ELEVATION_X_INDEX: [u16; 8] = bucket_index(&ELEVATION_X);
 static ELEVATION_Y_INDEX: [u16; 4] = bucket_index(&ELEVATION_Y);
-static INSET_X_INDEX: [u16; 4] = bucket_index(&INSET_X);
-static INSET_Y_INDEX: [u16; 4] = bucket_index(&INSET_Y);
+static POLICY_X: [u16; 3] = [10, 20, 30];
+static POLICY_Y: [u16; 3] = [100, 200, 300];
+static POLICY_VALUES: [[i32; 3]; 3] = [[0, 1, 2], [10, 11, 12], [20, 21, 22]];
+static POLICY_X_INDEX: [u16; 4] = bucket_index(&POLICY_X);
+static POLICY_Y_INDEX: [u16; 4] = bucket_index(&POLICY_Y);
 
 #[test]
 fn every_pairing_recovers_stored_knots_on_uniform_fixtures() {
@@ -762,23 +766,25 @@ fn shapes_domain_is_exhaustive_under_every_pairing() {
 }
 
 #[test]
-fn inset_error_clamp_precedence_and_clamp_then_y_error_hold_on_stored_pairings() {
+fn error_clamp_precedence_and_clamp_then_y_error_hold_on_every_pairing() {
     let all_error = BoundaryPolicy::new();
     let all_clamp = policy_from_bits(0b1111);
     let clamp_x = BoundaryPolicy::new()
         .with_x_below(Boundary::Clamp)
         .with_x_above(Boundary::Clamp);
 
-    each_stored_9!(
+    each_of_16!(
         nx = 3,
         ny = 3,
-        x = &INSET_X,
-        y = &INSET_Y,
-        xi = &INSET_X_INDEX,
-        yi = &INSET_Y_INDEX,
+        x = &POLICY_X,
+        y = &POLICY_Y,
+        xi = &POLICY_X_INDEX,
+        yi = &POLICY_Y_INDEX,
         xb = 4,
         yb = 4,
-        values = &INSET_VALUES,
+        ux = UniformAxis<3, 10, 10>,
+        uy = UniformAxis<3, 100, 100>,
+        values = &POLICY_VALUES,
         policy = all_error,
         |surface, label| {
             assert_eq!(
@@ -800,29 +806,31 @@ fn inset_error_clamp_precedence_and_clamp_then_y_error_hold_on_stored_pairings()
             assert_ne!(
                 surface.evaluate(9, 99),
                 reference::mutant_evaluate_y_precedence_tables(
-                    &INSET_X,
-                    &INSET_Y,
-                    &INSET_VALUES,
+                    &POLICY_X,
+                    &POLICY_Y,
+                    &POLICY_VALUES,
                     all_error,
                     9,
                     99
                 ),
                 "{label}"
             );
-            agrees(&surface, &INSET_X, &INSET_Y, 20, 200, label);
+            agrees(&surface, &POLICY_X, &POLICY_Y, 20, 200, label);
         }
     );
 
-    each_stored_9!(
+    each_of_16!(
         nx = 3,
         ny = 3,
-        x = &INSET_X,
-        y = &INSET_Y,
-        xi = &INSET_X_INDEX,
-        yi = &INSET_Y_INDEX,
+        x = &POLICY_X,
+        y = &POLICY_Y,
+        xi = &POLICY_X_INDEX,
+        yi = &POLICY_Y_INDEX,
         xb = 4,
         yb = 4,
-        values = &INSET_VALUES,
+        ux = UniformAxis<3, 10, 10>,
+        uy = UniformAxis<3, 100, 100>,
+        values = &POLICY_VALUES,
         policy = all_clamp,
         |surface, label| {
             assert_eq!(
@@ -832,10 +840,17 @@ fn inset_error_clamp_precedence_and_clamp_then_y_error_hold_on_stored_pairings()
             );
             assert_eq!(
                 surface.evaluate(0, 250),
-                reference::evaluate_tables(&INSET_X, &INSET_Y, &INSET_VALUES, all_clamp, 0, 250),
+                reference::evaluate_tables(
+                    &POLICY_X,
+                    &POLICY_Y,
+                    &POLICY_VALUES,
+                    all_clamp,
+                    0,
+                    250
+                ),
                 "{label}"
             );
-            let (lo, hi) = reference::value_hull_tables(&INSET_VALUES);
+            let (lo, hi) = reference::value_hull_tables(&POLICY_VALUES);
             let value = surface
                 .evaluate(0, 0)
                 .unwrap_or_else(|_| panic!("{label} clamps"));
@@ -843,16 +858,18 @@ fn inset_error_clamp_precedence_and_clamp_then_y_error_hold_on_stored_pairings()
         }
     );
 
-    each_stored_9!(
+    each_of_16!(
         nx = 3,
         ny = 3,
-        x = &INSET_X,
-        y = &INSET_Y,
-        xi = &INSET_X_INDEX,
-        yi = &INSET_Y_INDEX,
+        x = &POLICY_X,
+        y = &POLICY_Y,
+        xi = &POLICY_X_INDEX,
+        yi = &POLICY_Y_INDEX,
         xb = 4,
         yb = 4,
-        values = &INSET_VALUES,
+        ux = UniformAxis<3, 10, 10>,
+        uy = UniformAxis<3, 100, 100>,
+        values = &POLICY_VALUES,
         policy = clamp_x,
         |surface, label| {
             assert_eq!(
@@ -863,36 +880,40 @@ fn inset_error_clamp_precedence_and_clamp_then_y_error_hold_on_stored_pairings()
                 }),
                 "{label} clamp-then-Y-error"
             );
-            agrees(&surface, &INSET_X, &INSET_Y, 9, 250, label);
+            agrees(&surface, &POLICY_X, &POLICY_Y, 9, 250, label);
         }
     );
 }
 
 #[test]
-fn all_sixteen_policies_on_a_mixed_inset_pairing() {
-    const X_PROBES: [u16; 11] = [0, 1, 9, 10, 11, 15, 20, 39, 40, 41, u16::MAX];
-    const Y_PROBES: [u16; 11] = [0, 1, 99, 100, 101, 150, 200, 399, 400, 401, u16::MAX];
+fn all_sixteen_policies_agree_with_the_oracle_under_every_pairing() {
+    const X_PROBES: [u16; 11] = [0, 1, 9, 10, 11, 15, 20, 29, 30, 31, u16::MAX];
+    const Y_PROBES: [u16; 11] = [0, 1, 99, 100, 101, 150, 200, 299, 300, 301, u16::MAX];
 
     for bits in 0..16 {
         let policy = policy_from_bits(bits);
-        let surface = BilinearSurface::<3, 3, LinearAxis<3>, BucketedAxis<3, 4>>::from_axes(
-            LinearAxis::new(&INSET_X),
-            BucketedAxis::new(&INSET_Y, &INSET_Y_INDEX),
-            &INSET_VALUES,
-        )
-        .with_policy(policy);
-        for &y in &Y_PROBES {
-            for &x in &X_PROBES {
-                agrees(
-                    &surface,
-                    &INSET_X,
-                    &INSET_Y,
-                    x,
-                    y,
-                    &format!("Linear×Bucketed bits {bits:04b}"),
-                );
+        each_of_16!(
+            nx = 3, ny = 3,
+            x = &POLICY_X, y = &POLICY_Y,
+            xi = &POLICY_X_INDEX, yi = &POLICY_Y_INDEX,
+            xb = 4, yb = 4,
+            ux = UniformAxis<3, 10, 10>, uy = UniformAxis<3, 100, 100>,
+            values = &POLICY_VALUES, policy = policy,
+            |surface, label| {
+                for &y in &Y_PROBES {
+                    for &x in &X_PROBES {
+                        agrees(
+                            &surface,
+                            &POLICY_X,
+                            &POLICY_Y,
+                            x,
+                            y,
+                            &format!("{label} bits {bits:04b}"),
+                        );
+                    }
+                }
             }
-        }
+        );
     }
 }
 

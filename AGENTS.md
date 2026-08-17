@@ -10,13 +10,12 @@ integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
 This repository contains the accepted binary-lookup baseline through issues
-#2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18, plus
-preparatory consumer documentation and package checks. The remaining
-pre-release sequence is #19 (cross-strategy conformance and cost evidence),
-then #9 (the final documentation and package-readiness gate). Do not describe
-v0.1 as complete or close #9 before that sequence finishes. Publishing, tagging,
-and a stable 1.0 promise are separate maintainer decisions; `publish = false`
-stays until then.
+#2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18,
+cross-strategy conformance and cost evidence from #19, and the completed
+documentation/package-readiness gate #9. Embedded-focused examples and
+prescriptive strategy-selection guidance remain in #22. Do not describe v0.1
+as complete before that work lands. Publishing, tagging, and a stable 1.0
+promise are separate maintainer decisions; `publish = false` stays until then.
 
 `README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example

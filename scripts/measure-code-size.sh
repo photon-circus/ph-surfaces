@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
-# Record function .text sizes for four named strategy pairings.
+# Record compiler-emitted function .text sizes for four named strategy pairings.
 #
 # Non-normative: not a guarantee, not total flash, and not WCET. The output is
 # the committed docs/code-size-snapshot.txt; CI diffs against that file.
 #
 # Toolchain: the pinned 1.92.0 from rust-toolchain.toml, not nightly.
 # Targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf.
-# Profile: opt-level=s, lto=true, codegen-units=1, panic=abort, debug=false.
-# Tool: llvm-nm --print-size from llvm-tools-preview.
+# Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false.
+# Tool: llvm-nm --demangle --print-size from llvm-tools-preview.
 #
 # Exit 2 if a required target or llvm-tools-preview is missing.
 
@@ -67,75 +67,103 @@ version = "0.0.0"
 edition = "2024"
 publish = false
 
-[[bin]]
-name = "ph-surfaces-code-size"
-path = "src/main.rs"
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 ph-surfaces = { path = "../.." }
 
+[features]
+pairing-binary = []
+pairing-linear = []
+pairing-mixed = []
+pairing-uniform = []
+
 [profile.release]
 opt-level = "s"
-lto = true
+lto = false
 codegen-units = 1
 panic = "abort"
 debug = false
 EOF
 
-# rust-lld is the default linker for these targets and does not accept gcc's
-# -nostartfiles. The measurement bin provides `_start`.
-
-cat >"$WORK/src/main.rs" <<'EOF'
-//! Throwaway measurement consumer. Not packaged. `unsafe` is used only for
-//! `#[unsafe(no_mangle)]` so `llvm-nm` can find the four wrappers.
+cat >"$WORK/src/lib.rs" <<'EOF'
+//! Throwaway measurement consumer. Not packaged. The wrappers retain normal
+//! Rust symbol mangling; `llvm-nm --demangle` identifies them by item name.
 #![no_std]
-#![no_main]
 
-use core::hint::black_box;
-use core::panic::PanicInfo;
-use ph_surfaces::{BilinearSurface, BucketedAxis, LinearAxis, UniformAxis, bucket_index};
+use ph_surfaces::BilinearSurface;
+#[cfg(feature = "pairing-linear")]
+use ph_surfaces::LinearAxis;
+#[cfg(any(feature = "pairing-mixed", feature = "pairing-uniform"))]
+use ph_surfaces::UniformAxis;
+#[cfg(feature = "pairing-mixed")]
+use ph_surfaces::{BucketedAxis, bucket_index};
 
-#[panic_handler]
-fn panic(_: &PanicInfo) -> ! {
-    loop {}
-}
-
+#[cfg(feature = "pairing-binary")]
 static BINARY_X: [u16; 5] = [0, 25, 60, 100, 180];
+#[cfg(feature = "pairing-binary")]
 static BINARY_Y: [u16; 4] = [0, 40, 90, 150];
+#[cfg(feature = "pairing-binary")]
 static BINARY_V: [[i32; 5]; 4] = [
     [-120, -35, 40, 15, -60],
     [-80, 10, 95, 60, -20],
     [-15, 55, 130, 88, 5],
     [-40, 20, 70, 110, 45],
 ];
+#[cfg(feature = "pairing-binary")]
 static BINARY: BilinearSurface<5, 4> = BilinearSurface::new(&BINARY_X, &BINARY_Y, &BINARY_V);
 
+#[cfg(feature = "pairing-linear")]
 static LINEAR_X: [u16; 3] = [0, 5, 100];
+#[cfg(feature = "pairing-linear")]
 static LINEAR_Y: [u16; 2] = [0, 20];
+#[cfg(feature = "pairing-linear")]
 static LINEAR_V: [[i32; 3]; 2] = [[0, 1, 2], [3, 4, 5]];
+#[cfg(feature = "pairing-linear")]
 static LINEAR: BilinearSurface<3, 2, LinearAxis<3>, LinearAxis<2>> = BilinearSurface::from_axes(
     LinearAxis::new(&LINEAR_X),
     LinearAxis::new(&LINEAR_Y),
     &LINEAR_V,
 );
 
+#[cfg(feature = "pairing-uniform")]
 static UNIFORM_V: [[i32; 2]; 2] = [[0, 100], [1_000, 1_100]];
+#[cfg(feature = "pairing-uniform")]
 static UNIFORM: BilinearSurface<2, 2, UniformAxis<2, 0, 10>, UniformAxis<2, 0, 10>> =
     BilinearSurface::from_axes(UniformAxis::new(), UniformAxis::new(), &UNIFORM_V);
 
-static MIXED_X: [u16; 5] = [0, 1, 2, 40, 1_000];
-static MIXED_X_INDEX: [u16; 8] = bucket_index(&MIXED_X);
-static MIXED_V: [[i32; 5]; 3] = [
-    [0, 10, 20, 400, 10_000],
-    [-5, 5, 15, 395, 9_995],
-    [-10, 0, 10, 390, 9_990],
+#[cfg(feature = "pairing-mixed")]
+static MIXED_X: [u16; 17] = [
+    0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205, 1_300,
+    1_410, 1_500, 1_600,
 ];
-static MIXED: BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>> =
+#[cfg(feature = "pairing-mixed")]
+static MIXED_X_INDEX: [u16; 8] = bucket_index(&MIXED_X);
+#[cfg(feature = "pairing-mixed")]
+static MIXED_V: [[i32; 17]; 9] = mixed_values();
+#[cfg(feature = "pairing-mixed")]
+static MIXED: BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>> =
     BilinearSurface::from_axes(
         BucketedAxis::new(&MIXED_X, &MIXED_X_INDEX),
         UniformAxis::new(),
         &MIXED_V,
     );
+
+#[cfg(feature = "pairing-mixed")]
+const fn mixed_values() -> [[i32; 17]; 9] {
+    let mut values = [[0; 17]; 9];
+    let mut y = 0;
+    while y < 9 {
+        let mut x = 0;
+        while x < 17 {
+            values[y][x] = (x as i32) * 100 - (y as i32) * 37;
+            x += 1;
+        }
+        y += 1;
+    }
+    values
+}
 
 fn value(result: Result<i32, ph_surfaces::SurfaceError>) -> i32 {
     match result {
@@ -144,95 +172,104 @@ fn value(result: Result<i32, ph_surfaces::SurfaceError>) -> i32 {
     }
 }
 
+#[cfg(feature = "pairing-binary")]
 #[inline(never)]
-#[unsafe(no_mangle)]
 pub extern "C" fn ph_eval_binary(x: u16, y: u16) -> i32 {
     value(BINARY.evaluate(x, y))
 }
 
+#[cfg(feature = "pairing-linear")]
 #[inline(never)]
-#[unsafe(no_mangle)]
 pub extern "C" fn ph_eval_linear(x: u16, y: u16) -> i32 {
     value(LINEAR.evaluate(x, y))
 }
 
+#[cfg(feature = "pairing-uniform")]
 #[inline(never)]
-#[unsafe(no_mangle)]
 pub extern "C" fn ph_eval_uniform(x: u16, y: u16) -> i32 {
     value(UNIFORM.evaluate(x, y))
 }
 
+#[cfg(feature = "pairing-mixed")]
 #[inline(never)]
-#[unsafe(no_mangle)]
 pub extern "C" fn ph_eval_mixed(x: u16, y: u16) -> i32 {
     value(MIXED.evaluate(x, y))
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn _start() -> ! {
-    loop {
-        let x = black_box(1u16);
-        let y = black_box(1u16);
-        black_box(ph_eval_binary(x, y));
-        black_box(ph_eval_linear(x, y));
-        black_box(ph_eval_uniform(x, y));
-        black_box(ph_eval_mixed(x, y));
-    }
 }
 EOF
 
 rustc_version=$(rustc --version) || exit 1
 
-symbol_size() {
-    lib=$1
-    name=$2
-    size=$("$NM" --print-size --defined-only "$lib" | tr -d '\r' | awk -v n="$name" '
-        NF >= 4 && ($4 == n || $4 == ("_" n)) { print $2; found = 1 }
-        END { if (!found) exit 1 }
+object_text_size() {
+    object=$1
+    size=$("$NM" --demangle --print-size --defined-only "$object" | tr -d '\r' | awk '
+        function hex_value(c) {
+            c = tolower(c)
+            return index("0123456789abcdef", c) - 1
+        }
+        function hex_to_decimal(s, total, i) {
+            total = 0
+            for (i = 1; i <= length(s); i++) {
+                total = total * 16 + hex_value(substr(s, i, 1))
+            }
+            return total
+        }
+        NF >= 3 && $3 ~ /^[Tt]$/ { total += hex_to_decimal($2); found = 1 }
+        END { if (!found) exit 1; printf "%08x\n", total }
     ') || {
-        printf 'symbol %s not found in %s\n' "$name" "$lib" >&2
-        "$NM" --print-size --defined-only "$lib" | tr -d '\r' >&2
+        printf 'no text symbols found in %s\n' "$object" >&2
+        "$NM" --demangle --print-size --defined-only "$object" | tr -d '\r' >&2
         return 1
     }
     printf '%s\n' "$size"
 }
 
-print_target() {
+print_pairing() {
     target=$1
+    name=$2
+    feature=$3
+    build_dir="$WORK/target/$target/$name"
     (
         cd "$WORK" || exit 1
-        CARGO_TARGET_DIR="$(pwd)/target" cargo build --release --target "$target" >&2
+        CARGO_TARGET_DIR="$(pwd)/target/$target/$name" \
+            cargo rustc --release --target "$target" --no-default-features \
+            --features "$feature" -- --emit=obj >&2
     ) || return 1
 
-    bin="$WORK/target/$target/release/ph-surfaces-code-size"
-    if [ ! -f "$bin" ]; then
-        printf 'expected %s after the measurement build\n' "$bin" >&2
+    object=$(find "$build_dir/$target/release/deps" -maxdepth 1 \
+        -type f -name 'ph_surfaces_code_size-*.o' -print | head -n 1)
+    if [ -z "$object" ] || [ ! -f "$object" ]; then
+        printf 'expected a ph_surfaces_code_size object after the measurement build\n' >&2
         return 1
     fi
 
+    size=$(object_text_size "$object") || return 1
+    printf '%s %s\n' "$name" "$size"
+}
+
+print_target() {
+    target=$1
     printf '%s\n' "$target"
-    for name in ph_eval_binary ph_eval_linear ph_eval_mixed ph_eval_uniform; do
-        size=$(symbol_size "$bin" "$name") || return 1
-        printf '%s %s\n' "$name" "$size"
-    done
-    printf '\n'
+    print_pairing "$target" ph_eval_binary pairing-binary || return 1
+    print_pairing "$target" ph_eval_linear pairing-linear || return 1
+    print_pairing "$target" ph_eval_mixed pairing-mixed || return 1
+    print_pairing "$target" ph_eval_uniform pairing-uniform || return 1
 }
 
 {
     printf '%s\n' \
         '# ph-surfaces code-size snapshot (non-normative)' \
-        "# Date: 2026-08-17" \
         "# Toolchain: ${rustc_version}" \
-        '# Profile: opt-level=s, lto=true, codegen-units=1, panic=abort, debug=false' \
-        '# Tool: llvm-nm --print-size (function .text, not whole-binary flash)' \
+        '# Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false' \
+        '# Tool: llvm-nm --demangle --print-size (single-pairing compiler object .text total)' \
         '# Pairings:' \
         '#   ph_eval_binary   Binary×Binary ELEVATION 5×4' \
         '#   ph_eval_linear   Linear×Linear 3×2' \
         '#   ph_eval_uniform  Uniform×Uniform 2×2' \
-        '#   ph_eval_mixed    BucketedAxis<5, 8> × UniformAxis<3, 0, 50>' \
+        '#   ph_eval_mixed    BucketedAxis<17, 8> × UniformAxis<9, 0, 200>' \
         '#' \
         '# This is not a guarantee, not total flash, and not WCET.' \
         ''
     print_target "$ARM" || exit 1
+    printf '\n'
     print_target "$RISCV" || exit 1
 } || exit 1

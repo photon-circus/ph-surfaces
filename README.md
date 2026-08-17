@@ -17,7 +17,8 @@ the validated surface representation, its deterministic X-then-Y evaluator, its
 boundary and error vocabulary, the four compile-time per-axis lookup
 strategies, and the const cost API. Cross-strategy conformance, the selection
 matrix, and a labelled code-size snapshot (#19) have landed. The final
-documentation/package gate (#9) remains before v0.1 is complete. There is no
+documentation/package gate (#9) is closed; embedded-focused examples and
+strategy-selection guidance (#22) remain before v0.1 is complete. There is no
 crates.io publication and no docs.rs page.
 
 ## What this is
@@ -128,25 +129,28 @@ strategies: a firmware that names one combination compiles that one.
   composition order, boundary semantics, and error variants are unchanged.
 
 ```rust
-use ph_surfaces::{BilinearSurface, BucketedAxis, UniformAxis, bucket_index};
+use ph_surfaces::{
+    AxisLookup, BilinearSurface, BinaryAxis, BucketedAxis, UniformAxis,
+    bucket_index, max_local_comparisons,
+};
 
-static X: [u16; 5] = [0, 1, 2, 40, 1_000]; // irregular: keeps its knots
+static X: [u16; 17] = [
+    0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205,
+    1_300, 1_410, 1_500, 1_600,
+]; // irregular: keeps its knots
 static X_INDEX: [u16; 8] = bucket_index(&X);
-static Y: [u16; 3] = [0, 50, 100]; // evenly spaced: needs no knots at all
-static VALUES: [[i32; 5]; 3] = [
-    [0, 10, 20, 400, 10_000],
-    [-5, 5, 15, 395, 9_995],
-    [-10, 0, 10, 390, 9_990],
-];
+static Y: [u16; 9] = [0, 200, 400, 600, 800, 1_000, 1_200, 1_400, 1_600];
+static VALUES: [[i32; 17]; 9] = [[0; 17]; 9];
 
-static MIXED: BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>> =
+static MIXED: BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>> =
     BilinearSurface::from_axes(BucketedAxis::new(&X, &X_INDEX), UniformAxis::new(), &VALUES);
-static DEFAULT: BilinearSurface<5, 3> = BilinearSurface::new(&X, &Y, &VALUES);
+static DEFAULT: BilinearSurface<17, 9> = BilinearSurface::new(&X, &Y, &VALUES);
 
 fn main() {
-    assert_eq!(MIXED.evaluate(2, 50), Ok(15)); // a declared knot
-    assert_eq!(MIXED.evaluate(520, 25), DEFAULT.evaluate(520, 25));
-    assert_eq!(MIXED.y_knot(2), 100); // described, not stored
+    assert_eq!(MIXED.evaluate(610, 400), DEFAULT.evaluate(610, 400));
+    assert_eq!(MIXED.y_knot(8), 1_600); // described, not stored
+    assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
+    assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
 }
 ```
 
@@ -358,8 +362,9 @@ Incubating and unpublished. The binary-lookup baseline, its conformance suite,
 mechanical dependency and embedded proofs, examples, package checks, the
 compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18),
 and cross-strategy conformance with a const cost API, selection matrix, and
-labelled code-size snapshot (#19) are implemented. #9 remains: it freezes the
-final documentation and package-readiness evidence. The interim
+labelled code-size snapshot (#19) are implemented. The documentation and
+package-readiness gate (#9) is closed; #22 remains for embedded-focused
+examples and prescriptive strategy guidance. The interim
 [traceability checklist](docs/v0.1-traceability.md) records both implemented
 and pending claims. Publishing, tagging, and stable 1.0 compatibility remain
 separate maintainer decisions; `publish = false` stays until then.
@@ -466,20 +471,36 @@ fn main() {
 }
 ```
 
-Mixed `BucketedAxis<5, 8>` × `UniformAxis<3, 0, 50>`: X knots+index `10 + 16`,
-Y knots 0, grid 60, payload 86; Uniform search comparisons 0:
+Mixed `BucketedAxis<17, 8>` × `UniformAxis<9, 0, 200>`: X knots+index
+`34 + 16`, Y knots 0, grid 612, payload 662. On this concrete irregular axis,
+the bucket index reduces the X search bound from 5 comparisons (Binary) to 3;
+Uniform uses no knot comparisons. Including the two endpoint comparisons per
+in-domain axis, the lookup bound is 7 comparisons instead of 13 for
+Binary×Binary, while the referenced payload is 662 bytes instead of 664:
 
 ```rust
-use ph_surfaces::{AxisLookup, BilinearSurface, BucketedAxis, UniformAxis};
+use ph_surfaces::{
+    AxisLookup, BilinearSurface, BinaryAxis, BucketedAxis, UniformAxis,
+    bucket_index, max_local_comparisons,
+};
 
 fn main() {
-    type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
-    assert_eq!(<BucketedAxis<5, 8>>::KNOT_BYTES, 10);
-    assert_eq!(<BucketedAxis<5, 8>>::INDEX_BYTES, 16);
-    assert_eq!(<UniformAxis<3, 0, 50>>::KNOT_BYTES, 0);
-    assert_eq!(Mixed::VALUE_BYTES, 60);
-    assert_eq!(Mixed::PAYLOAD_BYTES, 86);
-    assert_eq!(<UniformAxis<3, 0, 50>>::MAX_SEARCH_COMPARISONS, 0);
+    static X: [u16; 17] = [
+        0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100,
+        1_205, 1_300, 1_410, 1_500, 1_600,
+    ];
+    static X_INDEX: [u16; 8] = bucket_index(&X);
+    type Mixed = BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+    type AllBinary = BilinearSurface<17, 9>;
+    assert_eq!(<BucketedAxis<17, 8>>::KNOT_BYTES, 34);
+    assert_eq!(<BucketedAxis<17, 8>>::INDEX_BYTES, 16);
+    assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
+    assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
+    assert_eq!(<UniformAxis<9, 0, 200>>::KNOT_BYTES, 0);
+    assert_eq!(<UniformAxis<9, 0, 200>>::MAX_SEARCH_COMPARISONS, 0);
+    assert_eq!(Mixed::VALUE_BYTES, 612);
+    assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+    assert_eq!(AllBinary::PAYLOAD_BYTES, 664);
     assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
     assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
 }
@@ -509,9 +530,10 @@ unclaimed.
 
 ### Measured code-size (non-normative)
 
-A reproducible recipe records function `.text` sizes for four named pairings.
-It is not a guarantee, not total flash, and not WCET. The committed snapshot
-is [`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
+A reproducible recipe records compiler-object `.text` totals for four named,
+single-pairing consumers. It is not a guarantee, not total flash, and not
+WCET. The committed snapshot is
+[`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
 
 ```sh
 ./scripts/measure-code-size.sh
@@ -519,13 +541,13 @@ is [`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
 
 - Toolchain: pinned 1.92.0 from `rust-toolchain.toml`, not nightly
 - Targets: `thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`
-- Profile: `opt-level = "s"`, `lto = true`, `codegen-units = 1`,
+- Profile: `opt-level = "s"`, `lto = false`, `codegen-units = 1`,
   `panic = "abort"`, `debug = false`
-- Tool: `llvm-nm --print-size` from `llvm-tools-preview` on `ph_eval_binary`,
-  `ph_eval_linear`, `ph_eval_uniform`, and `ph_eval_mixed` (function `.text`,
-  not whole-binary flash)
+- Tool: `llvm-nm --demangle --print-size` from `llvm-tools-preview`; each line
+  totals the compiler-object `.text` emitted for one pairing and its named
+  `ph_eval_*` wrapper, not whole-binary flash
 - Pairings: default Binary×Binary elevation 5×4; Linear×Linear 3×2;
-  Uniform×Uniform 2×2; mixed `BucketedAxis<5, 8>` × `UniformAxis<3, 0, 50>`
+  Uniform×Uniform 2×2; mixed `BucketedAxis<17, 8>` × `UniformAxis<9, 0, 200>`
 
 Compiler, linker, and `llvm-tools-preview` versions can move these numbers.
 Re-run the script and update the snapshot when they do. The `code size
@@ -578,9 +600,9 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 - a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
-- a code-size snapshot (`scripts/measure-code-size.sh`) that records function
-  `.text` sizes for four named pairings on both embedded targets and diffs
-  them against `docs/code-size-snapshot.txt`; the check reports `SKIP` if
+- a code-size snapshot (`scripts/measure-code-size.sh`) that records
+  single-pairing compiler-object `.text` totals on both embedded targets and
+  diffs them against `docs/code-size-snapshot.txt`; the check reports `SKIP` if
   either target or `llvm-tools-preview` is missing;
 - representative bare-metal builds on ARM (`thumbv7em-none-eabi`) and RISC-V
   (`riscv32imac-unknown-none-elf`) with the pinned toolchain;

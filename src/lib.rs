@@ -12,7 +12,8 @@
 //! the sealed [`AxisLookup`] and [`KnotArray`] traits. Scalar interpolation
 //! remains private. Cross-strategy conformance, the const cost API, the
 //! selection matrix, and a labelled code-size snapshot (#19) have landed. The
-//! final documentation/package gate (#9) remains pre-release work.
+//! documentation/package gate (#9) is closed; embedded-focused examples and
+//! strategy-selection guidance (#22) remain pre-release work.
 //!
 //! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
@@ -210,30 +211,31 @@
 //! surface over the same tables answers identically:
 //!
 //! ```
-//! use ph_surfaces::{BilinearSurface, BucketedAxis, UniformAxis, bucket_index};
+//! use ph_surfaces::{
+//!     AxisLookup, BilinearSurface, BinaryAxis, BucketedAxis, UniformAxis,
+//!     bucket_index, max_local_comparisons,
+//! };
 //!
-//! static X: [u16; 5] = [0, 1, 2, 40, 1_000];
-//! static X_INDEX: [u16; 8] = bucket_index(&X);
-//! static Y: [u16; 3] = [0, 50, 100];
-//! static VALUES: [[i32; 5]; 3] = [
-//!     [0, 10, 20, 400, 10_000],
-//!     [-5, 5, 15, 395, 9_995],
-//!     [-10, 0, 10, 390, 9_990],
+//! static X: [u16; 17] = [
+//!     0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205,
+//!     1_300, 1_410, 1_500, 1_600,
 //! ];
+//! static X_INDEX: [u16; 8] = bucket_index(&X);
+//! static Y: [u16; 9] = [0, 200, 400, 600, 800, 1_000, 1_200, 1_400, 1_600];
+//! static VALUES: [[i32; 17]; 9] = [[0; 17]; 9];
 //!
-//! static MIXED: BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>> =
+//! static MIXED: BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>> =
 //!     BilinearSurface::from_axes(
 //!         BucketedAxis::new(&X, &X_INDEX),
 //!         UniformAxis::new(),
 //!         &VALUES,
 //!     );
-//! static DEFAULT: BilinearSurface<5, 3> = BilinearSurface::new(&X, &Y, &VALUES);
+//! static DEFAULT: BilinearSurface<17, 9> = BilinearSurface::new(&X, &Y, &VALUES);
 //!
-//! assert_eq!(MIXED.evaluate(2, 50), Ok(15)); // a declared knot
-//! // Rows 5_200 and 5_195 at x = 520; midway on Y is 5_197.5, rounded away.
-//! assert_eq!(MIXED.evaluate(520, 25), Ok(5_198));
-//! assert_eq!(MIXED.evaluate(520, 25), DEFAULT.evaluate(520, 25));
-//! assert_eq!(MIXED.y_knot(2), 100); // described, not stored
+//! assert_eq!(MIXED.evaluate(610, 400), DEFAULT.evaluate(610, 400));
+//! assert_eq!(MIXED.y_knot(8), 1_600); // described, not stored
+//! assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
+//! assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
 //! ```
 //!
 //! # Resource accounting
@@ -301,20 +303,35 @@
 //! assert_eq!(Tiny::SUCCESS_GRID_READS, 4);
 //! ```
 //!
-//! Mixed [`BucketedAxis<5, 8>`](BucketedAxis) × [`UniformAxis<3, 0, 50>`](UniformAxis):
-//! X knots+index `10 + 16`, Y knots 0, grid 60, payload 86; Uniform search
-//! comparisons 0:
+//! Mixed [`BucketedAxis<17, 8>`](BucketedAxis) ×
+//! [`UniformAxis<9, 0, 200>`](UniformAxis): X knots+index `34 + 16`, Y knots
+//! 0, grid 612, payload 662. The concrete bucket index bounds X at 3 knot
+//! comparisons rather than Binary's 5; Uniform uses none. Including endpoint
+//! comparisons, that is 7 rather than 13 for Binary×Binary, while the
+//! referenced payload is 662 rather than 664 bytes:
 //!
 //! ```
-//! use ph_surfaces::{AxisLookup, BilinearSurface, BucketedAxis, UniformAxis};
+//! use ph_surfaces::{
+//!     AxisLookup, BilinearSurface, BinaryAxis, BucketedAxis, UniformAxis,
+//!     bucket_index, max_local_comparisons,
+//! };
 //!
-//! type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
-//! assert_eq!(<BucketedAxis<5, 8>>::KNOT_BYTES, 10);
-//! assert_eq!(<BucketedAxis<5, 8>>::INDEX_BYTES, 16);
-//! assert_eq!(<UniformAxis<3, 0, 50>>::KNOT_BYTES, 0);
-//! assert_eq!(Mixed::VALUE_BYTES, 60);
-//! assert_eq!(Mixed::PAYLOAD_BYTES, 86);
-//! assert_eq!(<UniformAxis<3, 0, 50>>::MAX_SEARCH_COMPARISONS, 0);
+//! static X: [u16; 17] = [
+//!     0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205,
+//!     1_300, 1_410, 1_500, 1_600,
+//! ];
+//! static X_INDEX: [u16; 8] = bucket_index(&X);
+//! type Mixed = BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+//! type AllBinary = BilinearSurface<17, 9>;
+//! assert_eq!(<BucketedAxis<17, 8>>::KNOT_BYTES, 34);
+//! assert_eq!(<BucketedAxis<17, 8>>::INDEX_BYTES, 16);
+//! assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
+//! assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
+//! assert_eq!(<UniformAxis<9, 0, 200>>::KNOT_BYTES, 0);
+//! assert_eq!(<UniformAxis<9, 0, 200>>::MAX_SEARCH_COMPARISONS, 0);
+//! assert_eq!(Mixed::VALUE_BYTES, 612);
+//! assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+//! assert_eq!(AllBinary::PAYLOAD_BYTES, 664);
 //! assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
 //! assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
 //! ```

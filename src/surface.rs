@@ -606,6 +606,7 @@ mod tests {
     use super::BilinearSurface;
     use crate::axis::{AxisLookup, BinaryAxis, BucketedAxis, LinearAxis, UniformAxis};
     use crate::boundary::{Boundary, BoundaryPolicy};
+    use crate::{bucket_index, max_local_comparisons};
     use core::mem::{align_of, size_of, size_of_val};
 
     static X2: [u16; 2] = [0, 10];
@@ -835,11 +836,20 @@ mod tests {
 
     #[test]
     fn mixed_bucketed_uniform_payload_drops_the_uniform_knots() {
-        type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
+        static X: [u16; 17] = [
+            0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205, 1_300, 1_410,
+            1_500, 1_600,
+        ];
+        static X_INDEX: [u16; 8] = bucket_index(&X);
+        type Mixed = BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+        type AllBinary = BilinearSurface<17, 9>;
 
-        assert_eq!(Mixed::VALUE_BYTES, 60);
-        assert_eq!(Mixed::PAYLOAD_BYTES, 10 + 16 + 60);
-        assert_eq!(Mixed::PAYLOAD_BYTES, 86);
+        assert_eq!(Mixed::VALUE_BYTES, 612);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 34 + 16 + 612);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+        assert_eq!(AllBinary::PAYLOAD_BYTES, 664);
+        assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
+        assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
     }
 
     #[test]

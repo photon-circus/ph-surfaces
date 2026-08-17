@@ -561,9 +561,10 @@ mod tests {
         assert_eq!(BilinearSurface::<5, 4>::SUCCESS_INTERPOLATIONS, 3);
         assert_eq!(BilinearSurface::<5, 4>::SUCCESS_GRID_READS, 4);
 
-        type Mixed = BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>>;
-        assert_eq!(Mixed::VALUE_BYTES, 60);
-        assert_eq!(Mixed::PAYLOAD_BYTES, 86);
+        type Mixed =
+            BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+        assert_eq!(Mixed::VALUE_BYTES, 612);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 662);
         assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
         assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
     }

@@ -133,8 +133,9 @@
   `SKIP`, not `PASS`, if either target is unavailable. `package list`
   additionally rejects `docs/` and `tests/` from the archive.
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
-  implemented binary baseline, explicitly recording #18, #19, and the final
-  #9 gate as pending. It remains repository material and is not packaged.
+  implemented binary baseline, recording #18 and #19 as implemented, #9 as
+  closed, and embedded-focused guidance #22 as the remaining pre-release
+  work. It remains repository material and is not packaged.
 - Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
   (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
   (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),
@@ -187,11 +188,14 @@
   `max_local_comparisons` never increases the local bound when `B` is
   multiplied.
 - Selection matrix and three exact worked storage/work doctests (default
-  binary `ELEVATION` 5×4, tiny Linear×Linear 3×2, mixed Bucketed×Uniform) in
-  the README and crate rustdoc, wired through the new constants.
-- `scripts/measure-code-size.sh` (not packaged) records function `.text`
-  sizes for four named pairings on ARM and RISC-V with the pinned 1.92.0
-  toolchain. Output is committed as `docs/code-size-snapshot.txt` and labelled
+  binary `ELEVATION` 5×4, tiny Linear×Linear 3×2, and a mixed
+  Bucketed×Uniform 17×9 example whose index reduces the documented search
+  bound) in the README and crate rustdoc, wired through the new constants.
+- `scripts/measure-code-size.sh` (not packaged) records compiler-object
+  `.text` totals for four named single-pairing consumers on ARM and RISC-V
+  with the pinned 1.92.0 toolchain. It identifies normally mangled safe Rust
+  symbols with `llvm-nm --demangle`; no exported unsafe attributes are
+  generated. Output is committed as `docs/code-size-snapshot.txt` and labelled
   non-normative. The `code size snapshot` CI check diffs it and returns SKIP
   if a target or `llvm-tools-preview` is missing.
 - The `package build` consumer asserts `VALUE_BYTES` / `PAYLOAD_BYTES` /
