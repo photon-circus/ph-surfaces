@@ -418,12 +418,15 @@ all for `UniformAxis`, and `2*N` plus `2*B` for `BucketedAxis<N, B>`. Those
 figures are exact and target-independent, and they are only the referenced
 element payload. It is not total RAM, flash, binary, or linker cost; alignment, section
 placement, code, and stack are outside it. The handle is separate and
-target-dependent: three thin references (one pointer width each), four one-byte
-boundary selections, and any padding the target's alignment requires. It does
-not grow with `NX` or `NY`. Host tests assert both figures without assuming a
-pointer width or a field layout beyond Rust's guarantees. Code size, flash
-placement, and stack depth are properties of the consuming build and its
-linker; this crate states none of them.
+target-dependent. Every handle has the value-grid reference and four one-byte
+boundary selections; each Uniform axis adds no reference, each Linear or Binary
+axis adds one knot-array reference, and each Bucketed axis adds both a knot-array
+and an index-array reference. The default binary/binary handle is therefore
+three thin references plus the policy and any alignment padding. It does not
+grow with `NX` or `NY` for a fixed strategy pairing. Host tests assert these
+figures without assuming a pointer width or field layout beyond Rust's
+guarantees. Code size, flash placement, and stack depth are properties of the
+consuming build and its linker; this crate states none of them.
 
 **Work.** A worst-case `evaluate` is two axis searches and three scalar
 interpolations. Each in-domain axis search is two endpoint comparisons plus the

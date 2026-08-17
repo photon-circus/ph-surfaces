@@ -208,11 +208,11 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
         outcome.map_err(|side| match side {
             Side::Below => SurfaceError::XBelow {
                 coordinate: x,
-                bound: self.x_min(),
+                bound: self.x().first(),
             },
             Side::Above => SurfaceError::XAbove {
                 coordinate: x,
-                bound: self.x_max(),
+                bound: self.x().last(),
             },
         })
     }
@@ -235,11 +235,11 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
         outcome.map_err(|side| match side {
             Side::Below => SurfaceError::YBelow {
                 coordinate: y,
-                bound: self.y_min(),
+                bound: self.y().first(),
             },
             Side::Above => SurfaceError::YAbove {
                 coordinate: y,
-                bound: self.y_max(),
+                bound: self.y().last(),
             },
         })
     }

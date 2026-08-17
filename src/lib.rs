@@ -258,10 +258,13 @@
 //! [`BucketedAxis<N, B>`](BucketedAxis). The same exclusions apply: these are
 //! referenced element bytes, not a total memory cost.
 //!
-//! The handle itself is separate and target-dependent: three thin references
-//! (one pointer width each), four one-byte boundary selections, and whatever
-//! padding the target's alignment requires. It does not grow with `NX` or
-//! `NY`.
+//! The handle itself is separate and target-dependent. It always has the
+//! value-grid reference and four one-byte boundary selections. A Uniform axis
+//! adds no reference, a Linear or Binary axis adds one knot-array reference,
+//! and a Bucketed axis adds knot-array and index-array references. The default
+//! binary/binary handle is therefore three thin references plus the policy and
+//! alignment padding. For a fixed strategy pairing it does not grow with `NX`
+//! or `NY`.
 //!
 //! # Evaluation cost
 //!

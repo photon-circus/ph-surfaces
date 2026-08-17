@@ -71,8 +71,10 @@
   guard — including the core-only build — to fail on the copy.
 - Host tests asserting the documented storage figures: the referenced element
   payload equals `2*NX + 2*NY + 4*NX*NY` bytes for representative shapes, and
-  the handle is three thin references plus the four-byte policy plus at most
-  alignment padding, without assuming a pointer width or field order.
+  the default handle is three thin references plus the four-byte policy plus at
+  most alignment padding. Strategy-specific tests account for zero axis
+  references from Uniform, one from Linear/Binary, and two from Bucketed,
+  without assuming a pointer width or field order.
 - Public resource and cost accounting in the crate docs and README: the exact
   payload formula stated separately from the target-dependent handle and never
   as total RAM, flash, binary, or linker cost; and the worst-case evaluation

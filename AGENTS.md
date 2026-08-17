@@ -101,8 +101,11 @@ bare-metal builds; do not describe those as a no-alloc proof.
 Public docs state the referenced element payload of the default binary surface
 as exactly `2*NX + 2*NY + 4*NX*NY` bytes, the general per-strategy form as
 `X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY`,
-and the handle separately as three thin references plus four policy bytes plus
-padding. Never call the payload total RAM, flash, binary, or linker cost.
+and the handle separately as a value-grid reference, the selected strategies'
+fields, four policy bytes, and padding. Uniform stores no axis reference,
+Linear/Binary one, and Bucketed two; the default binary/binary handle therefore
+has three thin references. Never call the payload total RAM, flash, binary, or
+linker cost.
 Never state a cycle count or WCET figure; the documented worst case is
 operation structure (two axis searches of two endpoint comparisons plus that
 strategy's `MAX_SEARCH_COMPARISONS`, three scalar interpolations, four grid

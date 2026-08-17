@@ -354,6 +354,7 @@ impl<const N: usize, const B: usize> AxisLookup<N> for BucketedAxis<N, B> {
         } else {
             N - 1
         };
+        let local_bound = (end - index) as u32;
         let mut comparisons = 0;
 
         while index < end {
@@ -365,8 +366,8 @@ impl<const N: usize, const B: usize> AxisLookup<N> for BucketedAxis<N, B> {
         }
 
         debug_assert!(
-            comparisons <= self.max_local_comparisons(),
-            "the local scan must stay inside the exact bound for this axis"
+            comparisons <= local_bound,
+            "the local scan must stay inside its selected bucket"
         );
         debug_assert!(
             self.knots[index] <= coordinate,

@@ -1,6 +1,6 @@
 //! The validated static representation of a rectilinear bilinear surface.
 
-use crate::axis::{AxisLookup, BinaryAxis, KnotArray};
+use crate::axis::{AxisLookup, BinaryAxis, BucketedAxis, LinearAxis, UniformAxis};
 use crate::boundary::BoundaryPolicy;
 
 /// A static rectilinear `u16 × u16 → i32` surface.
@@ -53,6 +53,13 @@ use crate::boundary::BoundaryPolicy;
 /// [`AxisLookup::INDEX_BYTES`](crate::AxisLookup::INDEX_BYTES). That figure
 /// excludes this handle, alignment, linker effects, code, stack, and binary or
 /// flash placement. It is not a total memory cost.
+///
+/// The handle always contains the value-grid reference and the four-byte
+/// boundary policy. Its remaining fields depend on the axis strategies:
+/// [`UniformAxis`] stores no reference, [`LinearAxis`] and [`BinaryAxis`] each
+/// store one knot-array reference, and [`BucketedAxis`] stores a knot-array and
+/// an index-array reference. The default binary/binary handle is therefore
+/// three thin references plus the policy and alignment padding.
 ///
 /// # Equality
 ///
@@ -346,88 +353,211 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
     pub const fn policy(&self) -> BoundaryPolicy {
         self.policy
     }
+}
 
+macro_rules! impl_stored_x_accessors {
+    ($axis:ident) => {
+        impl<const NX: usize, const NY: usize, Y: AxisLookup<NY>>
+            BilinearSurface<NX, NY, $axis<NX>, Y>
+        {
+            /// Returns the X knot at `index`.
+            ///
+            /// # Panics
+            ///
+            /// Panics if `index >= NX`.
+            #[must_use]
+            pub const fn x_knot(&self, index: usize) -> u16 {
+                assert!(index < NX, "knot index is outside the axis");
+                self.x.knots()[index]
+            }
+
+            /// Returns the first X knot: the inclusive lower bound of the X domain.
+            #[must_use]
+            pub const fn x_min(&self) -> u16 {
+                self.x.knots()[0]
+            }
+
+            /// Returns the last X knot: the inclusive upper bound of the X domain.
+            #[must_use]
+            pub const fn x_max(&self) -> u16 {
+                self.x.knots()[NX - 1]
+            }
+
+            /// Returns the declared X axis.
+            #[must_use]
+            pub const fn x_axis(&self) -> &'static [u16; NX] {
+                self.x.knots()
+            }
+        }
+    };
+}
+
+macro_rules! impl_stored_y_accessors {
+    ($axis:ident) => {
+        impl<const NX: usize, const NY: usize, X: AxisLookup<NX>>
+            BilinearSurface<NX, NY, X, $axis<NY>>
+        {
+            /// Returns the Y knot at `index`.
+            ///
+            /// # Panics
+            ///
+            /// Panics if `index >= NY`.
+            #[must_use]
+            pub const fn y_knot(&self, index: usize) -> u16 {
+                assert!(index < NY, "knot index is outside the axis");
+                self.y.knots()[index]
+            }
+
+            /// Returns the first Y knot: the inclusive lower bound of the Y domain.
+            #[must_use]
+            pub const fn y_min(&self) -> u16 {
+                self.y.knots()[0]
+            }
+
+            /// Returns the last Y knot: the inclusive upper bound of the Y domain.
+            #[must_use]
+            pub const fn y_max(&self) -> u16 {
+                self.y.knots()[NY - 1]
+            }
+
+            /// Returns the declared Y axis.
+            #[must_use]
+            pub const fn y_axis(&self) -> &'static [u16; NY] {
+                self.y.knots()
+            }
+        }
+    };
+}
+
+impl_stored_x_accessors!(BinaryAxis);
+impl_stored_x_accessors!(LinearAxis);
+impl_stored_y_accessors!(BinaryAxis);
+impl_stored_y_accessors!(LinearAxis);
+
+impl<const NX: usize, const NY: usize, const B: usize, Y: AxisLookup<NY>>
+    BilinearSurface<NX, NY, BucketedAxis<NX, B>, Y>
+{
     /// Returns the X knot at `index`.
-    ///
-    /// Every strategy can answer this, including the ones that store no knot
-    /// array: [`UniformAxis`](crate::UniformAxis) computes the knot from its
-    /// descriptor.
     ///
     /// # Panics
     ///
     /// Panics if `index >= NX`.
     #[must_use]
-    pub fn x_knot(&self, index: usize) -> u16 {
-        self.x.knot(index)
+    pub const fn x_knot(&self, index: usize) -> u16 {
+        assert!(index < NX, "knot index is outside the axis");
+        self.x.knots()[index]
     }
 
+    /// Returns the first X knot: the inclusive lower bound of the X domain.
+    #[must_use]
+    pub const fn x_min(&self) -> u16 {
+        self.x.knots()[0]
+    }
+
+    /// Returns the last X knot: the inclusive upper bound of the X domain.
+    #[must_use]
+    pub const fn x_max(&self) -> u16 {
+        self.x.knots()[NX - 1]
+    }
+
+    /// Returns the declared X axis.
+    #[must_use]
+    pub const fn x_axis(&self) -> &'static [u16; NX] {
+        self.x.knots()
+    }
+}
+
+impl<const NX: usize, const NY: usize, const B: usize, X: AxisLookup<NX>>
+    BilinearSurface<NX, NY, X, BucketedAxis<NY, B>>
+{
     /// Returns the Y knot at `index`.
     ///
     /// # Panics
     ///
     /// Panics if `index >= NY`.
     #[must_use]
-    pub fn y_knot(&self, index: usize) -> u16 {
-        self.y.knot(index)
-    }
-
-    /// Returns the first X knot: the inclusive lower bound of the X domain.
-    #[must_use]
-    pub fn x_min(&self) -> u16 {
-        self.x.first()
-    }
-
-    /// Returns the last X knot: the inclusive upper bound of the X domain.
-    #[must_use]
-    pub fn x_max(&self) -> u16 {
-        self.x.last()
+    pub const fn y_knot(&self, index: usize) -> u16 {
+        assert!(index < NY, "knot index is outside the axis");
+        self.y.knots()[index]
     }
 
     /// Returns the first Y knot: the inclusive lower bound of the Y domain.
     #[must_use]
-    pub fn y_min(&self) -> u16 {
-        self.y.first()
+    pub const fn y_min(&self) -> u16 {
+        self.y.knots()[0]
     }
 
     /// Returns the last Y knot: the inclusive upper bound of the Y domain.
     #[must_use]
-    pub fn y_max(&self) -> u16 {
-        self.y.last()
+    pub const fn y_max(&self) -> u16 {
+        self.y.knots()[NY - 1]
     }
-}
 
-impl<const NX: usize, const NY: usize, X: KnotArray<NX>, Y: AxisLookup<NY>>
-    BilinearSurface<NX, NY, X, Y>
-{
-    /// Returns the declared X axis.
-    ///
-    /// Available for the strategies that store a knot array, which is every one
-    /// except [`UniformAxis`](crate::UniformAxis); that axis describes its knots
-    /// instead of storing them, so use [`BilinearSurface::x_knot`] to read one.
-    #[must_use]
-    pub fn x_axis(&self) -> &'static [u16; NX] {
-        self.x.knots()
-    }
-}
-
-impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: KnotArray<NY>>
-    BilinearSurface<NX, NY, X, Y>
-{
     /// Returns the declared Y axis.
-    ///
-    /// Available for the strategies that store a knot array, which is every one
-    /// except [`UniformAxis`](crate::UniformAxis); that axis describes its knots
-    /// instead of storing them, so use [`BilinearSurface::y_knot`] to read one.
     #[must_use]
-    pub fn y_axis(&self) -> &'static [u16; NY] {
+    pub const fn y_axis(&self) -> &'static [u16; NY] {
         self.y.knots()
+    }
+}
+
+impl<const NX: usize, const NY: usize, const ORIGIN: u16, const STEP: u16, Y: AxisLookup<NY>>
+    BilinearSurface<NX, NY, UniformAxis<NX, ORIGIN, STEP>, Y>
+{
+    /// Returns the X knot at `index`, calculated from the uniform descriptor.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= NX`.
+    #[must_use]
+    pub const fn x_knot(&self, index: usize) -> u16 {
+        assert!(index < NX, "knot index is outside the axis");
+        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+    }
+
+    /// Returns the first X knot: the inclusive lower bound of the X domain.
+    #[must_use]
+    pub const fn x_min(&self) -> u16 {
+        ORIGIN
+    }
+
+    /// Returns the last X knot: the inclusive upper bound of the X domain.
+    #[must_use]
+    pub const fn x_max(&self) -> u16 {
+        ((ORIGIN as u32) + ((NX - 1) as u32) * (STEP as u32)) as u16
+    }
+}
+
+impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, const ORIGIN: u16, const STEP: u16>
+    BilinearSurface<NX, NY, X, UniformAxis<NY, ORIGIN, STEP>>
+{
+    /// Returns the Y knot at `index`, calculated from the uniform descriptor.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= NY`.
+    #[must_use]
+    pub const fn y_knot(&self, index: usize) -> u16 {
+        assert!(index < NY, "knot index is outside the axis");
+        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+    }
+
+    /// Returns the first Y knot: the inclusive lower bound of the Y domain.
+    #[must_use]
+    pub const fn y_min(&self) -> u16 {
+        ORIGIN
+    }
+
+    /// Returns the last Y knot: the inclusive upper bound of the Y domain.
+    #[must_use]
+    pub const fn y_max(&self) -> u16 {
+        ((ORIGIN as u32) + ((NY - 1) as u32) * (STEP as u32)) as u16
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::BilinearSurface;
-    use crate::axis::{BinaryAxis, LinearAxis, UniformAxis};
+    use crate::axis::{BinaryAxis, BucketedAxis, LinearAxis, UniformAxis};
     use crate::boundary::{Boundary, BoundaryPolicy};
     use core::mem::{align_of, size_of, size_of_val};
 
@@ -439,6 +569,16 @@ mod tests {
     // surface is constant-evaluable without allocation: it either const-
     // evaluates or the crate does not build.
     static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&X2, &Y2, &V22);
+
+    // These declarations guard the pre-strategy public API: default-surface
+    // axis and endpoint accessors remain usable in constant expressions.
+    const CONST_SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&X2, &Y2, &V22);
+    const CONST_X_AXIS: &[u16; 2] = CONST_SURFACE.x_axis();
+    const CONST_Y_AXIS: &[u16; 2] = CONST_SURFACE.y_axis();
+    const CONST_X_MIN: u16 = CONST_SURFACE.x_min();
+    const CONST_X_MAX: u16 = CONST_SURFACE.x_max();
+    const CONST_Y_MIN: u16 = CONST_SURFACE.y_min();
+    const CONST_Y_MAX: u16 = CONST_SURFACE.y_max();
 
     // A deliberately asymmetric 3x2 fixture: NX = 3, NY = 2.
     static X3: [u16; 3] = [0, 5, 100];
@@ -533,6 +673,14 @@ mod tests {
     }
 
     #[test]
+    fn default_axis_accessors_remain_const_compatible() {
+        assert_eq!(CONST_X_AXIS, &X2);
+        assert_eq!(CONST_Y_AXIS, &Y2);
+        assert_eq!((CONST_X_MIN, CONST_X_MAX), (0, 10));
+        assert_eq!((CONST_Y_MIN, CONST_Y_MAX), (0, 20));
+    }
+
+    #[test]
     fn endpoint_and_knot_accessors_do_not_depend_on_a_stored_knot_array() {
         // The Y axis of this surface stores nothing, and still answers.
         assert_eq!(MIXED.y_min(), 0);
@@ -600,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn handle_is_three_references_plus_four_policy_bytes_and_padding() {
+    fn default_handle_is_three_references_plus_four_policy_bytes_and_padding() {
         // The handle holds three references to sized arrays (thin, so each is
         // one target-width pointer) and one four-byte policy. Its size is
         // therefore that sum rounded up to the handle's alignment: at least the
@@ -629,6 +777,37 @@ mod tests {
             "handle {handle} carries more than alignment padding over {fields}"
         );
         assert_eq!(handle % align, 0);
+    }
+
+    fn assert_handle_layout<T>(references: usize) {
+        let fields = references * size_of::<usize>() + size_of::<BoundaryPolicy>();
+        let handle = size_of::<T>();
+        let align = align_of::<T>();
+
+        assert!(
+            handle >= fields,
+            "handle {handle} smaller than its fields {fields}"
+        );
+        assert!(
+            handle < fields + align,
+            "handle {handle} carries more than alignment padding over {fields}"
+        );
+        assert_eq!(handle % align, 0);
+    }
+
+    #[test]
+    fn handle_reference_count_follows_the_selected_strategies() {
+        type UniformUniform = BilinearSurface<2, 2, UniformAxis<2, 0, 10>, UniformAxis<2, 0, 20>>;
+        type LinearUniform = BilinearSurface<2, 2, LinearAxis<2>, UniformAxis<2, 0, 20>>;
+        type BinaryBinary = BilinearSurface<2, 2, BinaryAxis<2>, BinaryAxis<2>>;
+        type BucketedBucketed = BilinearSurface<2, 2, BucketedAxis<2, 1>, BucketedAxis<2, 1>>;
+
+        // Every handle has one value-grid reference. Uniform contributes no
+        // axis reference, linear/binary one, and bucketed two.
+        assert_handle_layout::<UniformUniform>(1);
+        assert_handle_layout::<LinearUniform>(2);
+        assert_handle_layout::<BinaryBinary>(3);
+        assert_handle_layout::<BucketedBucketed>(5);
     }
 
     #[test]

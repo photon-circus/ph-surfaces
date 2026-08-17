@@ -82,8 +82,17 @@ use super::{AxisLookup, sealed};
 ///
 /// static AXIS: UniformAxis<5, 60_000, 2_000> = UniformAxis::new();
 /// ```
+///
+/// The descriptor cannot bypass [`UniformAxis::new`]; its zero-sized field is
+/// private:
+///
+/// ```compile_fail
+/// use ph_surfaces::UniformAxis;
+///
+/// static AXIS: UniformAxis<5, 0, 25> = UniformAxis(());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct UniformAxis<const N: usize, const ORIGIN: u16, const STEP: u16>;
+pub struct UniformAxis<const N: usize, const ORIGIN: u16, const STEP: u16>(());
 
 impl<const N: usize, const ORIGIN: u16, const STEP: u16> Default for UniformAxis<N, ORIGIN, STEP> {
     /// Returns [`UniformAxis::new`], validating the descriptor.
@@ -103,22 +112,26 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> UniformAxis<N, ORIGIN, 
     ///
     /// Panics unless the descriptor names at least two strictly increasing knots
     /// that are all representable: `N >= 2`, `STEP >= 1`, and
-    /// `ORIGIN + (N - 1) * STEP <= u16::MAX`. In a constant or static definition
-    /// that panic is a compile error, so an unrepresentable axis cannot be
-    /// declared.
+    /// `N <= 65_536`, and `ORIGIN + (N - 1) * STEP <= u16::MAX`. In a constant
+    /// or static definition that panic is a compile error, so an unrepresentable
+    /// axis cannot be declared.
     #[must_use]
     pub const fn new() -> Self {
         assert!(N >= 2, "an axis must declare at least two knots");
+        assert!(
+            N <= 65_536,
+            "a uniform u16 axis declares at most 65_536 knots"
+        );
         assert!(
             STEP >= 1,
             "a uniform axis must declare a step of at least 1"
         );
         assert!(
-            (ORIGIN as u32) + ((N - 1) as u32) * (STEP as u32) <= u16::MAX as u32,
+            (ORIGIN as usize) + (N - 1) * (STEP as usize) <= u16::MAX as usize,
             "the last uniform knot must be representable in u16"
         );
 
-        Self
+        Self(())
     }
 
     /// Returns the first knot, `ORIGIN`.
@@ -156,14 +169,14 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> AxisLookup<N>
         // `new` proved this sum representable, and `N >= 2` makes `N - 1` sound.
         // The subtraction happens in `usize` because `N` may be 65_536, which is
         // the largest count a unit step can describe.
-        ORIGIN + ((N - 1) as u16) * STEP
+        ((ORIGIN as u32) + ((N - 1) as u32) * (STEP as u32)) as u16
     }
 
     fn knot(&self, index: usize) -> u16 {
         assert!(index < N, "knot index is outside the axis");
 
         // Bounded above by the last knot, which `new` proved representable.
-        ORIGIN + (index as u16) * STEP
+        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
     }
 
     fn search(&self, coordinate: u16) -> (usize, u32) {
@@ -194,6 +207,8 @@ mod tests {
     const UNIT: UniformAxis<2, 7, 1> = UniformAxis::new();
     // The widest representable uniform axis: 0 and 65_535 in one step.
     const WIDE: UniformAxis<2, 0, 65_535> = UniformAxis::new();
+    // The largest representable knot count: every u16 value at unit spacing.
+    const FULL_COUNT: UniformAxis<65_536, 0, 1> = UniformAxis::new();
 
     static SMALL_KNOTS: [u16; 5] = [0, 25, 50, 75, 100];
     static OFFSET_KNOTS: [u16; 9] = [100, 150, 200, 250, 300, 350, 400, 450, 500];
@@ -212,6 +227,8 @@ mod tests {
         assert_eq!((OFFSET.first(), OFFSET.last()), (100, 500));
         assert_eq!((UNIT.first(), UNIT.last()), (7, 8));
         assert_eq!((WIDE.first(), WIDE.last()), (0, 65_535));
+        assert_eq!((FULL_COUNT.first(), FULL_COUNT.last()), (0, 65_535));
+        assert_eq!(FULL_COUNT.knot(65_535), 65_535);
     }
 
     #[test]
@@ -254,7 +271,7 @@ mod tests {
         assert_eq!(<UniformAxis<9, 100, 50>>::KNOT_BYTES, 0);
         assert_eq!(<UniformAxis<9, 100, 50>>::INDEX_BYTES, 0);
         assert_eq!(size_of::<UniformAxis<9, 100, 50>>(), 0);
-        assert_eq!(size_of::<UniformAxis<65_535, 0, 1>>(), 0);
+        assert_eq!(size_of::<UniformAxis<65_536, 0, 1>>(), 0);
     }
 
     #[test]
@@ -280,6 +297,13 @@ mod tests {
     #[should_panic(expected = "the last uniform knot must be representable in u16")]
     fn a_descriptor_whose_last_knot_leaves_u16_is_rejected() {
         let _ = <UniformAxis<5, 60_000, 2_000>>::new();
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    #[should_panic(expected = "a uniform u16 axis declares at most 65_536 knots")]
+    fn an_oversized_count_is_rejected_before_narrowing() {
+        let _ = <UniformAxis<{ (u32::MAX as usize) + 2 }, 0, 1>>::new();
     }
 
     #[test]
