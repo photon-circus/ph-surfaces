@@ -10,11 +10,11 @@ integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
 This repository contains the accepted binary-lookup baseline through issues
-#2–#8 of umbrella #1, plus preparatory consumer documentation and package
-checks. The remaining pre-release sequence is #18 (compile-time per-axis
-lookup strategies), #19 (cross-strategy conformance and cost evidence), then
-#9 (the final documentation and package-readiness gate). Do not describe v0.1
-as complete or close #9 before that sequence finishes. Publishing, tagging,
+#2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18, plus
+preparatory consumer documentation and package checks. The remaining
+pre-release sequence is #19 (cross-strategy conformance and cost evidence),
+then #9 (the final documentation and package-readiness gate). Do not describe
+v0.1 as complete or close #9 before that sequence finishes. Publishing, tagging,
 and a stable 1.0 promise are separate maintainer decisions; `publish = false`
 stays until then.
 
@@ -34,12 +34,17 @@ unit tests in `src/`; do not move them into the suite or duplicate them there.
 exact half-way values away from zero. Route every interpolated value through
 `div_round_half_away_from_zero` rather than adding a second implementation.
 
-`src/lookup.rs` currently owns the binary axis search used by both axes. Issue
-#18 will extend lookup with sealed Linear, Binary, Uniform, and Bucketed
-strategies selected independently at compile time. Every strategy
-must produce the same axis-neutral location result and preserve exact-knot,
-boundary, and no-extrapolation semantics; keep axis-specific `SurfaceError`
-mapping thin and outside the strategy algorithms.
+`src/axis/` owns the four sealed lookup strategies — `LinearAxis`,
+`BinaryAxis` (the default), `UniformAxis`, `BucketedAxis` — each of which
+answers only *which segment holds this coordinate*. `src/lookup.rs` owns
+everything else about a lookup: the endpoint tests, the boundary policy, the
+clamped-coordinate substitution, the cell invariants, and the thin
+axis-specific `SurfaceError` mapping. Keep that split. A new strategy must
+produce the same axis-neutral location result and preserve exact-knot,
+boundary, and no-extrapolation semantics, must validate itself in its own
+`const fn` constructor, and must not construct, cache, or mutate anything at
+runtime. Strategy selection stays type-level: no runtime enum, no Cargo
+feature, no strategy branch in a firmware that names one combination.
 
 `src/evaluate.rs` owns the only composition order in the crate. X is resolved
 before Y, X interpolates on each of the two Y rows before Y interpolates between
@@ -93,14 +98,16 @@ bare-metal builds; do not describe those as a no-alloc proof.
 
 ### 3a. Resource and cost claims stay exact and separate
 
-Public docs state the referenced element payload as exactly
-`2*NX + 2*NY + 4*NX*NY` bytes and the handle separately as three thin
-references plus four policy bytes plus padding. Never call the payload total
-RAM, flash, binary, or linker cost. Never state a cycle count or WCET figure;
-the documented worst case is operation structure (two axis searches of
-`2 + ceil(log2(len))` comparisons, three scalar interpolations, four grid
-reads). `src/surface.rs` tests assert the storage figures without assuming a
-pointer width.
+Public docs state the referenced element payload of the default binary surface
+as exactly `2*NX + 2*NY + 4*NX*NY` bytes, the general per-strategy form as
+`X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY`,
+and the handle separately as three thin references plus four policy bytes plus
+padding. Never call the payload total RAM, flash, binary, or linker cost.
+Never state a cycle count or WCET figure; the documented worst case is
+operation structure (two axis searches of two endpoint comparisons plus that
+strategy's `MAX_SEARCH_COMPARISONS`, three scalar interpolations, four grid
+reads). `src/surface.rs` and `src/axis/` tests assert the storage figures
+without assuming a pointer width.
 
 ### 4. Local CI is authoritative
 
@@ -125,7 +132,8 @@ or failed hosted run as a local-CI failure.
 | Version or `publish` | `README.md` status, `CHANGELOG.md`, `scripts/ci.sh` manifest assertions |
 | New packaged file | `include` in `Cargo.toml`, and both `check_package_list` and `expected_package_files` in `scripts/ci.sh` |
 | New guard in `scripts/ci.sh` | A mutation case in `scripts/guard-selftest.sh` showing it fails |
-| Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` item docs, `README.md` "Resource accounting and cost" |
+| Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |
+| New or changed axis strategy | `src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `scripts/ci.sh` `check_package_build`, `docs/v0.1-traceability.md` |
 | New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
 | New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
 | Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, the consumer heredoc in `scripts/ci.sh` `check_package_build` |

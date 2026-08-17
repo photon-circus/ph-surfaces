@@ -14,12 +14,15 @@
 //! two spellings of the same one. The crate therefore fixes one order and makes
 //! it normative rather than offering a choice.
 
+use crate::axis::AxisLookup;
 use crate::error::SurfaceError;
 use crate::interp::interpolate_segment;
 use crate::lookup::Cell;
 use crate::surface::BilinearSurface;
 
-impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
+impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
+    BilinearSurface<NX, NY, X, Y>
+{
     /// Evaluates this surface at `(x, y)` with deterministic X-then-Y bilinear
     /// interpolation.
     ///
@@ -92,7 +95,11 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
     ///
     /// A successful evaluation performs exactly three scalar interpolations and
     /// exactly four reads of the value grid. Each in-domain axis lookup costs
-    /// two endpoint comparisons plus `ceil(log2(len))` probes; a clamped lookup
+    /// two endpoint comparisons plus the search work of that axis's strategy —
+    /// `ceil(log2(len))` probes for the default
+    /// [`BinaryAxis`](crate::BinaryAxis), and at most
+    /// [`AxisLookup::MAX_SEARCH_COMPARISONS`](crate::AxisLookup::MAX_SEARCH_COMPARISONS)
+    /// comparisons for any of them; a clamped lookup
     /// costs one or two endpoint comparisons and performs no probes. A rejected
     /// coordinate returns before any interpolation or value-grid read, and an X
     /// rejection also skips the Y lookup because X is resolved first.
@@ -153,8 +160,8 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
         // Step three: interpolate the two already-rounded row results along Y.
         Ok(interpolate_segment(
             y_cell.coordinate(),
-            self.y_axis()[y_cell.lower()],
-            self.y_axis()[y_cell.upper()],
+            self.y().knot(y_cell.lower()),
+            self.y().knot(y_cell.upper()),
             at_lower_y,
             at_upper_y,
         ))
@@ -168,8 +175,8 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
     fn interpolate_row(&self, x_cell: Cell, row: &[i32; NX]) -> i32 {
         interpolate_segment(
             x_cell.coordinate(),
-            self.x_axis()[x_cell.lower()],
-            self.x_axis()[x_cell.upper()],
+            self.x().knot(x_cell.lower()),
+            self.x().knot(x_cell.upper()),
             row[x_cell.lower()],
             row[x_cell.upper()],
         )

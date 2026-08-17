@@ -284,7 +284,8 @@ check_package_list() {
     printf '%s\n' "$list"
     for required in Cargo.toml LICENSE README.md \
         src/lib.rs src/interp.rs src/lookup.rs src/evaluate.rs src/boundary.rs \
-        src/error.rs src/surface.rs; do
+        src/error.rs src/surface.rs src/axis/mod.rs src/axis/linear.rs \
+        src/axis/binary.rs src/axis/uniform.rs src/axis/bucketed.rs; do
         if ! printf '%s\n' "$list" | grep -qx "$required"; then
             printf 'packaged crate is missing %s\n' "$required" >&2
             return 1
@@ -308,6 +309,11 @@ expected_package_files() {
         Cargo.toml.orig \
         LICENSE \
         README.md \
+        src/axis/binary.rs \
+        src/axis/bucketed.rs \
+        src/axis/linear.rs \
+        src/axis/mod.rs \
+        src/axis/uniform.rs \
         src/boundary.rs \
         src/error.rs \
         src/evaluate.rs \
@@ -418,6 +424,99 @@ pub fn correction(x: u16, y: u16) -> Result<i32, SurfaceError> {
     CORRECTION.evaluate(x, y)
 }
 
+/// Every X/Y pairing of the four compile-time lookup strategies, declared as
+/// statics over one equivalent axis pair.
+///
+/// A firmware selects strategies in the type, so a pairing exists only where it
+/// is named. Declaring all sixteen here is what makes them compile — and, when
+/// this consumer is built for the bare-metal targets with a core-only sysroot,
+/// link without an allocator.
+pub mod strategies {
+    use ph_surfaces::{
+        BilinearSurface, BinaryAxis, BucketedAxis, LinearAxis, SurfaceError, UniformAxis,
+        bucket_index,
+    };
+
+    static X: [u16; 5] = [0, 25, 50, 75, 100];
+    static X_INDEX: [u16; 4] = bucket_index(&X);
+    static Y: [u16; 3] = [0, 10, 20];
+    static Y_INDEX: [u16; 2] = bucket_index(&Y);
+    static VALUES: [[i32; 5]; 3] = [
+        [0, 25, 50, 75, 100],
+        [10, 35, 60, 85, 110],
+        [-20, 5, 30, 55, 80],
+    ];
+
+    type Lx = LinearAxis<5>;
+    type Bx = BinaryAxis<5>;
+    type Ux = UniformAxis<5, 0, 25>;
+    type Kx = BucketedAxis<5, 4>;
+
+    type Ly = LinearAxis<3>;
+    type By = BinaryAxis<3>;
+    type Uy = UniformAxis<3, 0, 10>;
+    type Ky = BucketedAxis<3, 2>;
+
+    macro_rules! pairing {
+        ($name:ident, $xt:ty, $yt:ty, $x:expr, $y:expr) => {
+            static $name: BilinearSurface<5, 3, $xt, $yt> =
+                BilinearSurface::from_axes($x, $y, &VALUES);
+        };
+    }
+
+    pairing!(LL, Lx, Ly, LinearAxis::new(&X), LinearAxis::new(&Y));
+    pairing!(LB, Lx, By, LinearAxis::new(&X), BinaryAxis::new(&Y));
+    pairing!(LU, Lx, Uy, LinearAxis::new(&X), UniformAxis::new());
+    pairing!(LK, Lx, Ky, LinearAxis::new(&X), BucketedAxis::new(&Y, &Y_INDEX));
+    pairing!(BL, Bx, Ly, BinaryAxis::new(&X), LinearAxis::new(&Y));
+    pairing!(BB, Bx, By, BinaryAxis::new(&X), BinaryAxis::new(&Y));
+    pairing!(BU, Bx, Uy, BinaryAxis::new(&X), UniformAxis::new());
+    pairing!(BK, Bx, Ky, BinaryAxis::new(&X), BucketedAxis::new(&Y, &Y_INDEX));
+    pairing!(UL, Ux, Ly, UniformAxis::new(), LinearAxis::new(&Y));
+    pairing!(UB, Ux, By, UniformAxis::new(), BinaryAxis::new(&Y));
+    pairing!(UU, Ux, Uy, UniformAxis::new(), UniformAxis::new());
+    pairing!(UK, Ux, Ky, UniformAxis::new(), BucketedAxis::new(&Y, &Y_INDEX));
+    pairing!(KL, Kx, Ly, BucketedAxis::new(&X, &X_INDEX), LinearAxis::new(&Y));
+    pairing!(KB, Kx, By, BucketedAxis::new(&X, &X_INDEX), BinaryAxis::new(&Y));
+    pairing!(KU, Kx, Uy, BucketedAxis::new(&X, &X_INDEX), UniformAxis::new());
+    pairing!(
+        KK,
+        Kx,
+        Ky,
+        BucketedAxis::new(&X, &X_INDEX),
+        BucketedAxis::new(&Y, &Y_INDEX)
+    );
+
+    /// Evaluates all sixteen pairings at the same point, in a fixed order.
+    pub fn every_pairing(x: u16, y: u16) -> [Result<i32, SurfaceError>; 16] {
+        [
+            LL.evaluate(x, y),
+            LB.evaluate(x, y),
+            LU.evaluate(x, y),
+            LK.evaluate(x, y),
+            BL.evaluate(x, y),
+            BB.evaluate(x, y),
+            BU.evaluate(x, y),
+            BK.evaluate(x, y),
+            UL.evaluate(x, y),
+            UB.evaluate(x, y),
+            UU.evaluate(x, y),
+            UK.evaluate(x, y),
+            KL.evaluate(x, y),
+            KB.evaluate(x, y),
+            KU.evaluate(x, y),
+            KK.evaluate(x, y),
+        ]
+    }
+
+    /// Evaluates the default binary surface over the same tables.
+    pub fn default_surface(x: u16, y: u16) -> Result<i32, SurfaceError> {
+        static DEFAULT: BilinearSurface<5, 3> = BilinearSurface::new(&X, &Y, &VALUES);
+
+        DEFAULT.evaluate(x, y)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{correction, elevation};
@@ -434,6 +533,20 @@ mod tests {
             elevation(500, 151),
             Err(SurfaceError::YAbove { coordinate: 151, bound: 150 })
         );
+    }
+
+    #[test]
+    fn every_strategy_pairing_agrees_with_the_default_surface() {
+        use super::strategies;
+
+        for x in [0u16, 1, 24, 25, 60, 99, 100] {
+            for y in [0u16, 5, 10, 19, 20] {
+                let expected = strategies::default_surface(x, y);
+                for (index, actual) in strategies::every_pairing(x, y).iter().enumerate() {
+                    assert_eq!(*actual, expected, "pairing {index} at ({x}, {y})");
+                }
+            }
+        }
     }
 
     #[test]
@@ -460,17 +573,35 @@ EOF
             printf 'the downstream consumer resolved an unexpected package.\n' >&2
             exit 1
         fi
+        # A core-only consumer build is what proves the sixteen strategy
+        # pairings themselves are allocation-free: the library's own core-only
+        # build compiles no instantiation of them, because a generic axis
+        # strategy is only monomorphised where a surface names it.
+        core_only=0
+        if rustup toolchain list 2>/dev/null | grep -q '^nightly' &&
+            rustup component list --toolchain nightly --installed 2>/dev/null |
+            grep -q '^rust-src'; then
+            core_only=1
+        else
+            printf 'consumer: nightly with rust-src missing; core-only pairing proof skipped\n'
+        fi
+
         missing_target=0
         for target in thumbv7em-none-eabi riscv32imac-unknown-none-elf; do
             if rustup target list --installed 2>/dev/null | grep -qx "$target"; then
                 CARGO_TARGET_DIR="$consumer_target_dir" \
                     cargo build --offline --target "$target" || exit 1
+                if [ "$core_only" -eq 1 ]; then
+                    CARGO_TARGET_DIR="$consumer_target_dir" \
+                        cargo +nightly build --offline --target "$target" \
+                        -Z build-std=core || exit 1
+                fi
             else
                 printf 'consumer: target %s not installed; package target proof skipped\n' "$target"
                 missing_target=1
             fi
         done
-        if [ "$missing_target" -ne 0 ]; then
+        if [ "$missing_target" -ne 0 ] || [ "$core_only" -eq 0 ]; then
             exit 2
         fi
     )
