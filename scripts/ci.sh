@@ -25,8 +25,10 @@
 #   - no_std unconditional / integer only / no ph-curves / manifest floor:
 #     source and manifest ratchets that `cargo test` cannot observe.
 #   - package list / package build: the exact packaged file set, the packaged
-#     artifact building on its own, and a downstream `#![no_std]` consumer
-#     compiling against it.
+#     artifact building on its own, its rustdoc and doctests (README Rust blocks
+#     included) passing from the unpacked package, and a downstream
+#     `#![no_std]` consumer that declares and evaluates both documented
+#     example maps compiling and testing against it.
 #   - guards fire on mutation: the three ratchets above are shown to fail on a
 #     mutated copy of the tree (scripts/guard-selftest.sh).
 #   - core-only <target>: nightly `-Z build-std=core` builds. These are the
@@ -288,7 +290,7 @@ check_package_list() {
             return 1
         fi
     done
-    if printf '%s\n' "$list" | grep -E '^(AGENTS\.md|CHANGELOG\.md|clippy\.toml|deny\.toml|rust-toolchain\.toml|scripts/|\.github/)'; then
+    if printf '%s\n' "$list" | grep -E '^(AGENTS\.md|CHANGELOG\.md|clippy\.toml|deny\.toml|rust-toolchain\.toml|scripts/|docs/|tests/|\.github/)'; then
         printf 'packaged crate contains non-consumer artifacts.\n' >&2
         return 1
     fi
@@ -338,14 +340,30 @@ check_package_build() {
     printf 'packaged files:\n'
     cat "$actual"
 
-    # 3. Compile a minimal downstream #![no_std] consumer against the
-    #    unpacked artifact, on the host and on a bare-metal target when one is
-    #    installed. This is what a firmware crate would do with the package.
+    # 3. Unpack the artifact and prove its own documentation from the packaged
+    #    files alone: rustdoc with warnings denied, and every doctest,
+    #    including each README Rust code block (README.md ships and is compiled as
+    #    doctests by src/lib.rs). The unpacked crate has no tests/ directory,
+    #    so `cargo test` there is unit tests plus doctests only.
     consumer_root="$SCRATCH/package-consumer"
     rm -rf "$consumer_root"
     mkdir -p "$consumer_root/vendor" "$consumer_root/consumer/src"
     tar xzf "$CRATE_FILE" -C "$consumer_root/vendor" || return 1
 
+    consumer_target_dir="$(pwd)/$consumer_root/target"
+    (
+        cd "$consumer_root/vendor/$CRATE_DIR" || exit 1
+        CARGO_TARGET_DIR="$consumer_target_dir" RUSTDOCFLAGS='-D warnings' \
+            cargo doc --offline --no-deps || exit 1
+        CARGO_TARGET_DIR="$consumer_target_dir" cargo test --offline --doc || exit 1
+    ) || return 1
+
+    # 4. Compile and test a fresh downstream #![no_std] consumer against the
+    #    unpacked artifact. It declares both documented device-neutral example
+    #    maps as statics with a boundary policy, evaluates them, and its host
+    #    tests assert the hand-computed points the README states. It is then
+    #    built for each bare-metal target that is installed. This is what a
+    #    firmware crate would do with the package.
     cat >"$consumer_root/consumer/Cargo.toml" <<EOF
 [package]
 name = "ph-surfaces-consumer"
@@ -358,45 +376,110 @@ ${PACKAGE_NAME} = { path = "../vendor/${CRATE_DIR}" }
 EOF
 
     cat >"$consumer_root/consumer/src/lib.rs" <<'EOF'
-//! Minimal downstream `no_std` consumer of the packaged crate.
+//! Minimal downstream `no_std` consumer of the packaged crate: the two
+//! documented device-neutral example maps, declared and evaluated.
 #![no_std]
 #![forbid(unsafe_code)]
 
 use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy, SurfaceError};
 
-static X: [u16; 3] = [0, 10, 30];
-static Y: [u16; 2] = [0, 100];
-static VALUES: [[i32; 3]; 2] = [[0, 10, 30], [100, 110, 130]];
+static ELEVATION_X: [u16; 5] = [0, 25, 60, 100, 180];
+static ELEVATION_Y: [u16; 4] = [0, 40, 90, 150];
+static ELEVATION_VALUES: [[i32; 5]; 4] = [
+    [-120, -35, 40, 15, -60],
+    [-80, 10, 95, 60, -20],
+    [-15, 55, 130, 88, 5],
+    [-40, 20, 70, 110, 45],
+];
+static ELEVATION: BilinearSurface<5, 4> =
+    BilinearSurface::new(&ELEVATION_X, &ELEVATION_Y, &ELEVATION_VALUES)
+        .with_policy(BoundaryPolicy::new().with_x_above(Boundary::Clamp));
 
-static SURFACE: BilinearSurface<3, 2> = BilinearSurface::new(&X, &Y, &VALUES)
-    .with_policy(BoundaryPolicy::new().with_x_above(Boundary::Clamp));
+static CORRECTION_X: [u16; 4] = [40, 55, 90, 200];
+static CORRECTION_Y: [u16; 5] = [0, 10, 25, 70, 120];
+static CORRECTION_VALUES: [[i32; 4]; 5] = [
+    [125, 80, -15, -140],
+    [90, 41, -33, -170],
+    [30, -7, -61, -205],
+    [-48, -95, -150, -260],
+    [-110, -142, -199, -333],
+];
+static CORRECTION: BilinearSurface<4, 5> =
+    BilinearSurface::new(&CORRECTION_X, &CORRECTION_Y, &CORRECTION_VALUES)
+        .with_policy(BoundaryPolicy::new().with_y_above(Boundary::Clamp));
 
-/// Evaluates the static surface; the caller sees the crate's error type.
-pub fn sample(x: u16, y: u16) -> Result<i32, SurfaceError> {
-    SURFACE.evaluate(x, y)
+/// Evaluates the elevation map; the caller sees the crate's error type.
+pub fn elevation(x: u16, y: u16) -> Result<i32, SurfaceError> {
+    ELEVATION.evaluate(x, y)
+}
+
+/// Evaluates the correction map; the caller sees the crate's error type.
+pub fn correction(x: u16, y: u16) -> Result<i32, SurfaceError> {
+    CORRECTION.evaluate(x, y)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{correction, elevation};
+    use ph_surfaces::SurfaceError;
+
+    #[test]
+    fn elevation_matches_the_documented_points() {
+        assert_eq!(elevation(60, 90), Ok(130));
+        assert_eq!(elevation(10, 20), Ok(-65));
+        assert_eq!(elevation(75, 100), Ok(109));
+        assert_eq!(elevation(140, 60), Ok(31));
+        assert_eq!(elevation(u16::MAX, 0), Ok(-60));
+        assert_eq!(
+            elevation(500, 151),
+            Err(SurfaceError::YAbove { coordinate: 151, bound: 150 })
+        );
+    }
+
+    #[test]
+    fn correction_matches_the_documented_points() {
+        assert_eq!(correction(47, 5), Ok(86));
+        assert_eq!(correction(145, 100), Ok(-242));
+        assert_eq!(correction(60, 40), Ok(-44));
+        assert_eq!(correction(90, u16::MAX), Ok(-199));
+        assert_eq!(
+            correction(39, 500),
+            Err(SurfaceError::XBelow { coordinate: 39, bound: 40 })
+        );
+    }
 }
 EOF
 
-    consumer_target_dir="$(pwd)/$consumer_root/target"
     (
         cd "$consumer_root/consumer" || exit 1
         CARGO_TARGET_DIR="$consumer_target_dir" cargo build --offline || exit 1
+        CARGO_TARGET_DIR="$consumer_target_dir" cargo test --offline || exit 1
         # The consumer's fresh lockfile may name only the two packages: the
         # packaged crate really has no runtime dependency.
         if grep -E '^name = ' Cargo.lock | grep -vE "^name = \"(${PACKAGE_NAME}|ph-surfaces-consumer)\"$"; then
             printf 'the downstream consumer resolved an unexpected package.\n' >&2
             exit 1
         fi
+        missing_target=0
         for target in thumbv7em-none-eabi riscv32imac-unknown-none-elf; do
             if rustup target list --installed 2>/dev/null | grep -qx "$target"; then
                 CARGO_TARGET_DIR="$consumer_target_dir" \
                     cargo build --offline --target "$target" || exit 1
             else
-                printf 'consumer: target %s not installed; host build only for it\n' "$target"
+                printf 'consumer: target %s not installed; package target proof skipped\n' "$target"
+                missing_target=1
             fi
         done
-    ) || return 1
-    return 0
+        if [ "$missing_target" -ne 0 ]; then
+            exit 2
+        fi
+    )
+    consumer_status=$?
+    case "$consumer_status" in
+        0) return 0 ;;
+        2) return 2 ;;
+        *) return 1 ;;
+    esac
 }
 
 check_guard_selftest() {
