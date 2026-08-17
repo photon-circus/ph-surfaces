@@ -1,0 +1,2 @@
+# Keep every text artifact deterministic across developer and CI platforms.
+* text=auto eol=lf

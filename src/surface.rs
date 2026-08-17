@@ -12,8 +12,10 @@ use crate::boundary::BoundaryPolicy;
 ///
 /// The value grid is row-major with Y selecting the row and X selecting the
 /// column, so a value is addressed as `values[y][x]`. Because the grid type is
-/// `&'static [[i32; NX]; NY]`, a transposed grid is a type error rather than a
-/// runtime error, and there is no reachable dimension-mismatch outcome.
+/// `&'static [[i32; NX]; NY]`, a transposed grid is a type error when `NX != NY`,
+/// and there is no reachable dimension-mismatch outcome. For a square grid,
+/// the transposed shape has the same type, so preserving orientation remains
+/// the caller's responsibility.
 ///
 /// # Lookup strategies
 ///

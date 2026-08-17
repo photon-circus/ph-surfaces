@@ -20,8 +20,9 @@ use super::{AxisLookup, sealed};
 ///
 /// # Cost
 ///
-/// No stored bytes, no index, and no knot comparison at all: one subtraction and
-/// one division locate the cell regardless of `N`.
+/// No stored bytes, no index, and no strategy-specific knot comparison after
+/// the endpoint checks: one subtraction and one division locate the cell
+/// regardless of `N`.
 ///
 /// # Examples
 ///
@@ -149,9 +150,25 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> UniformAxis<N, ORIGIN, 
     }
 }
 
-impl<const N: usize, const ORIGIN: u16, const STEP: u16> sealed::Sealed
+impl<const N: usize, const ORIGIN: u16, const STEP: u16> sealed::Sealed<N>
     for UniformAxis<N, ORIGIN, STEP>
 {
+    #[inline(always)]
+    fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
+        debug_assert!(
+            ORIGIN <= coordinate && coordinate <= <Self as AxisLookup<N>>::last(self),
+            "the sealed search is only called on an in-domain coordinate"
+        );
+
+        // The whole location: one subtraction and one division by a constant.
+        // No knot is read and no knot is compared, which is why the reported
+        // comparison count is zero rather than merely small.
+        let index = ((coordinate - ORIGIN) / STEP) as usize;
+
+        debug_assert!(index < N, "a located index must stay inside the axis");
+
+        (index, 0)
+    }
 }
 
 impl<const N: usize, const ORIGIN: u16, const STEP: u16> AxisLookup<N>
@@ -177,22 +194,6 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> AxisLookup<N>
 
         // Bounded above by the last knot, which `new` proved representable.
         ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
-    }
-
-    fn search(&self, coordinate: u16) -> (usize, u32) {
-        debug_assert!(
-            ORIGIN <= coordinate,
-            "search is only called on a coordinate at or above the first knot"
-        );
-
-        // The whole location: one subtraction and one division by a constant.
-        // No knot is read and no knot is compared, which is why the reported
-        // comparison count is zero rather than merely small.
-        let index = ((coordinate - ORIGIN) / STEP) as usize;
-
-        debug_assert!(index < N, "a located index must stay inside the axis");
-
-        (index, 0)
     }
 }
 

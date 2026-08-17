@@ -1042,6 +1042,97 @@ fn nested_buckets_never_increase_the_local_bound_on_the_documented_cluster() {
     assert!(fine <= coarse);
 }
 
+static PUBLIC_SEARCH_KNOTS: [u16; 3] = [10, 20, 30];
+static PUBLIC_SEARCH_BUCKETS: [u16; 2] = bucket_index(&PUBLIC_SEARCH_KNOTS);
+
+macro_rules! public_search_rejects {
+    ($name:ident, $axis:expr, $coordinate:expr) => {
+        #[test]
+        #[should_panic(expected = "search coordinate must be inside the inclusive axis domain")]
+        fn $name() {
+            let _ = $axis.search($coordinate);
+        }
+    };
+}
+
+public_search_rejects!(
+    linear_public_search_rejects_a_coordinate_below_its_domain,
+    LinearAxis::new(&PUBLIC_SEARCH_KNOTS),
+    9
+);
+public_search_rejects!(
+    linear_public_search_rejects_a_coordinate_above_its_domain,
+    LinearAxis::new(&PUBLIC_SEARCH_KNOTS),
+    31
+);
+public_search_rejects!(
+    binary_public_search_rejects_a_coordinate_below_its_domain,
+    BinaryAxis::new(&PUBLIC_SEARCH_KNOTS),
+    9
+);
+public_search_rejects!(
+    binary_public_search_rejects_a_coordinate_above_its_domain,
+    BinaryAxis::new(&PUBLIC_SEARCH_KNOTS),
+    31
+);
+public_search_rejects!(
+    uniform_public_search_rejects_a_coordinate_below_its_domain,
+    UniformAxis::<3, 10, 10>::new(),
+    9
+);
+public_search_rejects!(
+    uniform_public_search_rejects_a_coordinate_above_its_domain,
+    UniformAxis::<3, 10, 10>::new(),
+    31
+);
+public_search_rejects!(
+    bucketed_public_search_rejects_a_coordinate_below_its_domain,
+    BucketedAxis::new(&PUBLIC_SEARCH_KNOTS, &PUBLIC_SEARCH_BUCKETS),
+    9
+);
+public_search_rejects!(
+    bucketed_public_search_rejects_a_coordinate_above_its_domain,
+    BucketedAxis::new(&PUBLIC_SEARCH_KNOTS, &PUBLIC_SEARCH_BUCKETS),
+    31
+);
+
+#[test]
+#[should_panic(expected = "the bucket index does not match its knots")]
+fn max_local_comparisons_rejects_a_descending_public_index() {
+    static KNOTS: [u16; 2] = [0, 10];
+    static DESCENDING: [u16; 2] = [1, 0];
+
+    let _ = max_local_comparisons(&KNOTS, &DESCENDING);
+}
+
+#[test]
+#[should_panic(expected = "the bucket index does not match its knots")]
+fn max_local_comparisons_rejects_an_out_of_range_public_index() {
+    static KNOTS: [u16; 2] = [0, 10];
+    static OUT_OF_RANGE: [u16; 2] = [0, u16::MAX];
+
+    let _ = max_local_comparisons(&KNOTS, &OUT_OF_RANGE);
+}
+
+#[test]
+#[should_panic(expected = "the bucket index does not match its knots")]
+fn max_local_comparisons_rejects_a_stale_public_index() {
+    static KNOTS: [u16; 6] = [0, 1, 2, 3, 400, 1_000];
+    static OTHER_KNOTS: [u16; 6] = [0, 200, 400, 600, 800, 1_000];
+    static STALE: [u16; 4] = bucket_index(&OTHER_KNOTS);
+
+    let _ = max_local_comparisons(&KNOTS, &STALE);
+}
+
+#[test]
+#[should_panic(expected = "a bucket index declares at most 65_536 buckets")]
+fn max_local_comparisons_rejects_too_many_public_buckets() {
+    static KNOTS: [u16; 2] = [0, 10];
+    static TOO_MANY: [u16; 65_537] = [0; 65_537];
+
+    let _ = max_local_comparisons(&KNOTS, &TOO_MANY);
+}
+
 #[test]
 fn locator_mutants_disagree_on_named_conformance_points() {
     let policy = BoundaryPolicy::new();

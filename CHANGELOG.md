@@ -133,9 +133,9 @@
   `SKIP`, not `PASS`, if either target is unavailable. `package list`
   additionally rejects `docs/` and `tests/` from the archive.
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
-  implemented binary baseline, recording #18 and #19 as implemented, #9 as
-  closed, and embedded-focused guidance #22 as the remaining pre-release
-  work. It remains repository material and is not packaged.
+  implemented binary baseline and the remaining #22, #26, and #27 acceptance
+  work. It records #18 and #19 as implemented and #9 as closed. It remains
+  repository material and is not packaged.
 - Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
   (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
   (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),
@@ -210,6 +210,46 @@
   if a target or `llvm-tools-preview` is missing.
 - The `package build` consumer asserts `VALUE_BYTES` / `PAYLOAD_BYTES` /
   `SUCCESS_*` on the default binary surface and one mixed pairing.
+- Repository-specific contribution, conduct, and release procedures, including
+  the fail-closed clean-artifact matrix and never-retarget/yank-and-replace
+  policy; grouped monthly Cargo and GitHub Actions Dependabot configuration.
+
+### Changed
+
+- The canonical gate now includes release-profile tests and accepts a dated
+  `NIGHTLY_TOOLCHAIN` override. `REQUIRE_NO_SKIPS=1` converts every skip to a
+  failure, requires clean package provenance matching `HEAD`, and prints a
+  twice-verified archive SHA-256. `SKIP_EMBEDDED=1` no longer suppresses either
+  core-only proof.
+- Removed Cargo's deprecated `authors` field so a future package does not copy
+  a personal email into registry metadata. Historical Git identities are a
+  separate public-exposure decision.
+- Regenerated the non-normative single-pairing code-size snapshot after the
+  checked public-search refactor. Binary and Uniform are unchanged; the named
+  ARM/RISC-V Linear objects increase by 16/18 bytes and the mixed objects
+  decrease by 30/62 bytes under the pinned recipe. These remain compiler-object
+  `.text` observations, not total flash or a guarantee.
+
+### Fixed
+
+- `max_local_comparisons` now validates the complete supplied bucket index and
+  its dimensions before subtraction, so malformed public input is rejected
+  consistently instead of panicking only in debug and wrapping in release.
+- Public `AxisLookup::search` now rejects out-of-domain coordinates in every
+  build profile. Surface evaluation enters a private sealed in-domain search
+  after its existing boundary checks, preserving exactly two endpoint
+  comparisons plus each strategy's declared probe bound.
+- Added a repository LF policy and a transition-safe code-size snapshot
+  comparison so the documented Git Bash gate is portable across Windows
+  `core.autocrlf` settings.
+- Clean package verification now removes only the exact generated destination
+  archive before rebuilding and checks the archive-list command directly, so
+  stale trailing bytes or a malformed gzip/tar cannot be hidden by a pipeline.
+
+### Documentation
+
+- Corrected the four-bucket coordinate example to `0, 251, 501, 751` and made
+  the square-grid transposition warning explicit.
 
 ### Known issues
 

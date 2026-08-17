@@ -5,7 +5,7 @@
 //! this coordinate* — and answers it identically. They differ only in what they
 //! store and how much work the answer costs:
 //!
-//! | Strategy | Stored per axis | Search work | Choose when |
+//! | Strategy | Stored per axis | Strategy work after endpoint checks | Choose when |
 //! | --- | --- | --- | --- |
 //! | [`LinearAxis`] | `2*N` knot bytes | bounded scan, at most `N - 1` comparisons | tiny axis; minimum auxiliary structure |
 //! | [`BinaryAxis`] | `2*N` knot bytes | exactly `ceil(log2(N))` comparisons | the general default |
@@ -57,7 +57,11 @@ pub use uniform::UniformAxis;
 /// could satisfy the signatures while violating them, so the trait is closed.
 mod sealed {
     /// Implemented only by this crate's four axis strategies.
-    pub trait Sealed {}
+    pub trait Sealed<const N: usize> {
+        /// Locates a coordinate after the shared caller has established that it
+        /// is inside the inclusive axis domain.
+        fn search_in_domain(&self, coordinate: u16) -> (usize, u32);
+    }
 }
 
 /// One axis of `N` knots, together with the strategy that locates a coordinate
@@ -78,7 +82,7 @@ mod sealed {
 ///
 /// Every implementation guarantees that `N >= 2` and that
 /// `knot(0) < knot(1) < .. < knot(N - 1)`, all of them representable in `u16`.
-pub trait AxisLookup<const N: usize>: sealed::Sealed + Copy {
+pub trait AxisLookup<const N: usize>: sealed::Sealed<N> + Copy {
     /// Bytes of stored knots or descriptor this strategy references.
     ///
     /// This is the axis's own static payload. It excludes the value grid, the
@@ -93,13 +97,15 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed + Copy {
     /// that buys a smaller search bound with static data.
     const INDEX_BYTES: usize;
 
-    /// The most knot comparisons one in-domain [`search`](AxisLookup::search)
-    /// can perform.
+    /// The most strategy-specific knot comparisons needed to locate an
+    /// in-domain coordinate, after the inclusive endpoint checks.
     ///
     /// This counts comparisons against stored knots, not machine instructions,
-    /// and it excludes the two endpoint comparisons that
-    /// the crate performs before searching at all. It is a work bound, never a
-    /// cycle count.
+    /// and it excludes the two endpoint comparisons performed before the
+    /// strategy-specific search. The public [`search`](AxisLookup::search)
+    /// wrapper routes through the lookup module that owns those checks; surface
+    /// evaluation reuses the endpoint classification it already needs for
+    /// boundary handling. It is a work bound, never a cycle count.
     const MAX_SEARCH_COMPARISONS: u32;
 
     /// Returns the first knot: the inclusive lower bound of the axis domain.
@@ -120,17 +126,37 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed + Copy {
     /// Returns the greatest index whose knot is at or below `coordinate`,
     /// together with the number of knot comparisons it took.
     ///
-    /// # Preconditions
+    /// The returned count covers only the strategy-specific work and is bounded
+    /// by [`MAX_SEARCH_COMPARISONS`](AxisLookup::MAX_SEARCH_COMPARISONS). It
+    /// exists so tests can tell the strategies apart by their work rather than
+    /// only by their answers. Callers normally discard it and an optimising
+    /// build removes it.
     ///
-    /// `first() <= coordinate <= last()`. The crate's shared locator establishes
-    /// it with its endpoint tests before calling, which is what makes the answer
-    /// set non-empty and the returned index well defined. Implementations check
-    /// it only with `debug_assert!`.
+    /// # Panics
     ///
-    /// The returned count exists so tests can tell the strategies apart by their
-    /// work rather than only by their answers. Callers discard it and an
-    /// optimising build removes it.
-    fn search(&self, coordinate: u16) -> (usize, u32);
+    /// Panics in every build profile unless
+    /// `first() <= coordinate <= last()`. This makes the answer set non-empty
+    /// and the returned index well defined.
+    ///
+    /// # Cost
+    ///
+    /// A direct public call performs one or two endpoint comparisons before the
+    /// strategy-specific work (two for an in-domain coordinate). The surface
+    /// evaluator does not duplicate those comparisons: its private locator
+    /// performs the same endpoint checks for boundary handling, then enters the
+    /// sealed in-domain search directly.
+    fn search(&self, coordinate: u16) -> (usize, u32) {
+        crate::lookup::search(self, coordinate)
+    }
+}
+
+/// Enters a strategy after the shared locator has checked both domain endpoints.
+#[inline(always)]
+pub(crate) fn search_in_domain<const N: usize, A: AxisLookup<N>>(
+    axis: &A,
+    coordinate: u16,
+) -> (usize, u32) {
+    <A as sealed::Sealed<N>>::search_in_domain(axis, coordinate)
 }
 
 /// An axis whose knots are stored as one static array.
