@@ -171,7 +171,10 @@ fi
 if make_copy release-provenance; then
     # make_copy intentionally copies tracked files but not .git. A release
     # package must refuse to proceed when it cannot identify an exact commit.
-    expect_fail release-provenance 'package list' REQUIRE_NO_SKIPS=1
+    # Stop Git discovery at the self-test root so the copy cannot inherit this
+    # repository's .git directory from its parent path.
+    expect_fail release-provenance 'package list' \
+        REQUIRE_NO_SKIPS=1 GIT_CEILING_DIRECTORIES="$root"
 else
     failed=$((failed + 1))
 fi

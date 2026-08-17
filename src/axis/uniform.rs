@@ -153,6 +153,7 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> UniformAxis<N, ORIGIN, 
 impl<const N: usize, const ORIGIN: u16, const STEP: u16> sealed::Sealed<N>
     for UniformAxis<N, ORIGIN, STEP>
 {
+    #[inline(always)]
     fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
         debug_assert!(
             ORIGIN <= coordinate && coordinate <= <Self as AxisLookup<N>>::last(self),

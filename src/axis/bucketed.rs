@@ -321,6 +321,7 @@ impl<const N: usize, const B: usize> BucketedAxis<N, B> {
 }
 
 impl<const N: usize, const B: usize> sealed::Sealed<N> for BucketedAxis<N, B> {
+    #[inline(always)]
     fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
         let first = self.knots[0];
         let last = self.knots[N - 1];

@@ -76,6 +76,7 @@ impl<const N: usize> LinearAxis<N> {
 }
 
 impl<const N: usize> sealed::Sealed<N> for LinearAxis<N> {
+    #[inline(always)]
     fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
         debug_assert!(
             self.knots[0] <= coordinate && coordinate <= self.knots[N - 1],

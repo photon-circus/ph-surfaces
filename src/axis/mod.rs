@@ -156,6 +156,7 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed<N> + Copy {
 }
 
 /// Enters a strategy after the shared locator has checked both domain endpoints.
+#[inline(always)]
 pub(crate) fn search_in_domain<const N: usize, A: AxisLookup<N>>(
     axis: &A,
     coordinate: u16,

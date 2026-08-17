@@ -224,6 +224,11 @@
 - Removed Cargo's deprecated `authors` field so a future package does not copy
   a personal email into registry metadata. Historical Git identities are a
   separate public-exposure decision.
+- Regenerated the non-normative single-pairing code-size snapshot after the
+  checked public-search refactor. Binary and Uniform are unchanged; the named
+  ARM/RISC-V Linear objects increase by 16/18 bytes and the mixed objects
+  decrease by 30/62 bytes under the pinned recipe. These remain compiler-object
+  `.text` observations, not total flash or a guarantee.
 
 ### Fixed
 
