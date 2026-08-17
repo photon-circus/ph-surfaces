@@ -457,6 +457,10 @@ check_package_build() {
     # 1. Build the .crate. cargo's own verify step unpacks it and builds it,
     #    so a source file missing from `include` fails here.
     check_clean_release_tree || return 1
+    # Cargo reuses this fixed destination. Remove only the exact generated
+    # archive first so a shorter rebuild cannot retain trailing bytes from an
+    # older artifact on platforms with non-atomic replacement behavior.
+    rm -f "$CRATE_FILE" || return 1
     run_cargo_package || return 1
     if [ ! -f "$CRATE_FILE" ]; then
         printf 'expected %s to exist after cargo package.\n' "$CRATE_FILE" >&2
@@ -469,9 +473,14 @@ check_package_build() {
     # 2. Inspect the archive itself, not `--list`: the file set must match
     #    exactly. A stray file is as much a failure as a missing one.
     mkdir -p "$SCRATCH"
+    archive_list="$SCRATCH/package-files.raw.txt"
     actual="$SCRATCH/package-files.txt"
     expected="$SCRATCH/package-files.expected.txt"
-    tar tzf "$CRATE_FILE" | sed "s|^${CRATE_DIR}/||" | grep -v '/$' | sort >"$actual" || return 1
+    if ! tar tzf "$CRATE_FILE" >"$archive_list"; then
+        printf 'packaged archive is not a valid gzip-compressed tar file.\n' >&2
+        return 1
+    fi
+    sed "s|^${CRATE_DIR}/||" "$archive_list" | grep -v '/$' | sort >"$actual" || return 1
     expected_package_files | sort >"$expected"
     if ! diff -u "$expected" "$actual"; then
         printf 'packaged file set differs from the expected list (- expected, + actual).\n' >&2

@@ -242,6 +242,9 @@
 - Added a repository LF policy and a transition-safe code-size snapshot
   comparison so the documented Git Bash gate is portable across Windows
   `core.autocrlf` settings.
+- Clean package verification now removes only the exact generated destination
+  archive before rebuilding and checks the archive-list command directly, so
+  stale trailing bytes or a malformed gzip/tar cannot be hidden by a pipeline.
 
 ### Documentation
 
