@@ -3,7 +3,7 @@
 //! All tables are `static` so the surfaces are the same `&'static` handles a
 //! firmware consumer would define; nothing here is built at test time.
 
-use ph_surfaces::{BilinearSurface, BoundaryPolicy};
+use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy};
 
 // ---------------------------------------------------------------------------
 // The locked order fixture from issue #6.
@@ -228,3 +228,47 @@ pub static CORRECTION_VALUES: [[i32; 4]; 5] = [
 ];
 pub static CORRECTION: BilinearSurface<4, 5> =
     BilinearSurface::new(&CORRECTION_X, &CORRECTION_Y, &CORRECTION_VALUES);
+
+// ---------------------------------------------------------------------------
+// Firmware teaching fixtures from issue #22. Same tables as the Cargo
+// examples and the README quickstart / walkthrough. Invented and
+// device-neutral; they make no sensor, vendor, or accuracy claim.
+// ---------------------------------------------------------------------------
+
+// Walkthrough / firmware_quickstart: (125, 20) → 50.
+pub static WALKTHROUGH_X: [u16; 2] = [100, 200];
+pub static WALKTHROUGH_Y: [u16; 2] = [10, 30];
+pub static WALKTHROUGH_VALUES: [[i32; 2]; 2] = [[0, 100], [40, 180]];
+pub static WALKTHROUGH: BilinearSurface<2, 2> =
+    BilinearSurface::new(&WALKTHROUGH_X, &WALKTHROUGH_Y, &WALKTHROUGH_VALUES);
+
+pub static FAIL_SAFE: BilinearSurface<2, 2> =
+    BilinearSurface::new(&WALKTHROUGH_X, &WALKTHROUGH_Y, &WALKTHROUGH_VALUES).with_policy(
+        BoundaryPolicy::new()
+            .with_x_below(Boundary::Error)
+            .with_x_above(Boundary::Clamp)
+            .with_y_below(Boundary::Error)
+            .with_y_above(Boundary::Clamp),
+    );
+
+// Uniform/Uniform operating-code compensation from the Cargo example.
+pub static UNIFORM_COMP_X: [u16; 3] = [0, 100, 200];
+pub static UNIFORM_COMP_Y: [u16; 3] = [0, 50, 100];
+pub static UNIFORM_COMP_VALUES: [[i32; 3]; 3] = [[0, 20, 40], [10, 30, 50], [20, 40, 60]];
+pub static UNIFORM_COMP: BilinearSurface<3, 3> =
+    BilinearSurface::new(&UNIFORM_COMP_X, &UNIFORM_COMP_Y, &UNIFORM_COMP_VALUES);
+
+// Irregular X / even Y used by the mixed Bucketed×Uniform examples.
+pub static MIXED_CAL_X: [u16; 17] = [
+    0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205, 1_300, 1_410, 1_500, 1_600,
+];
+pub static MIXED_CAL_Y: [u16; 9] = [0, 200, 400, 600, 800, 1_000, 1_200, 1_400, 1_600];
+pub static MIXED_CAL_VALUES: [[i32; 17]; 9] = [[0; 17]; 9];
+pub static MIXED_CAL: BilinearSurface<17, 9> =
+    BilinearSurface::new(&MIXED_CAL_X, &MIXED_CAL_Y, &MIXED_CAL_VALUES);
+
+// Tiny 3×2 Linear/Linear cost fixture.
+pub static TINY_X: [u16; 3] = [0, 10, 20];
+pub static TINY_Y: [u16; 2] = [0, 100];
+pub static TINY_VALUES: [[i32; 3]; 2] = [[0, 1, 2], [10, 11, 12]];
+pub static TINY: BilinearSurface<3, 2> = BilinearSurface::new(&TINY_X, &TINY_Y, &TINY_VALUES);

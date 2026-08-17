@@ -16,6 +16,7 @@ publish = false
 # it is added here on purpose. Agent notes, CI, and deny config must not ship.
 include = [
     "src/**/*.rs",
+    "examples/**/*.rs",
     "Cargo.toml",
     "LICENSE",
     "/README.md",
