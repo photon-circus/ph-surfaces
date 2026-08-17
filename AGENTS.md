@@ -147,3 +147,28 @@ or failed hosted run as a local-CI failure.
 ```sh
 ./scripts/ci.sh
 ```
+
+## Cursor Cloud specific instructions
+
+This crate has no runtime services; "running the app" means the compile/test/lint
+matrix. `./scripts/ci.sh` is the authoritative end-to-end check and is what to run
+to prove the environment works.
+
+The startup update script provisions everything the full matrix needs beyond the
+pinned toolchain: the `nightly` toolchain with `rust-src` (for the
+`-Z build-std=core` proof), the `thumbv7em-none-eabi` and
+`riscv32imac-unknown-none-elf` targets, and `cargo-deny`. The pinned `1.92.0`
+toolchain (with `rustfmt`, `clippy`, `rust-src`) auto-installs from
+`rust-toolchain.toml` on the first cargo/rustup command run inside the repo.
+
+Non-obvious gotchas:
+- The `github metadata` check reports `SKIP` here (and will keep skipping): it
+  needs a public repo plus a token that can read topics/custom properties, which
+  the cloud VM does not have. Per this repo's own rules, `SKIP` is expected and is
+  not a failure — do not try to "fix" it.
+- `SKIP_EMBEDDED=1 ./scripts/ci.sh` only skips the two embedded-target `cargo
+  check` steps (`thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`). It does
+  **not** skip the nightly core-only `-Z build-std=core` proof, which still builds
+  for `thumbv7em-none-eabi` whenever the `nightly` toolchain and `rust-src` are
+  installed (as this environment provides); set it only expecting a partial skip,
+  not a fully host-only run. `FAIL_FAST=1` stops at the first failure.
