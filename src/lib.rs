@@ -39,8 +39,49 @@
 //!
 //! # Runtime guarantees
 //!
-//! `#![no_std]` is unconditional. It is not relaxed by any feature. The
-//! implementation is core-only: no allocator, no `std`, and no `unsafe`.
+//! `#![no_std]` is unconditional. It is not relaxed by any feature; the crate
+//! declares none. The implementation is core-only: no allocator, no `std`, and
+//! no `unsafe`. The package has no runtime, development, or build dependency,
+//! and in particular no dependency of any kind on `ph-curves`.
+//!
+//! Those are mechanically checked by the repository's local gate rather than
+//! merely asserted: the runtime is built with a nightly `-Z build-std=core`
+//! core-only sysroot on ARM (`thumbv7em-none-eabi`) and RISC-V
+//! (`riscv32imac-unknown-none-elf`), so an allocator reference cannot link,
+//! and the packaged artifact is compiled by a downstream `#![no_std]` consumer.
+//!
+//! # Resource accounting
+//!
+//! A [`BilinearSurface<NX, NY>`](BilinearSurface) references three static
+//! tables whose element payload is exactly
+//!
+//! ```text
+//! 2*NX + 2*NY + 4*NX*NY bytes
+//! ```
+//!
+//! (`NX` X knots of `u16`, `NY` Y knots of `u16`, and `NX*NY` values of
+//! `i32`). That figure is exact and target-independent, and it is **only** the
+//! referenced element payload. It is not total RAM, flash, binary, or linker
+//! cost: alignment, section placement, code, and stack are outside it.
+//!
+//! The handle itself is separate and target-dependent: three thin references
+//! (one pointer width each), four one-byte boundary selections, and whatever
+//! padding the target's alignment requires. It does not grow with `NX` or
+//! `NY`.
+//!
+//! # Evaluation cost
+//!
+//! [`BilinearSurface::evaluate`] performs, in the worst case, two axis
+//! searches and three scalar interpolations. Each in-domain axis search is two
+//! endpoint comparisons plus exactly `ceil(log2(len))` probes of that axis; a
+//! clamped coordinate costs one or two comparisons and no probes; a rejected
+//! coordinate returns before any interpolation, and a rejected X also skips
+//! the Y search. Exactly four value-grid elements are read on success. The
+//! grid is never scanned.
+//!
+//! That is a statement of operation structure, derived from the
+//! implementation and asserted by its tests. It is not a cycle count or a
+//! WCET figure: no timing has been measured, and none is claimed.
 //!
 //! # Scope
 //!

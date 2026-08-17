@@ -6,6 +6,13 @@
 # `workflow_dispatch` is kept so the subset job can be turned on by hand
 # after the repo is public, or to confirm the gap. A failed manual run is
 # not a local-CI failure.
+#
+# This is a bounded subset of the local gate: least privilege, a job timeout,
+# cancellation of superseded runs, SHA-pinned actions, and one job as the
+# single aggregate status. It runs the host checks, the package build and
+# downstream consumer, the guard self-test, and the two pinned-toolchain
+# embedded builds. It still SKIPs (never passes) `deny`, the nightly
+# `-Z build-std=core` core-only proofs, and the GitHub metadata check.
 name: CI
 
 on:
@@ -25,11 +32,13 @@ jobs:
   ci:
     name: scripts/ci.sh (hosted subset)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
           toolchain: "1.92.0"
           components: rustfmt, clippy
+          targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf
       - name: Run canonical CI script
         run: ./scripts/ci.sh
