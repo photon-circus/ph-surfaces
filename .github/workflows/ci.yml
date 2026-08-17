@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
-          toolchain: "1.92.0"
+          toolchain: "1.94.0"
           components: rustfmt, clippy
           targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf
       - name: Run canonical CI script

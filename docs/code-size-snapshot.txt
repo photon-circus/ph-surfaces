@@ -1,5 +1,5 @@
 # ph-surfaces code-size snapshot (non-normative)
-# Toolchain: rustc 1.92.0 (ded5c06cf 2025-12-08)
+# Toolchain: rustc 1.94.0 (4a4ef493e 2026-03-02)
 # Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false
 # Tool: llvm-nm --demangle --print-size (single-pairing compiler object .text total)
 # Pairings:
@@ -11,13 +11,13 @@
 # This is not a guarantee, not total flash, and not WCET.
 
 thumbv7em-none-eabi
-ph_eval_binary 000003b4
-ph_eval_linear 00000344
-ph_eval_mixed 000003bc
-ph_eval_uniform 000001e0
+ph_eval_binary 00000326
+ph_eval_linear 000002a0
+ph_eval_mixed 0000036a
+ph_eval_uniform 000001ac
 
 riscv32imac-unknown-none-elf
-ph_eval_binary 000004a0
-ph_eval_linear 000003aa
-ph_eval_mixed 00000474
-ph_eval_uniform 0000020a
+ph_eval_binary 000003ce
+ph_eval_linear 00000308
+ph_eval_mixed 0000040c
+ph_eval_uniform 000001dc

@@ -3,7 +3,7 @@
 Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 
 [![Lifecycle: Incubating](https://img.shields.io/badge/lifecycle-incubating-orange.svg)](https://github.com/photon-circus/.github/blob/main/REPOSITORY_STANDARDS.md#31-lifecycle-values)
-[![MSRV](https://img.shields.io/badge/MSRV-1.92.0-blue.svg)](Cargo.toml)
+[![MSRV](https://img.shields.io/badge/MSRV-1.94.0-blue.svg)](Cargo.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > **Lifecycle:** Incubating — the responsibility is bounded and intended to
@@ -457,7 +457,7 @@ v0.1 explicitly does not include:
 - Unconditional `#![no_std]`; core-only runtime; `unsafe` is forbidden
 - No `[dependencies]`, `[dev-dependencies]`, or `[build-dependencies]`, and
   none of those tables may name `ph-curves` later either
-- MSRV and toolchain pin: Rust 1.92.0, edition 2024
+- MSRV and toolchain pin: Rust 1.94.0, edition 2024
 - Version `0.1.0-incubating.1` with `publish = false` until a separate release
   decision
 
@@ -590,7 +590,7 @@ WCET. The committed snapshot is
 ./scripts/measure-code-size.sh
 ```
 
-- Toolchain: pinned 1.92.0 from `rust-toolchain.toml`, not nightly
+- Toolchain: pinned 1.94.0 from `rust-toolchain.toml`, not nightly
 - Targets: `thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`
 - Profile: `opt-level = "s"`, `lto = false`, `codegen-units = 1`,
   `panic = "abort"`, `debug = false`

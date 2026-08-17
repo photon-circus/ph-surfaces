@@ -1,7 +1,7 @@
 # Clippy configuration for ph-surfaces.
 # Lint levels are defined in src/lib.rs; this file only stores values.
 
-msrv = "1.92.0"
+msrv = "1.94.0"
 
 too-many-lines-threshold = 150
 too-many-arguments-threshold = 10

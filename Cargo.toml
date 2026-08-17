@@ -2,7 +2,7 @@
 name = "ph-surfaces"
 version = "0.1.0-incubating.1"
 edition = "2024"
-rust-version = "1.92.0"
+rust-version = "1.94.0"
 description = "Deterministic no-std, no-alloc integer surface mappings for embedded Rust"
 authors = ["Steven Giacomelli <steve@giacomelli.ca>"]
 license = "MIT"
