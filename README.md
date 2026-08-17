@@ -26,12 +26,8 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > deterministic X-then-Y bilinear interpolation, four independent Error/Clamp
 > boundary sides, no allocation, and no floating point at runtime.
 
-`BilinearSurface::evaluate` implements that mapping today. The order is part of
-the contract: X is resolved before Y, so the X-side error wins when both
-coordinates leave the domain, and the value is composed by interpolating along X
-on each of the two Y rows and then interpolating those two already-rounded
-results along Y. Because every step rounds to nearest with exact half-way values
-away from zero, a Y-then-X composition would return different values.
+`BilinearSurface::evaluate` implements that mapping. A minimal static surface
+is three `static` tables and one `static` handle:
 
 ```rust
 use ph_surfaces::BilinearSurface;
@@ -48,6 +44,249 @@ fn main() {
 }
 ```
 
+Every code block in this README is compiled and run as a doctest of the
+packaged crate, so the README cannot drift from the API it describes.
+
+## Independence from `ph-curves`
+
+**This crate has no dependency on `ph-curves` in any form** — not direct,
+transitive, optional, feature-gated, target-specific, development, build,
+path, or Git. Its `[dependencies]`, `[dev-dependencies]`, and
+`[build-dependencies]` tables are empty. The scalar arithmetic it needs (one
+signed segment interpolation with one rounding rule) is a private helper in
+`src/interp.rs`, specified in this repository and verified locally against an
+independent integer reference. That is a v0.1 decision, not an accident: shared
+arithmetic can be reconsidered only after shipped duplication provides evidence
+for a neutral common crate, in a separate post-v0.1 proposal.
+
+The gate proves the absence rather than asserting it. `scripts/ci.sh` rejects
+the name in the manifest text (every dependency kind, `[patch]`, `[replace]`),
+in `Cargo.lock`, and in `cargo metadata --all-features`; `deny.toml` bans it as
+a fourth layer; the downstream consumer's fresh lockfile may name only two
+packages; and `scripts/guard-selftest.sh` shows the guard fires when a
+`ph-curves` dependency is injected into a copy of the tree.
+
+## Contract
+
+This section is the consumer-facing statement of the frozen v0.1 contract.
+Each item is implemented, tested by the black-box suite in
+`tests/conformance/`, and mapped to its evidence in
+[`docs/v0.1-traceability.md`](docs/v0.1-traceability.md).
+
+### Representation
+
+- The public concrete type is `BilinearSurface<const NX: usize, const NY: usize>`.
+- It references `&'static [u16; NX]` (X knots), `&'static [u16; NY]` (Y
+  knots), and a row-major `&'static [[i32; NX]; NY]` value grid. Y selects the
+  row and X selects the column: a value is addressed as **`values[y][x]`**.
+- Because the grid type is `[[i32; NX]; NY]`, a transposed grid is a
+  **compile-time type error**, not a runtime error. There is no reachable
+  dimension-mismatch outcome.
+- `BilinearSurface::new` is a `const fn`. It asserts at least two knots on each
+  axis and strict increase of both axes. In a `static` or `const` definition
+  those assertions run at compile time, so an invalid definition **fails to
+  compile**. The rustdoc on `BilinearSurface::new` carries `compile_fail`
+  doctests for each rejected shape.
+- The handle stores no units, provenance, achieved-error claim, host report, or
+  other generated metadata: three references and four one-byte boundary
+  selections.
+
+### Boundary policies and errors
+
+- `Boundary` is the whole v0.1 vocabulary: `Error` or `Clamp`.
+- `BoundaryPolicy` names four independent sides — X-below, X-above, Y-below,
+  Y-above — and **every side defaults to `Error`**. `BoundaryPolicy::new()`
+  with `with_x_below` / `with_x_above` / `with_y_below` / `with_y_above` is
+  const-usable, so a policy is part of a `static` definition.
+- `SurfaceError` has exactly four variants — `XBelow`, `XAbove`, `YBelow`,
+  `YAbove` — each carrying the `coordinate` as supplied and the applicable
+  `bound` (the first knot for below, the last knot for above). It implements
+  `Display` and `core::error::Error` and is deliberately not
+  `#[non_exhaustive]`.
+- `Clamp` substitutes the nearest declared endpoint coordinate and evaluates
+  the boundary row or column. **Extrapolation is never performed** under either
+  selection: a clamped result is a value inside the hull of the stored values.
+
+### Precedence: X before Y
+
+Coordinates are resolved X first, then Y. When both axes are outside `Error`
+sides, the **X error wins**. If X clamps, Y is still evaluated under its own
+two selections, so a clamped X can be followed by a Y error.
+
+```rust
+use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy, SurfaceError};
+
+static X: [u16; 2] = [0, 10];
+static Y: [u16; 2] = [0, 10];
+static VALUES: [[i32; 2]; 2] = [[0, 100], [200, 300]];
+
+static STRICT: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES);
+static CLAMP_X_ABOVE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES)
+    .with_policy(BoundaryPolicy::new().with_x_above(Boundary::Clamp));
+
+fn main() {
+    // Both out of domain on Error sides: the X-side error is the one reported.
+    assert_eq!(
+        STRICT.evaluate(11, 11),
+        Err(SurfaceError::XAbove { coordinate: 11, bound: 10 })
+    );
+    // X clamps to 10 and evaluates the boundary column; nothing is extrapolated.
+    assert_eq!(CLAMP_X_ABOVE.evaluate(4_000, 0), Ok(100));
+    // X clamped, but Y is still resolved under its own (Error) side.
+    assert_eq!(
+        CLAMP_X_ABOVE.evaluate(4_000, 11),
+        Err(SurfaceError::YAbove { coordinate: 11, bound: 10 })
+    );
+}
+```
+
+### Scalar rounding
+
+Each scalar segment computes the exact signed rational
+`(y0 * (span - offset) + y1 * offset) / span` in `i64` arithmetic, where
+`span = t1 - t0` and `offset = t - t0`. The division **rounds to nearest, and an
+exact half-way value rounds away from zero**. There is one rounding helper in
+the crate and every interpolated value goes through it.
+
+```rust
+use ph_surfaces::BilinearSurface;
+
+static AXIS: [u16; 2] = [0, 2];
+static VALUES: [[i32; 2]; 2] = [[0, 1], [0, -1]];
+static TIES: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
+
+fn main() {
+    assert_eq!(TIES.evaluate(1, 0), Ok(1)); // +0.5 rounds away from zero to 1
+    assert_eq!(TIES.evaluate(1, 2), Ok(-1)); // -0.5 rounds away from zero to -1
+}
+```
+
+### Normative X-then-Y bilinear order
+
+Bilinear evaluation always interpolates along X on the lower-Y row, along X on
+the upper-Y row, and then interpolates those two **already-rounded** values
+along Y. Because every step rounds, X-then-Y and Y-then-X are observably
+different functions; the crate fixes X-then-Y and makes it part of the
+contract. The locked fixture:
+
+```rust
+use ph_surfaces::BilinearSurface;
+
+static AXIS: [u16; 2] = [0, 2];
+static VALUES: [[i32; 2]; 2] = [[0, 0], [1, 3]];
+static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
+
+fn main() {
+    // X on the lower row: 0. X on the upper row: (1 + 3) / 2 = 2.
+    // Y between them: (0 + 2) / 2 = 1. Y-then-X would return 2.
+    assert_eq!(SURFACE.evaluate(1, 1), Ok(1));
+}
+```
+
+### No arithmetic-overflow variant
+
+The public v0.1 error surface has no overflow variant because none is
+reachable for any surface this crate can define. Both segment weights,
+`span - offset` and `offset`, are nonnegative and sum to `span ≤ 65_535`, so
+the `i64` numerator `y0 * (span - offset) + y1 * offset` has magnitude at most
+`2^31 * 65_535 < 2^47`, far inside `i64`. The rounded quotient lies in the
+closed hull of `y0` and `y1`, so each scalar result fits `i32`. The Y step then
+receives two `i32` values from the hull of the four corner values and returns
+one from the same hull. This holds for the full `u16` axis range, including
+knots at `0` and `65_535`, and for grids containing `i32::MIN` and `i32::MAX`;
+the conformance suite asserts it on those extremes against an `i128`
+reference.
+
+### Stateless
+
+Evaluation is a pure function of the handle and the two coordinates. The
+primitive has no reset, warm-up, cache, clock, I/O, persistence, hardware, or
+lifecycle semantics. The same handle and the same coordinates always produce
+the same result, and evaluating never mutates or allocates anything.
+
+## Examples
+
+Two unrelated, device-neutral example maps. **They demonstrate generic
+mechanics only** — nonuniform axes, mixed-sign values, a boundary policy, and
+the rounding rule on hand-computable points. They are invented tables and make
+no claim about any device, vendor, sensor, calibration, or measurement
+accuracy. The same tables are the `ELEVATION` and `CORRECTION` fixtures in
+`tests/conformance/`, where every one of their declared points is checked
+against the independent reference, and they are the two surfaces the packaged
+downstream `no_std` consumer declares and evaluates.
+
+A mixed-sign elevation map over unevenly spaced plan-view positions, holding
+the last column past the far X edge:
+
+```rust
+use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy, SurfaceError};
+
+static ELEVATION_X: [u16; 5] = [0, 25, 60, 100, 180];
+static ELEVATION_Y: [u16; 4] = [0, 40, 90, 150];
+static ELEVATION_VALUES: [[i32; 5]; 4] = [
+    [-120, -35, 40, 15, -60],
+    [-80, 10, 95, 60, -20],
+    [-15, 55, 130, 88, 5],
+    [-40, 20, 70, 110, 45],
+];
+static ELEVATION: BilinearSurface<5, 4> =
+    BilinearSurface::new(&ELEVATION_X, &ELEVATION_Y, &ELEVATION_VALUES)
+        .with_policy(BoundaryPolicy::new().with_x_above(Boundary::Clamp));
+
+fn main() {
+    // A declared knot returns its stored height exactly.
+    assert_eq!(ELEVATION.evaluate(60, 90), Ok(130));
+    // (10, 20): rows give -86 and -44; midway along Y: -65.
+    assert_eq!(ELEVATION.evaluate(10, 20), Ok(-65));
+    // (75, 100): rows give 114.25 -> 114 and 85; then 114 - 29 * 10 / 60 -> 109.
+    assert_eq!(ELEVATION.evaluate(75, 100), Ok(109));
+    // (140, 60): rows give 20 and 46.5 -> 47; then 20 + 27 * 20 / 50 -> 31.
+    assert_eq!(ELEVATION.evaluate(140, 60), Ok(31));
+    // Past the far X edge the last column is held; Y still errors on its side.
+    assert_eq!(ELEVATION.evaluate(u16::MAX, 0), Ok(-60));
+    assert_eq!(
+        ELEVATION.evaluate(500, 151),
+        Err(SurfaceError::YAbove { coordinate: 151, bound: 150 })
+    );
+}
+```
+
+An asymmetric process-correction map — X a setpoint code, Y a load code,
+values a signed correction in milli-units — holding the last load row above
+its range:
+
+```rust
+use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy, SurfaceError};
+
+static CORRECTION_X: [u16; 4] = [40, 55, 90, 200];
+static CORRECTION_Y: [u16; 5] = [0, 10, 25, 70, 120];
+static CORRECTION_VALUES: [[i32; 4]; 5] = [
+    [125, 80, -15, -140],
+    [90, 41, -33, -170],
+    [30, -7, -61, -205],
+    [-48, -95, -150, -260],
+    [-110, -142, -199, -333],
+];
+static CORRECTION: BilinearSurface<4, 5> =
+    BilinearSurface::new(&CORRECTION_X, &CORRECTION_Y, &CORRECTION_VALUES)
+        .with_policy(BoundaryPolicy::new().with_y_above(Boundary::Clamp));
+
+fn main() {
+    // (47, 5): rows give 104 and 67; (104 + 67) / 2 = 85.5, an exact tie -> 86.
+    assert_eq!(CORRECTION.evaluate(47, 5), Ok(86));
+    // (145, 100): rows give -205 and -266; then -205 - 61 * 30 / 50 -> -242.
+    assert_eq!(CORRECTION.evaluate(145, 100), Ok(-242));
+    // (60, 40): rows give -15 and -103; then -15 - 88 * 15 / 45 -> -44.
+    assert_eq!(CORRECTION.evaluate(60, 40), Ok(-44));
+    // Loads above the table hold the last row; setpoints outside are rejected.
+    assert_eq!(CORRECTION.evaluate(90, u16::MAX), Ok(-199));
+    assert_eq!(
+        CORRECTION.evaluate(39, 500),
+        Err(SurfaceError::XBelow { coordinate: 39, bound: 40 })
+    );
+}
+```
+
 ## What it is for
 
 Firmware that needs a device-neutral, allocation-free mapping from two `u16`
@@ -56,16 +295,16 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 
 ## What state it is in
 
-Incubating and unpublished. The package, license, lockfile, dependency policy,
-and canonical CI exist. The public `BilinearSurface<NX, NY>` representation, the
-`Boundary` / `BoundaryPolicy` policy vocabulary, `SurfaceError`, the private
-scalar interpolation helper, the private binary axis lookup with four-sided
-boundary handling, and the public `BilinearSurface::evaluate` all exist, and
-the black-box conformance suite in `tests/conformance/` checks the public
-contract against an independent integer reference. The mechanical dependency,
-`no_std`, no-allocation, storage, work-bound, packaging, and target proofs exist
-as the local gate described under [How it is verified](#how-it-is-verified).
-Still outstanding for v0.1: the documentation and package-readiness gate.
+Incubating and unpublished. The v0.1 scope is complete: the public
+`BilinearSurface<NX, NY>` representation, the `Boundary` / `BoundaryPolicy`
+policy vocabulary, `SurfaceError`, the private scalar interpolation helper, the
+private binary axis lookup with four-sided boundary handling, and the public
+`BilinearSurface::evaluate`; the black-box conformance suite in
+`tests/conformance/`; the mechanical dependency, `no_std`, no-allocation,
+storage, work-bound, packaging, and target proofs; and this documentation with
+its [traceability checklist](docs/v0.1-traceability.md). Publishing the crate,
+creating a release or tag, and declaring a stable 1.0 API remain separate
+maintainer decisions; `publish = false` stays until then.
 
 ## Responsibility
 
@@ -79,15 +318,16 @@ It does not own hardware access, sensor configuration, sampling, clocks,
 persistence, calibration discovery, fault or application policy, device
 lifecycle, vendor catalogs, or total measurement accuracy.
 
-v0.1 also does not include:
+v0.1 explicitly does not include:
 
 - A dependency on `ph-curves` or extraction of a shared arithmetic crate
 - Inverse lookup or solving for either axis
-- Arbitrary N-dimensional tensors, signed or wider axes, or generic outputs
+- Arbitrary N-dimensional tensors, signed or wider axes, or generic output
+  types
 - Scattered points, triangulation, irregular meshes, bicubic interpolation,
   extrapolation, or adaptive fitting
-- Dynamic grids, runtime mutation, caching, allocation, unsafe code, or
-  floating point
+- Dynamic or runtime-loaded grids, runtime mutation, caching, allocation,
+  unsafe code, or floating point
 - Runtime semantic metadata, units, provenance, or generated error reports
 - Host generation, CLI tooling, formula ingestion, or numerical fitting
 - Device-specific equations, source catalogs, filtering, fusion, scheduling,
@@ -96,8 +336,8 @@ v0.1 also does not include:
 ## Constraints
 
 - Unconditional `#![no_std]`; core-only runtime; `unsafe` is forbidden
-- No `[dependencies]`, `[dev-dependencies]`, or `[build-dependencies]` on this
-  scaffold, and none of those tables may name `ph-curves` later either
+- No `[dependencies]`, `[dev-dependencies]`, or `[build-dependencies]`, and
+  none of those tables may name `ph-curves` later either
 - MSRV and toolchain pin: Rust 1.92.0, edition 2024
 - Version `0.1.0-incubating.1` with `publish = false` until a separate release
   decision
@@ -113,7 +353,9 @@ code, and stack are outside it. The handle is separate and target-dependent:
 three thin references (one pointer width each), four one-byte boundary
 selections, and any padding the target's alignment requires. It does not grow
 with `NX` or `NY`. Host tests assert both figures without assuming a pointer
-width or a field layout beyond Rust's guarantees.
+width or a field layout beyond Rust's guarantees. Code size, flash placement,
+and stack depth are properties of the consuming build and its linker; this
+crate states none of them.
 
 **Work.** A worst-case `evaluate` is two axis searches and three scalar
 interpolations. Each in-domain axis search is two endpoint comparisons plus
@@ -124,6 +366,12 @@ elements are read on success, and the grid is never scanned. That is operation
 structure derived from the implementation and asserted by its tests. It is not
 a cycle count or a WCET figure: no timing has been measured and none is
 claimed.
+
+**Verification targets.** The claims above are verified on the host and on two
+representative bare-metal targets, `thumbv7em-none-eabi` (ARM Cortex-M4/M7)
+and `riscv32imac-unknown-none-elf`, including a nightly core-only sysroot build
+on both. Every other Rust target, and Xtensa in particular, is unproven and
+unclaimed.
 
 ## Repository classification
 
@@ -147,8 +395,9 @@ The canonical entry point is local:
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
 not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 
-- formatting, host tests and doctests, clippy with warnings denied, and rustdoc
-  with warnings denied;
+- formatting, host tests and doctests (including every code block in this
+  README), clippy with warnings denied, and rustdoc with warnings denied and
+  `missing_docs` denied on every public item;
 - unconditional `#![no_std]`: no `[features]` table, no `cfg_attr` on the
   attribute, and no feature-gated code anywhere in `src/`;
 - an integer-only, core-only, `unsafe`-free runtime, by grepping code paths;
@@ -158,9 +407,13 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
   the name;
 - the manifest floor (version, `publish = false`, licence, edition, MSRV,
   empty dependency tables);
-- the exact packaged file set, a `cargo package` build of the artifact, and a
-  minimal downstream `#![no_std]` consumer compiled against the unpacked
-  package on the host and on both embedded targets;
+- the package: the exact packaged file set (no agent notes, changelog, CI,
+  deny, toolchain, script, or `docs/` material), a `cargo package` build of
+  the artifact, the artifact's own rustdoc and doctests — README blocks
+  included — built from the unpacked package, and a fresh downstream
+  `#![no_std]` consumer that declares both example maps above, is built and
+  tested against the unpacked package on the host, and is built for both
+  embedded targets;
 - a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
@@ -173,15 +426,20 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 Not proven, and not claimed: every Rust target, Xtensa, cycle counts,
 code-size ceilings, or hard real-time WCET.
 
-`cargo test` runs the crate's unit tests and the black-box conformance suite in
-`tests/conformance/`. The suite exercises only the public API and compares
-against an independent `i128` reference with a linear axis scan and
-remainder-based rounding; small declared domains are enumerated exhaustively,
-the full `u16 × u16` range is sampled with a stated rule, and the locked
-X-then-Y fixture (axes `[0, 2]`, rows `[[0, 0], [1, 3]]`, input `(1, 1)` → `1`)
-is retained. Two device-neutral example maps (a mixed-sign elevation map and an
-asymmetric process-correction map) demonstrate shape and rounding behaviour
-only; they claim nothing about any sensor, vendor, or measurement accuracy.
+`cargo test` runs the crate's unit tests, its doctests, and the black-box
+conformance suite in `tests/conformance/`. The suite exercises only the public
+API and compares against an independent `i128` reference with a linear axis
+scan and remainder-based rounding; small declared domains are enumerated
+exhaustively, the full `u16 × u16` range is sampled with a stated rule and is
+not claimed exhaustive, and the locked X-then-Y fixture (axes `[0, 2]`, rows
+`[[0, 0], [1, 3]]`, input `(1, 1)` → `1`) is retained. The two example maps
+above are the suite's `ELEVATION` and `CORRECTION` fixtures and demonstrate
+shape and rounding behaviour only; they claim nothing about any sensor, vendor,
+or measurement accuracy.
+
+[`docs/v0.1-traceability.md`](docs/v0.1-traceability.md) maps every
+acceptance claim of the v0.1 umbrella to its implementation issue, test,
+documentation section, or CI gate.
 
 Hosted GitHub Actions are a **known gap until this repository is public**:
 private runs fail before any step starts, so `pull_request` / `push` triggers

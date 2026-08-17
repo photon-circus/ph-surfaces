@@ -9,14 +9,21 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository contains the accepted work through issues #7 and #8 of the v0.1
-umbrella: the repository floor, the private scalar segment interpolation helper
-in `src/interp.rs`, the validated static `BilinearSurface` representation with
-its boundary and error vocabulary, the private axis lookup in `src/lookup.rs`,
-the public evaluator in `src/evaluate.rs`, the black-box conformance suite in
-`tests/conformance/`, and the mechanical claim proofs in `scripts/ci.sh` and
-`scripts/guard-selftest.sh`. Still to come: the documentation and
-package-readiness gate (#9).
+This repository contains the complete accepted v0.1 scope (issues #2–#9 of the
+umbrella #1): the repository floor, the private scalar segment interpolation
+helper in `src/interp.rs`, the validated static `BilinearSurface`
+representation with its boundary and error vocabulary, the private axis lookup
+in `src/lookup.rs`, the public evaluator in `src/evaluate.rs`, the black-box
+conformance suite in `tests/conformance/`, the mechanical claim proofs in
+`scripts/ci.sh` and `scripts/guard-selftest.sh`, and the consumer-facing
+documentation with its traceability checklist in `docs/v0.1-traceability.md`.
+Publishing, tagging, and a stable 1.0 promise are separate maintainer
+decisions; `publish = false` stays until then.
+
+`README.md` is packaged and every one of its code blocks runs as a doctest
+(the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example
+that stops compiling fails `cargo test`. Keep README code blocks complete and
+runnable, or tag a non-Rust block with its language (`sh`, `text`).
 
 `tests/conformance/` is black-box evidence for the public contract. It goes
 through `ph_surfaces::*` only and must never import a private module, add a
@@ -121,7 +128,9 @@ or failed hosted run as a local-CI failure.
 | New guard in `scripts/ci.sh` | A mutation case in `scripts/guard-selftest.sh` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` item docs, `README.md` "Resource accounting and cost" |
 | New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
-| New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md` |
+| New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
+| Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, the consumer heredoc in `scripts/ci.sh` `check_package_build` |
+| Contract wording or acceptance claim | `README.md` "Contract", `src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
 
 ## Validating
 
