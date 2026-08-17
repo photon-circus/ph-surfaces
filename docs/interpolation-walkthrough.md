@@ -66,7 +66,8 @@ through it.
 
 ```rust
 assert_eq!(SURFACE.evaluate(125, 20), Ok(50));
-assert_eq!(SURFACE.evaluate(100, 10), Ok(0)); // stored knot, no interpolation
+// The usual three interpolation steps land exactly on this stored knot.
+assert_eq!(SURFACE.evaluate(100, 10), Ok(0));
 ```
 
 If any of those three divisions had landed on an exact half-way value, the

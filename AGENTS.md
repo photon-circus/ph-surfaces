@@ -79,9 +79,10 @@ Do not introduce `alloc`, `std`, `unsafe`, or floating point. The `integer
 only` check in `scripts/ci.sh` greps `src/` for those code paths, ignoring full
 line comments so documentation may still discuss them. The float and
 `ph-curves` greps also cover `tests/` and `examples/`, so the conformance suite
-and Cargo examples cannot acquire a floating-point or `ph-curves` oracle; the
-alloc/std grep stays on `src/` because integration tests and example binaries
-run under the std harness.
+and Cargo examples cannot acquire a floating-point or `ph-curves` oracle.
+Examples use a host `main` only as an assertion harness: a separate examples
+guard rejects allocator/std paths, common allocating prelude types and macros,
+host printing/debug macros, and `unsafe` from their uncommented code.
 
 A plain `--target` build does not prove no-alloc: bare-metal `rust-std` ships
 `alloc` in the sysroot. The proof is the core-only build, run for both

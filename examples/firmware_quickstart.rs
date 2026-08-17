@@ -22,7 +22,8 @@ static VALUES: [[i32; 2]; 2] = [
 static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES);
 
 fn main() {
-    // Declared knot: stored value, no interpolation.
+    // Declared knot: the three interpolation steps land exactly on the stored
+    // value, so it is recovered without numerical drift.
     assert_eq!(SURFACE.evaluate(100, 10), Ok(0));
     // Interior operating point from docs/interpolation-walkthrough.md:
     // lower-X 25, upper-X 75, Y 50.

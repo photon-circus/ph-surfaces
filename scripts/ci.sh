@@ -148,10 +148,15 @@ check_integer_only() {
     # The black-box conformance suite in `tests/` and the Cargo examples in
     # `examples/` are held to the float and `ph-curves` bans as well: expected
     # values must come from an integer reference or hand computation, and
-    # `ph-curves` is not an oracle. They run under the std test / example
-    # harness, so only `src/` is held to the alloc/std ban.
+    # `ph-curves` is not an oracle. Tests run under the std harness, so only
+    # runtime `src/` and the embedded example code are held to the host-path
+    # bans below.
     code=$(source_without_comments)
     all_code=$(find src tests examples -name '*.rs' -print0 \
+        | sort -z \
+        | xargs -0 cat \
+        | grep -vE '^[[:space:]]*(//|/\*|\*)')
+    example_code=$(find examples -name '*.rs' -print0 \
         | sort -z \
         | xargs -0 cat \
         | grep -vE '^[[:space:]]*(//|/\*|\*)')
@@ -171,6 +176,11 @@ check_integer_only() {
     fi
     if printf '%s\n' "$code" | grep -nE '\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)'; then
         printf 'src: runtime code reaches for alloc or std.\n' >&2
+        return 1
+    fi
+    example_host_path='\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)|\b(Vec|String|Box|Rc|Arc)\b|\b(vec|print|println|eprint|eprintln|dbg)[[:space:]]*!|\bunsafe\b'
+    if printf '%s\n' "$example_code" | grep -nE "$example_host_path"; then
+        printf 'examples: code uses an allocator/std path, host output/debug macro, or unsafe.\n' >&2
         return 1
     fi
     if printf '%s\n' "$all_code" | grep -nE 'ph.curves'; then

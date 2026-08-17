@@ -117,8 +117,14 @@ Every side defaults to `Error`. Name each one according to firmware behaviour:
 ```rust
 use ph_surfaces::{Boundary, BoundaryPolicy};
 
-static HOLD_HIGH_X: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES)
-    .with_policy(BoundaryPolicy::new().with_x_above(Boundary::Clamp));
+static FAIL_SAFE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES)
+    .with_policy(
+        BoundaryPolicy::new()
+            .with_x_below(Boundary::Error)
+            .with_x_above(Boundary::Clamp)
+            .with_y_below(Boundary::Error)
+            .with_y_above(Boundary::Clamp),
+    );
 ```
 
 The four sides are independent. See `examples/fail_safe_boundaries.rs` for
