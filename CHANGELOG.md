@@ -71,8 +71,10 @@
   guard — including the core-only build — to fail on the copy.
 - Host tests asserting the documented storage figures: the referenced element
   payload equals `2*NX + 2*NY + 4*NX*NY` bytes for representative shapes, and
-  the handle is three thin references plus the four-byte policy plus at most
-  alignment padding, without assuming a pointer width or field order.
+  the default handle is three thin references plus the four-byte policy plus at
+  most alignment padding. Strategy-specific tests account for zero axis
+  references from Uniform, one from Linear/Binary, and two from Bucketed,
+  without assuming a pointer width or field order.
 - Public resource and cost accounting in the crate docs and README: the exact
   payload formula stated separately from the target-dependent handle and never
   as total RAM, flash, binary, or linker cost; and the worst-case evaluation
@@ -133,6 +135,43 @@
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
   implemented binary baseline, explicitly recording #18, #19, and the final
   #9 gate as pending. It remains repository material and is not packaged.
+- Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
+  (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
+  (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),
+  `UniformAxis<N, ORIGIN, STEP>` (a zero-sized descriptor, no stored knots, and
+  no knot comparison at all), and `BucketedAxis<N, B>` (stored knots plus a
+  `2*B`-byte static index that bounds a local scan). They implement the sealed
+  `AxisLookup<N>` trait, and the three stored-knot strategies also implement the
+  sealed `KnotArray<N>`. `bucket_index` builds a bucket table at compile time
+  and `max_local_comparisons` states the exact local bound for a given axis;
+  raising the bucket count to a multiple of itself splits buckets rather than
+  moving their boundaries, so that bound never increases.
+- `BilinearSurface` now carries two defaulted strategy type parameters,
+  `BilinearSurface<NX, NY, X = BinaryAxis<NX>, Y = BinaryAxis<NY>>`, and a
+  `const fn from_axes` that builds a surface from two already-validated axes.
+  `BilinearSurface<NX, NY>` and `BilinearSurface::new` are unchanged in meaning,
+  spelling, results, errors, and handle size; the existing conformance suite
+  passes untouched. Selection is type-level, so no runtime discriminant or
+  strategy branch exists. Each axis validates itself in its own `const fn`
+  constructor, so an invalid uniform descriptor, a bucket index that disagrees
+  with its knots, an axis of fewer than two knots, or a non-increasing axis
+  fails to compile. New accessors `x_knot` and `y_knot` read a knot from any
+  strategy; `x_axis` and `y_axis` remain available for the strategies that store
+  one, and the endpoint accessors are no longer `const fn` because they dispatch
+  through the axis type.
+- Cross-strategy unit evidence in `src/axis/`: every strategy locates the same
+  cell and evaluates the same value on equivalent axes, the four `SurfaceError`
+  variants and X-before-Y precedence are invariant across pairings, clamping
+  never extrapolates under any pairing, the locked X-then-Y fixture still
+  distinguishes the two orders under all sixteen pairings, each strategy stays
+  inside its declared search bound and declared stored bytes, and a finer nested
+  bucket index never worsens the local bound.
+- The `package build` consumer now also declares all sixteen X/Y strategy
+  pairings as statics, asserts on the host that each agrees with the default
+  binary surface, and is built for both embedded targets against a nightly
+  core-only sysroot; the check reports `SKIP` if nightly with `rust-src` is
+  unavailable. `package list` and the exact packaged file set now include
+  `src/axis/`.
 
 ### Known issues
 

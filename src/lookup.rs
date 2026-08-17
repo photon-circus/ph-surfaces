@@ -1,28 +1,39 @@
 //! Private axis lookup: bracketing a coordinate in a validated axis and
 //! applying the boundary policy declared for that side.
 //!
-//! One algorithm serves both axes. It works on `&[u16]` rather than on
-//! `&[u16; NX]`, so it is compiled once instead of once per `NX` and once per
-//! `NY`, and the two axes cannot drift apart. Axis identity re-enters only in
-//! the two thin wrappers at the bottom of this module, which turn the neutral
-//! [`Side`] the locator reports into the axis-specific [`SurfaceError`] variant
-//! the caller sees.
+//! One function serves both axes and every strategy. It works through the
+//! [`AxisLookup`] trait rather than on a knot array, so the four strategies in
+//! [`crate::axis`] share this code instead of restating it, and the two axes
+//! cannot drift apart. Axis identity re-enters only in the two thin wrappers at
+//! the bottom of this module, which turn the neutral [`Side`] the locator
+//! reports into the axis-specific [`SurfaceError`] variant the caller sees.
+//!
+//! # What lives here rather than in a strategy
+//!
+//! A strategy answers one question — which segment holds this coordinate — under
+//! the promise that the coordinate is in domain. Everything else is decided
+//! here, once, for all of them:
+//!
+//! * the two endpoint comparisons that decide whether a coordinate is in domain;
+//! * the boundary selection on each side, and the endpoint substitution that
+//!   makes a clamped lookup evaluate the boundary rather than project past it;
+//! * the cell invariants the evaluator relies on for its indexing.
+//!
+//! That is why swapping a strategy cannot change a value, an error, or a
+//! boundary outcome.
 //!
 //! # Cost
 //!
 //! An out-of-domain coordinate is decided by one or two comparisons against the
 //! endpoint knots and never searches. An in-domain coordinate costs those two
-//! comparisons plus exactly `ceil(log2(len))` probes.
-//!
-//! The probe count depends only on the axis length: never on the stored knots
-//! and never on the coordinate. The search takes the same number of steps for
-//! an endpoint, for an exact interior knot, and for a point strictly inside a
-//! segment. There is no early exit on an exact match, deliberately, because it
-//! would trade a uniform and auditable step count for a data-dependent one.
+//! comparisons plus the search work of the selected strategy, which is at most
+//! [`AxisLookup::MAX_SEARCH_COMPARISONS`] knot comparisons and is exactly
+//! `ceil(log2(len))` for the default binary strategy.
 //!
 //! Everything here is core integer arithmetic over indices. There is no
 //! allocation, no floating point, and no extrapolation path.
 
+use crate::axis::AxisLookup;
 use crate::boundary::Boundary;
 use crate::error::SurfaceError;
 use crate::surface::BilinearSurface;
@@ -85,104 +96,6 @@ enum Side {
     Above,
 }
 
-/// Returns the number of knot probes [`search`] performs on an axis of `len`
-/// knots: `ceil(log2(len))`.
-///
-/// This is the bit length of `len - 1`, which is target-independent even though
-/// `usize::BITS` is not.
-///
-/// It is an exact count rather than an upper bound, because the search window
-/// shrinks by `size -> ceil(size / 2)` on both branches. A `debug_assert_eq!`
-/// in [`search`] holds the implementation to it.
-///
-/// # Preconditions
-///
-/// `len >= 2`. Every axis this crate can construct satisfies it, because
-/// `BilinearSurface::new` rejects a shorter one at definition time, so `len - 1`
-/// cannot underflow.
-const fn probe_bound(len: usize) -> u32 {
-    debug_assert!(len >= 2, "an axis declares at least two knots");
-
-    usize::BITS - (len - 1).leading_zeros()
-}
-
-/// Returns the number of knot comparisons a full in-domain lookup performs on
-/// an axis of `len` knots: two endpoint comparisons plus [`probe_bound`] probes.
-///
-/// An out-of-domain coordinate costs strictly less and never searches: one
-/// comparison below the domain, two above it.
-///
-/// For a 1024-knot axis this is 12. A linear scan of the same axis would cost
-/// up to 1024 comparisons. That gap is what the focused tests measure, and it is
-/// the documented logarithmic bound this module promises.
-///
-/// # Preconditions
-///
-/// `len >= 2`, as for [`probe_bound`].
-const fn comparison_bound(len: usize) -> u32 {
-    probe_bound(len) + 2
-}
-
-/// Returns the greatest index whose knot is at or below `coordinate`, together
-/// with the number of knot comparisons it took.
-///
-/// # Preconditions
-///
-/// `axis` holds at least two strictly increasing knots, and
-/// `axis[0] <= coordinate`. The first is established by `BilinearSurface::new`
-/// at definition time and the second by the endpoint test in [`locate`], so both
-/// are internal invariants rather than runtime inputs and are checked only by
-/// `debug_assert!`. Because they make the answer set non-empty, the returned
-/// index is always well defined and no downstream subtraction can underflow.
-///
-/// # Cost
-///
-/// Exactly `probe_bound(axis.len())` comparisons, independent of the stored
-/// knots and of `coordinate`. The window shrinks by `size -> ceil(size / 2)`
-/// whichever branch a probe takes, which is why the count is uniform and why
-/// there is no early exit on an exact match.
-///
-/// The returned count exists so tests can distinguish this search from a full
-/// axis scan. Callers discard it, and an optimizing build removes it.
-fn search(axis: &[u16], coordinate: u16) -> (usize, u32) {
-    debug_assert!(axis.len() >= 2, "an axis declares at least two knots");
-    debug_assert!(
-        axis[0] <= coordinate,
-        "search is only called on a coordinate at or above the first knot"
-    );
-
-    let mut base = 0;
-    let mut size = axis.len();
-    let mut probes = 0;
-
-    while size > 1 {
-        let half = size / 2;
-        let mid = base + half;
-
-        // The answer stays in `base ..= base + size - 1`: a knot at or below the
-        // coordinate moves the window's floor up to `mid`, and a knot above it
-        // leaves the floor alone. Either way the window shrinks.
-        if axis[mid] <= coordinate {
-            base = mid;
-        }
-
-        size -= half;
-        probes += 1;
-    }
-
-    debug_assert_eq!(
-        probes,
-        probe_bound(axis.len()),
-        "the probe count must match the documented bound"
-    );
-    debug_assert!(
-        axis[base] <= coordinate,
-        "the located knot must not sit above the coordinate"
-    );
-
-    (base, probes)
-}
-
 /// Resolves `coordinate` against one axis under that axis's two boundary
 /// selections, and reports the comparisons it took.
 ///
@@ -191,36 +104,38 @@ fn search(axis: &[u16], coordinate: u16) -> (usize, u32) {
 /// is what makes the four sides of a surface independent.
 ///
 /// A clamped coordinate resolves to the endpoint cell directly: cell `0` below
-/// the domain and cell `len - 2` above it. Clamping therefore neither searches
+/// the domain and cell `N - 2` above it. Clamping therefore neither searches
 /// nor produces an index the axis or the value grid cannot address, and the
 /// substituted coordinate is the endpoint knot itself, so no branch of this
 /// function can extrapolate.
 ///
 /// The rejection is reported as a neutral [`Side`] so that this one function
-/// serves both axes. Naming the axis is the caller's job.
+/// serves both axes and all four strategies. Naming the axis is the caller's
+/// job; selecting the search is the axis type's.
 ///
 /// # Preconditions
 ///
-/// `axis` holds at least two strictly increasing knots, established by
-/// `BilinearSurface::new` and checked only by `debug_assert!`.
-fn locate(
-    axis: &[u16],
+/// `axis` holds at least two strictly increasing knots, established by the
+/// strategy's own `const fn` constructor and checked here only by
+/// `debug_assert!`.
+fn locate<const N: usize, A: AxisLookup<N>>(
+    axis: &A,
     coordinate: u16,
     below: Boundary,
     above: Boundary,
 ) -> (Result<Cell, Side>, u32) {
-    debug_assert!(axis.len() >= 2, "an axis declares at least two knots");
+    debug_assert!(N >= 2, "an axis declares at least two knots");
 
-    // `len >= 2`, so `last >= 1` and `last - 1` is the first cell's index at
+    // `N >= 2`, so `last >= 1` and `last - 1` is the first cell's index at
     // worst. Neither subtraction below can underflow.
-    let last = axis.len() - 1;
+    let last = N - 1;
 
-    if coordinate < axis[0] {
+    if coordinate < axis.first() {
         return match below {
             Boundary::Error => (Err(Side::Below), 1),
             Boundary::Clamp => (
                 Ok(Cell {
-                    coordinate: axis[0],
+                    coordinate: axis.first(),
                     lower: 0,
                 }),
                 1,
@@ -228,12 +143,12 @@ fn locate(
         };
     }
 
-    if coordinate > axis[last] {
+    if coordinate > axis.last() {
         return match above {
             Boundary::Error => (Err(Side::Above), 2),
             Boundary::Clamp => (
                 Ok(Cell {
-                    coordinate: axis[last],
+                    coordinate: axis.last(),
                     lower: last - 1,
                 }),
                 2,
@@ -241,7 +156,7 @@ fn locate(
         };
     }
 
-    let (found, probes) = search(axis, coordinate);
+    let (found, probes) = axis.search(coordinate);
 
     // The last knot has no segment of its own, so it shares the last cell. That
     // is also what makes an exact knot interpolate to its own stored value: the
@@ -253,27 +168,28 @@ fn locate(
     };
 
     // These are exactly the preconditions of the scalar interpolation helper.
-    debug_assert!(cell.upper() < axis.len(), "the upper knot must be in range");
+    debug_assert!(cell.upper() < N, "the upper knot must be in range");
     debug_assert!(
-        axis[cell.lower()] <= cell.coordinate(),
+        axis.knot(cell.lower()) <= cell.coordinate(),
         "the coordinate must not sit below its cell"
     );
     debug_assert!(
-        cell.coordinate() <= axis[cell.upper()],
+        cell.coordinate() <= axis.knot(cell.upper()),
         "the coordinate must not sit above its cell"
     );
 
     let comparisons = probes + 2;
-    debug_assert_eq!(
-        comparisons,
-        comparison_bound(axis.len()),
-        "the comparison count must match the documented bound"
+    debug_assert!(
+        comparisons <= A::MAX_SEARCH_COMPARISONS + 2,
+        "the comparison count must stay inside the strategy's documented bound"
     );
 
     (Ok(cell), comparisons)
 }
 
-impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
+impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
+    BilinearSurface<NX, NY, X, Y>
+{
     /// Resolves an X coordinate to a cell of the X axis, under the X-below and
     /// X-above selections of this surface's policy.
     ///
@@ -287,16 +203,16 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
     /// which error wins when both are out of domain, belongs to the evaluator.
     pub(crate) fn locate_x(&self, x: u16) -> Result<Cell, SurfaceError> {
         let policy = self.policy();
-        let (outcome, _comparisons) = locate(self.x_axis(), x, policy.x_below(), policy.x_above());
+        let (outcome, _comparisons) = locate(self.x(), x, policy.x_below(), policy.x_above());
 
         outcome.map_err(|side| match side {
             Side::Below => SurfaceError::XBelow {
                 coordinate: x,
-                bound: self.x_min(),
+                bound: self.x().first(),
             },
             Side::Above => SurfaceError::XAbove {
                 coordinate: x,
-                bound: self.x_max(),
+                bound: self.x().last(),
             },
         })
     }
@@ -314,16 +230,16 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
     /// never reports a Y one.
     pub(crate) fn locate_y(&self, y: u16) -> Result<Cell, SurfaceError> {
         let policy = self.policy();
-        let (outcome, _comparisons) = locate(self.y_axis(), y, policy.y_below(), policy.y_above());
+        let (outcome, _comparisons) = locate(self.y(), y, policy.y_below(), policy.y_above());
 
         outcome.map_err(|side| match side {
             Side::Below => SurfaceError::YBelow {
                 coordinate: y,
-                bound: self.y_min(),
+                bound: self.y().first(),
             },
             Side::Above => SurfaceError::YAbove {
                 coordinate: y,
-                bound: self.y_max(),
+                bound: self.y().last(),
             },
         })
     }
@@ -331,7 +247,8 @@ impl<const NX: usize, const NY: usize> BilinearSurface<NX, NY> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Cell, Side, comparison_bound, locate, probe_bound, search};
+    use super::{Cell, Side, locate};
+    use crate::axis::{AxisLookup, BinaryAxis};
     use crate::boundary::{Boundary, BoundaryPolicy};
     use crate::error::SurfaceError;
     use crate::interp::interpolate_segment;
@@ -400,9 +317,9 @@ mod tests {
     static V_BIG: [[i32; 1024]; 2] = [[0; 1024]; 2];
     static BIG: BilinearSurface<1024, 2> = BilinearSurface::new(&X_BIG, &Y_TINY, &V_BIG);
 
-    const AXES: &[&[u16]] = &[
-        &X_MAIN, &Y_MAIN, &X_SPARSE, &X_FULL, &Y_FULL, &X_TINY, &X_BIG,
-    ];
+    // The default strategy, named, so this module can call the locator directly.
+    const AXIS_MAIN: BinaryAxis<5> = BinaryAxis::new(&X_MAIN);
+    const AXIS_BIG: BinaryAxis<1024> = BinaryAxis::new(&X_BIG);
 
     // Bit 0 selects X-below, bit 1 X-above, bit 2 Y-below, bit 3 Y-above; a set
     // bit means Clamp. Mirrors the helper in `src/surface.rs`.
@@ -438,75 +355,16 @@ mod tests {
         policy_from_bits(0b1111)
     }
 
-    // An independent statement of `ceil(log2(len))`: it counts the halvings
-    // rather than reading a bit length, so agreement is evidence that the
-    // documented formula and the loop shape describe the same thing.
-    fn ceil_log2_reference(len: usize) -> u32 {
-        let mut remaining = len;
-        let mut steps = 0;
-
-        while remaining > 1 {
-            remaining = remaining.div_ceil(2);
-            steps += 1;
-        }
-
-        steps
-    }
-
-    #[test]
-    fn the_probe_bound_matches_the_documented_formula() {
-        for len in [2usize, 3, 4, 5, 6, 7, 8, 9, 16, 17, 1_024, 65_535, 65_536] {
-            assert_eq!(probe_bound(len), ceil_log2_reference(len), "length {len}");
-        }
-
-        assert_eq!(probe_bound(1_024), 10);
-        assert_eq!(comparison_bound(1_024), 12);
-    }
-
-    #[test]
-    fn the_search_probe_count_is_exact_and_data_independent() {
-        for &axis in AXES {
-            let expected = probe_bound(axis.len());
-
-            for &knot in axis {
-                assert_eq!(search(axis, knot).1, expected, "at knot {knot}");
-
-                if knot > axis[0] {
-                    assert_eq!(search(axis, knot - 1).1, expected);
-                }
-                if knot < u16::MAX {
-                    assert_eq!(search(axis, knot + 1).1, expected);
-                }
-            }
-        }
-
-        // A sweep across one axis: the count never moves off the bound, which is
-        // what "independent of the data" means.
-        let mut coordinate = 0u16;
-        while coordinate < 65_472 {
-            assert_eq!(search(&X_BIG, coordinate).1, 10);
-            coordinate += 397;
-        }
-    }
-
-    #[test]
-    fn binary_lookup_costs_far_fewer_comparisons_than_a_scan() {
-        let (_, probes) = search(&X_BIG, 40_000);
-        let scan = u32::try_from(X_BIG.len()).expect("the axis length fits in u32");
-
-        assert_eq!(probes, 10);
-        assert!(
-            probes * 100 < scan,
-            "{probes} probes is not two orders of magnitude below {scan}"
-        );
-    }
-
     #[test]
     fn a_full_lookup_costs_two_endpoint_comparisons_plus_the_probes() {
-        let (outcome, comparisons) = locate(&X_BIG, 40_000, Boundary::Error, Boundary::Error);
+        let (outcome, comparisons) = locate(&AXIS_BIG, 40_000, Boundary::Error, Boundary::Error);
 
         assert!(outcome.is_ok());
-        assert_eq!(comparisons, comparison_bound(X_BIG.len()));
+        assert_eq!(
+            comparisons,
+            <BinaryAxis<1024>>::MAX_SEARCH_COMPARISONS + 2,
+            "the two endpoint comparisons must be on top of the search"
+        );
         assert_eq!(comparisons, 12);
     }
 
@@ -514,40 +372,51 @@ mod tests {
     fn an_out_of_domain_coordinate_never_searches() {
         for below in [Boundary::Error, Boundary::Clamp] {
             for above in [Boundary::Error, Boundary::Clamp] {
-                assert_eq!(locate(&X_MAIN, 9, below, above).1, 1);
-                assert_eq!(locate(&X_MAIN, 51, below, above).1, 2);
+                assert_eq!(locate(&AXIS_MAIN, 9, below, above).1, 1);
+                assert_eq!(locate(&AXIS_MAIN, 51, below, above).1, 2);
 
                 // Two comparisons against twelve for an in-domain coordinate on
                 // the same axis: the boundary path cannot be falling into the
                 // search.
-                assert_eq!(locate(&X_BIG, 65_500, below, above).1, 2);
+                assert_eq!(locate(&AXIS_BIG, 65_500, below, above).1, 2);
             }
         }
     }
 
     #[test]
     fn both_endpoint_knots_resolve_exactly() {
-        for &axis in AXES {
-            let last = axis.len() - 1;
+        macro_rules! endpoints_resolve {
+            ($knots:expr) => {
+                let axis = BinaryAxis::new($knots);
+                let last = $knots.len() - 1;
 
-            let (outcome, _) = locate(axis, axis[0], Boundary::Error, Boundary::Error);
-            assert_eq!(
-                outcome,
-                Ok(Cell {
-                    coordinate: axis[0],
-                    lower: 0,
-                })
-            );
+                let (outcome, _) = locate(&axis, $knots[0], Boundary::Error, Boundary::Error);
+                assert_eq!(
+                    outcome,
+                    Ok(Cell {
+                        coordinate: $knots[0],
+                        lower: 0,
+                    })
+                );
 
-            let (outcome, _) = locate(axis, axis[last], Boundary::Error, Boundary::Error);
-            assert_eq!(
-                outcome,
-                Ok(Cell {
-                    coordinate: axis[last],
-                    lower: last - 1,
-                })
-            );
+                let (outcome, _) = locate(&axis, $knots[last], Boundary::Error, Boundary::Error);
+                assert_eq!(
+                    outcome,
+                    Ok(Cell {
+                        coordinate: $knots[last],
+                        lower: last - 1,
+                    })
+                );
+            };
         }
+
+        endpoints_resolve!(&X_MAIN);
+        endpoints_resolve!(&Y_MAIN);
+        endpoints_resolve!(&X_SPARSE);
+        endpoints_resolve!(&X_FULL);
+        endpoints_resolve!(&Y_FULL);
+        endpoints_resolve!(&X_TINY);
+        endpoints_resolve!(&X_BIG);
 
         // On the minimum axis both endpoints share the one cell.
         assert_eq!(
@@ -604,18 +473,29 @@ mod tests {
 
     #[test]
     fn every_exact_knot_keeps_its_coordinate_and_names_its_own_cell() {
-        for &axis in AXES {
-            let last_cell = axis.len() - 2;
+        macro_rules! knots_name_their_cell {
+            ($knots:expr) => {
+                let axis = BinaryAxis::new($knots);
+                let last_cell = $knots.len() - 2;
 
-            for (index, &knot) in axis.iter().enumerate() {
-                let (outcome, _) = locate(axis, knot, Boundary::Error, Boundary::Error);
-                let cell = outcome.expect("a declared knot is inside the domain");
+                for (index, &knot) in $knots.iter().enumerate() {
+                    let (outcome, _) = locate(&axis, knot, Boundary::Error, Boundary::Error);
+                    let cell = outcome.expect("a declared knot is inside the domain");
 
-                assert_eq!(cell.coordinate(), knot, "knot {knot} was rewritten");
-                assert_eq!(cell.lower(), index.min(last_cell));
-                assert_eq!(cell.upper(), cell.lower() + 1);
-            }
+                    assert_eq!(cell.coordinate(), knot, "knot {knot} was rewritten");
+                    assert_eq!(cell.lower(), index.min(last_cell));
+                    assert_eq!(cell.upper(), cell.lower() + 1);
+                }
+            };
         }
+
+        knots_name_their_cell!(&X_MAIN);
+        knots_name_their_cell!(&Y_MAIN);
+        knots_name_their_cell!(&X_SPARSE);
+        knots_name_their_cell!(&X_FULL);
+        knots_name_their_cell!(&Y_FULL);
+        knots_name_their_cell!(&X_TINY);
+        knots_name_their_cell!(&X_BIG);
     }
 
     #[test]
@@ -1092,11 +972,11 @@ mod tests {
     #[test]
     fn a_rejected_coordinate_is_reported_as_a_neutral_side() {
         assert_eq!(
-            locate(&X_MAIN, 9, Boundary::Error, Boundary::Error).0,
+            locate(&AXIS_MAIN, 9, Boundary::Error, Boundary::Error).0,
             Err(Side::Below)
         );
         assert_eq!(
-            locate(&X_MAIN, 51, Boundary::Error, Boundary::Error).0,
+            locate(&AXIS_MAIN, 51, Boundary::Error, Boundary::Error).0,
             Err(Side::Above)
         );
         assert_ne!(Side::Below, Side::Above);

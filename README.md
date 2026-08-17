@@ -13,9 +13,9 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > **Domain:** Libraries.
 
 This repository is a private Incubating Libraries project. It currently exposes
-the validated binary-lookup surface representation, its deterministic X-then-Y
-evaluator, and its boundary and error vocabulary. Compile-time per-axis lookup
-strategies (#18), their conformance and cost evidence (#19), and the final
+the validated surface representation, its deterministic X-then-Y evaluator, its
+boundary and error vocabulary, and the four compile-time per-axis lookup
+strategies. Cross-strategy conformance and cost evidence (#19) and the final
 documentation/package gate (#9) remain before v0.1 is complete. There is no
 crates.io publication and no docs.rs page.
 
@@ -29,9 +29,9 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > boundary sides, no allocation, no floating point at runtime, and an explicit
 > compile-time choice of lookup strategy for each axis.
 
-`BilinearSurface::evaluate` currently implements the numerical and boundary
-contract with binary lookup, which remains the default under #18. A minimal
-static surface is three `static` tables and one `static` handle:
+`BilinearSurface::evaluate` implements that contract, and binary lookup remains
+the default on both axes. A minimal static surface is three `static` tables and
+one `static` handle:
 
 ```rust
 use ph_surfaces::BilinearSurface;
@@ -72,15 +72,18 @@ packages; and `scripts/guard-selftest.sh` shows the guard fires when a
 
 ## Contract
 
-This section is the consumer-facing statement of the currently implemented
-binary-lookup contract. Each item below is implemented and tested by the
+This section is the consumer-facing statement of the implemented contract. Each
+item below is implemented and tested by the
 black-box suite in
 `tests/conformance/`, and mapped to its evidence in
 [`docs/v0.1-traceability.md`](docs/v0.1-traceability.md).
 
 ### Representation
 
-- The public concrete type is `BilinearSurface<const NX: usize, const NY: usize>`.
+- The public concrete type is
+  `BilinearSurface<const NX: usize, const NY: usize, X = BinaryAxis<NX>, Y = BinaryAxis<NY>>`.
+  The two strategy parameters default to binary lookup, so `BilinearSurface<NX, NY>`
+  is the binary-knotted surface it has always been.
 - It references `&'static [u16; NX]` (X knots), `&'static [u16; NY]` (Y
   knots), and a row-major `&'static [[i32; NX]; NY]` value grid. Y selects the
   row and X selects the column: a value is addressed as **`values[y][x]`**.
@@ -95,8 +98,56 @@ black-box suite in
   compile**. The rustdoc on `BilinearSurface::new` carries `compile_fail`
   doctests for each rejected shape.
 - The handle stores no units, provenance, achieved-error claim, host report, or
-  other generated metadata: three references and four one-byte boundary
-  selections.
+  other generated metadata: for the default surface, three references and four
+  one-byte boundary selections.
+
+### Per-axis lookup strategies
+
+Each axis chooses **in the type** how it locates a coordinate, and the two axes
+choose independently. There is no runtime discriminant and no branch among
+strategies: a firmware that names one combination compiles that one.
+
+| Strategy | Stored per axis | Search work, in knot comparisons |
+| --- | --- | --- |
+| `LinearAxis<N>` | `2*N` knot bytes | bounded scan, at most `N - 1` |
+| `BinaryAxis<N>` (default) | `2*N` knot bytes | exactly `ceil(log2(N))` |
+| `UniformAxis<N, ORIGIN, STEP>` | nothing | none: one subtraction, one division |
+| `BucketedAxis<N, B>` | `2*N` knot bytes plus `2*B` index bytes | one bucket read plus a local scan bounded by `max_local_comparisons` |
+
+- `AxisLookup` and `KnotArray` are **sealed**. Those four types are the only
+  implementations, and each validates its own invariants in a `const fn`
+  constructor, so an invalid axis fails to compile: fewer than two knots, a
+  non-increasing knot array, a zero or unrepresentable uniform step, or a bucket
+  index that does not match its knots.
+- A `BucketedAxis` index is generated at compile time by `bucket_index` and
+  re-derived by the constructor. Nothing is built, cached, or mutated at
+  runtime.
+- Every strategy locates the same cell, evaluates the same value, and reports
+  the same error. Only stored bytes and search work differ; rounding,
+  composition order, boundary semantics, and error variants are unchanged.
+
+```rust
+use ph_surfaces::{BilinearSurface, BucketedAxis, UniformAxis, bucket_index};
+
+static X: [u16; 5] = [0, 1, 2, 40, 1_000]; // irregular: keeps its knots
+static X_INDEX: [u16; 8] = bucket_index(&X);
+static Y: [u16; 3] = [0, 50, 100]; // evenly spaced: needs no knots at all
+static VALUES: [[i32; 5]; 3] = [
+    [0, 10, 20, 400, 10_000],
+    [-5, 5, 15, 395, 9_995],
+    [-10, 0, 10, 390, 9_990],
+];
+
+static MIXED: BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>> =
+    BilinearSurface::from_axes(BucketedAxis::new(&X, &X_INDEX), UniformAxis::new(), &VALUES);
+static DEFAULT: BilinearSurface<5, 3> = BilinearSurface::new(&X, &Y, &VALUES);
+
+fn main() {
+    assert_eq!(MIXED.evaluate(2, 50), Ok(15)); // a declared knot
+    assert_eq!(MIXED.evaluate(520, 25), DEFAULT.evaluate(520, 25));
+    assert_eq!(MIXED.y_knot(2), 100); // described, not stored
+}
+```
 
 ### Boundary policies and errors
 
@@ -303,11 +354,12 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 ## What state it is in
 
 Incubating and unpublished. The binary-lookup baseline, its conformance suite,
-mechanical dependency and embedded proofs, examples, and package checks are
-implemented. The accepted pre-release work still proceeds in this order: #18
-adds compile-time per-axis Linear, Binary, Uniform, and Bucketed lookup; #19
-adds cross-strategy equivalence and exact cost evidence; #9 then freezes the
-final documentation and package-readiness evidence. The interim
+mechanical dependency and embedded proofs, examples, package checks, and the
+compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18)
+are implemented. The accepted pre-release work still proceeds in this order:
+#19 adds cross-strategy equivalence and exact cost evidence across the
+black-box suite; #9 then freezes the final documentation and
+package-readiness evidence. The interim
 [traceability checklist](docs/v0.1-traceability.md) records both implemented
 and pending claims. Publishing, tagging, and stable 1.0 compatibility remain
 separate maintainer decisions; `publish = false` stays until then.
@@ -355,28 +407,40 @@ v0.1 explicitly does not include:
 
 ## Resource accounting and cost
 
-**Storage.** The current binary `BilinearSurface<NX, NY>` references three
+**Storage.** The default binary `BilinearSurface<NX, NY>` references three
 static tables whose element payload is exactly `2*NX + 2*NY + 4*NX*NY` bytes:
-`NX` X knots of `u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`. That
-figure is exact and target-independent, and it is only the referenced element
-payload. It is not total RAM, flash, binary, or linker cost; alignment, section
+`NX` X knots of `u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`.
+Naming a strategy changes the two axis terms and nothing else: in general the
+payload is
+`X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY`
+bytes, which is `2*N` and no index for `LinearAxis` and `BinaryAxis`, nothing at
+all for `UniformAxis`, and `2*N` plus `2*B` for `BucketedAxis<N, B>`. Those
+figures are exact and target-independent, and they are only the referenced
+element payload. It is not total RAM, flash, binary, or linker cost; alignment, section
 placement, code, and stack are outside it. The handle is separate and
-target-dependent: three thin references (one pointer width each), four one-byte
-boundary selections, and any padding the target's alignment requires. It does
-not grow with `NX` or `NY`. Host tests assert both figures without assuming a
-pointer width or a field layout beyond Rust's guarantees. Code size, flash
-placement, and stack depth are properties of the consuming build and its
-linker; this crate states none of them.
+target-dependent. Every handle has the value-grid reference and four one-byte
+boundary selections; each Uniform axis adds no reference, each Linear or Binary
+axis adds one knot-array reference, and each Bucketed axis adds both a knot-array
+and an index-array reference. The default binary/binary handle is therefore
+three thin references plus the policy and any alignment padding. It does not
+grow with `NX` or `NY` for a fixed strategy pairing. Host tests assert these
+figures without assuming a pointer width or field layout beyond Rust's
+guarantees. Code size, flash placement, and stack depth are properties of the
+consuming build and its linker; this crate states none of them.
 
 **Work.** A worst-case `evaluate` is two axis searches and three scalar
-interpolations. Each in-domain axis search is two endpoint comparisons plus
-exactly `ceil(log2(len))` probes of that axis; a clamped coordinate costs one or
-two comparisons and no probes; a rejected coordinate returns before any
-interpolation, and a rejected X also skips the Y search. Exactly four grid
-elements are read on success, and the grid is never scanned. That is operation
-structure derived from the implementation and asserted by its tests. It is not
-a cycle count or a WCET figure: no timing has been measured and none is
-claimed.
+interpolations. Each in-domain axis search is two endpoint comparisons plus the
+search work of that axis's strategy — `AxisLookup::MAX_SEARCH_COMPARISONS`, and
+exactly `ceil(log2(len))` probes for the default binary strategy; a clamped
+coordinate costs one or two comparisons and no probes; a rejected coordinate
+returns before any interpolation, and a rejected X also skips the Y search.
+Exactly four grid elements are read on success, and the grid is never scanned.
+For a `BucketedAxis`, `max_local_comparisons` states the exact local bound for
+its own knots and index, and raising the bucket count to a multiple of itself
+splits buckets rather than moving their boundaries, so that bound never
+increases. That is operation structure derived from the implementation and
+asserted by its tests. It is not a cycle count or a WCET figure: no timing has
+been measured and none is claimed.
 
 **Verification targets.** The claims above are verified on the host and on two
 representative bare-metal targets, `thumbv7em-none-eabi` (ARM Cortex-M4/M7)
@@ -422,9 +486,11 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
   deny, toolchain, script, or `docs/` material), a `cargo package` build of
   the artifact, the artifact's own rustdoc and doctests — README blocks
   included — built from the unpacked package, and a fresh downstream
-  `#![no_std]` consumer that declares both example maps above, is built and
-  tested against the unpacked package on the host, and is built for both
-  embedded targets;
+  `#![no_std]` consumer that declares both example maps above together with all
+  sixteen X/Y strategy pairings, is built and tested against the unpacked
+  package on the host, and is built for both embedded targets — ordinarily and
+  against a core-only sysroot, which is what proves the pairings themselves are
+  allocation-free;
 - a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;

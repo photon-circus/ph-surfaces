@@ -6,11 +6,12 @@
 //! version `0.1.0-incubating.1`. This crate exposes the validated static
 //! representation [`BilinearSurface`], its evaluator
 //! [`BilinearSurface::evaluate`], the boundary policy vocabulary
-//! ([`Boundary`], [`BoundaryPolicy`]), and the out-of-domain outcome type
-//! ([`SurfaceError`]). Scalar interpolation remains private. This build exposes
-//! the source-compatible binary lookup baseline; compile-time per-axis
-//! strategies (#18), their proof (#19), and the final documentation/package
-//! gate (#9) remain pre-release work.
+//! ([`Boundary`], [`BoundaryPolicy`]), the out-of-domain outcome type
+//! ([`SurfaceError`]), and the four compile-time axis lookup strategies
+//! ([`LinearAxis`], [`BinaryAxis`], [`UniformAxis`], [`BucketedAxis`]) behind
+//! the sealed [`AxisLookup`] and [`KnotArray`] traits. Scalar interpolation
+//! remains private. Cross-strategy conformance and exact cost evidence (#19)
+//! and the final documentation/package gate (#9) remain pre-release work.
 //!
 //! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
@@ -51,6 +52,24 @@
 //! `const fn` that asserts at least two knots per axis and strict increase of
 //! both axes, so an invalid `static` definition fails to compile. The handle
 //! carries no units, provenance, or other metadata.
+//!
+//! **Lookup strategies.** Each axis selects how it locates a coordinate, in the
+//! type, and the two axes select independently. [`BinaryAxis`] is the default,
+//! so `BilinearSurface<NX, NY>` and [`BilinearSurface::new`] mean the
+//! binary-knotted surface they have always meant. [`LinearAxis`] scans a small
+//! axis, [`UniformAxis`] describes evenly spaced knots by origin, step, and
+//! count instead of storing them, and [`BucketedAxis`] adds a static bucket
+//! index — built at compile time by [`bucket_index`] — that bounds the local
+//! scan of a long irregular axis. A surface that names strategies is built with
+//! [`BilinearSurface::from_axes`].
+//!
+//! [`AxisLookup`] and [`KnotArray`] are sealed: the four strategies above are
+//! the only implementations, each validating its own invariants in a `const fn`
+//! constructor. Selection is type-level, so there is no runtime discriminant
+//! and no branch among strategies; a firmware that names one combination
+//! compiles that one. Every strategy locates the same cell, evaluates the same
+//! value, and reports the same errors — only stored bytes and search work
+//! differ.
 //!
 //! **Boundaries.** [`Boundary`] is `Error` or `Clamp`. [`BoundaryPolicy`]
 //! selects one of those independently for X-below, X-above, Y-below, and
@@ -178,6 +197,40 @@
 //! );
 //! ```
 //!
+//! A surface whose two axes choose different lookup strategies. The X axis is
+//! irregular, so it keeps its knots and buys a bounded local scan with an
+//! eight-entry bucket index; the Y axis is evenly spaced, so it describes its
+//! knots by origin and step and stores none of them. Naming strategies changes
+//! stored bytes and search work and nothing else — the default all-binary
+//! surface over the same tables answers identically:
+//!
+//! ```
+//! use ph_surfaces::{BilinearSurface, BucketedAxis, UniformAxis, bucket_index};
+//!
+//! static X: [u16; 5] = [0, 1, 2, 40, 1_000];
+//! static X_INDEX: [u16; 8] = bucket_index(&X);
+//! static Y: [u16; 3] = [0, 50, 100];
+//! static VALUES: [[i32; 5]; 3] = [
+//!     [0, 10, 20, 400, 10_000],
+//!     [-5, 5, 15, 395, 9_995],
+//!     [-10, 0, 10, 390, 9_990],
+//! ];
+//!
+//! static MIXED: BilinearSurface<5, 3, BucketedAxis<5, 8>, UniformAxis<3, 0, 50>> =
+//!     BilinearSurface::from_axes(
+//!         BucketedAxis::new(&X, &X_INDEX),
+//!         UniformAxis::new(),
+//!         &VALUES,
+//!     );
+//! static DEFAULT: BilinearSurface<5, 3> = BilinearSurface::new(&X, &Y, &VALUES);
+//!
+//! assert_eq!(MIXED.evaluate(2, 50), Ok(15)); // a declared knot
+//! // Rows 5_200 and 5_195 at x = 520; midway on Y is 5_197.5, rounded away.
+//! assert_eq!(MIXED.evaluate(520, 25), Ok(5_198));
+//! assert_eq!(MIXED.evaluate(520, 25), DEFAULT.evaluate(520, 25));
+//! assert_eq!(MIXED.y_knot(2), 100); // described, not stored
+//! ```
+//!
 //! # Resource accounting
 //!
 //! A [`BilinearSurface<NX, NY>`](BilinearSurface) references three static
@@ -192,20 +245,45 @@
 //! referenced element payload. It is not total RAM, flash, binary, or linker
 //! cost: alignment, section placement, code, and stack are outside it.
 //!
-//! The handle itself is separate and target-dependent: three thin references
-//! (one pointer width each), four one-byte boundary selections, and whatever
-//! padding the target's alignment requires. It does not grow with `NX` or
-//! `NY`.
+//! Naming a strategy changes the two axis terms and nothing else. In general the
+//! payload is
+//!
+//! ```text
+//! X::KNOT_BYTES + X::INDEX_BYTES + Y::KNOT_BYTES + Y::INDEX_BYTES + 4*NX*NY bytes
+//! ```
+//!
+//! with each axis term stated exactly by its strategy: `2*N` knot bytes and no
+//! index for [`LinearAxis`] and [`BinaryAxis`], nothing at all for
+//! [`UniformAxis`], and `2*N` knot bytes plus `2*B` index bytes for
+//! [`BucketedAxis<N, B>`](BucketedAxis). The same exclusions apply: these are
+//! referenced element bytes, not a total memory cost.
+//!
+//! The handle itself is separate and target-dependent. It always has the
+//! value-grid reference and four one-byte boundary selections. A Uniform axis
+//! adds no reference, a Linear or Binary axis adds one knot-array reference,
+//! and a Bucketed axis adds knot-array and index-array references. The default
+//! binary/binary handle is therefore three thin references plus the policy and
+//! alignment padding. For a fixed strategy pairing it does not grow with `NX`
+//! or `NY`.
 //!
 //! # Evaluation cost
 //!
 //! [`BilinearSurface::evaluate`] performs, in the worst case, two axis
 //! searches and three scalar interpolations. Each in-domain axis search is two
-//! endpoint comparisons plus exactly `ceil(log2(len))` probes of that axis; a
+//! endpoint comparisons plus the search work of that axis's strategy; a
 //! clamped coordinate costs one or two comparisons and no probes; a rejected
 //! coordinate returns before any interpolation, and a rejected X also skips
 //! the Y search. Exactly four value-grid elements are read on success. The
 //! grid is never scanned.
+//!
+//! The per-strategy search work, in knot comparisons, is
+//! [`AxisLookup::MAX_SEARCH_COMPARISONS`]: exactly `ceil(log2(N))` for the
+//! default [`BinaryAxis`], at most `N - 1` for [`LinearAxis`], none at all for
+//! [`UniformAxis`] — which locates by one subtraction and one division — and,
+//! for [`BucketedAxis`], one bucket read plus a local scan bounded by
+//! [`max_local_comparisons`] for that axis's knots and index. Raising a bucket
+//! count to a multiple of itself splits buckets rather than moving their
+//! boundaries, so that figure never increases.
 //!
 //! That is a statement of operation structure, derived from the
 //! implementation and asserted by its tests. It is not a cycle count or a
@@ -245,6 +323,7 @@
     clippy::alloc_instead_of_core
 )]
 
+mod axis;
 mod boundary;
 mod error;
 mod evaluate;
@@ -252,6 +331,10 @@ mod interp;
 mod lookup;
 mod surface;
 
+pub use axis::{
+    AxisLookup, BinaryAxis, BucketedAxis, KnotArray, LinearAxis, UniformAxis, bucket_index,
+    max_local_comparisons,
+};
 pub use boundary::{Boundary, BoundaryPolicy};
 pub use error::SurfaceError;
 pub use surface::BilinearSurface;
