@@ -203,7 +203,7 @@
   bound) in the README and crate rustdoc, wired through the new constants.
 - `scripts/measure-code-size.sh` (not packaged) records compiler-object
   `.text` totals for four named single-pairing consumers on ARM and RISC-V
-  with the pinned 1.92.0 toolchain. It identifies normally mangled safe Rust
+  with the pinned 1.94.0 toolchain. It identifies normally mangled safe Rust
   symbols with `llvm-nm --demangle`; no exported unsafe attributes are
   generated. Output is committed as `docs/code-size-snapshot.txt` and labelled
   non-normative. The `code size snapshot` CI check diffs it and returns SKIP

@@ -93,7 +93,7 @@ cargo +nightly build --target thumbv7em-none-eabi -Z build-std=core
 cargo +nightly build --target riscv32imac-unknown-none-elf -Z build-std=core
 ```
 
-`rust-toolchain.toml` pins 1.92.0, so `+nightly` is required for `-Z`. The
+`rust-toolchain.toml` pins 1.94.0, so `+nightly` is required for `-Z`. The
 same two targets are also built with the pinned toolchain as ordinary
 bare-metal builds; do not describe those as a no-alloc proof.
 
@@ -159,7 +159,7 @@ to prove the environment works.
 The startup update script provisions everything the full matrix needs beyond the
 pinned toolchain: the `nightly` toolchain with `rust-src` (for the
 `-Z build-std=core` proof), the `thumbv7em-none-eabi` and
-`riscv32imac-unknown-none-elf` targets, and `cargo-deny`. The pinned `1.92.0`
+`riscv32imac-unknown-none-elf` targets, and `cargo-deny`. The pinned `1.94.0`
 toolchain (with `rustfmt`, `clippy`, `rust-src`) auto-installs from
 `rust-toolchain.toml` on the first cargo/rustup command run inside the repo.
 

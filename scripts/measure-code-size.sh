@@ -4,7 +4,7 @@
 # Non-normative: not a guarantee, not total flash, and not WCET. The output is
 # the committed docs/code-size-snapshot.txt; CI diffs against that file.
 #
-# Toolchain: the pinned 1.92.0 from rust-toolchain.toml, not nightly.
+# Toolchain: the pinned 1.94.0 from rust-toolchain.toml, not nightly.
 # Targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf.
 # Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false.
 # Tool: llvm-nm --demangle --print-size from llvm-tools-preview.

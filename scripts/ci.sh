@@ -262,8 +262,8 @@ check_manifest_floor() {
         printf 'Cargo.toml edition must be 2024.\n' >&2
         return 1
     fi
-    if ! grep -Eq '^rust-version = "1\.92\.0"$' Cargo.toml; then
-        printf 'Cargo.toml rust-version must be 1.92.0.\n' >&2
+    if ! grep -Eq '^rust-version = "1\.94\.0"$' Cargo.toml; then
+        printf 'Cargo.toml rust-version must be 1.94.0.\n' >&2
         return 1
     fi
     if ! metadata=$(cargo metadata --format-version 1 --offline --no-deps); then
