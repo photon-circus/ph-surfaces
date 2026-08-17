@@ -173,8 +173,9 @@ if make_copy release-provenance; then
     # package must refuse to proceed when it cannot identify an exact commit.
     # Stop Git discovery at the self-test root so the copy cannot inherit this
     # repository's .git directory from its parent path.
+    git_ceiling=$(cd "$root" && pwd -P) || exit 1
     expect_fail release-provenance 'package list' \
-        REQUIRE_NO_SKIPS=1 GIT_CEILING_DIRECTORIES="$root"
+        REQUIRE_NO_SKIPS=1 GIT_CEILING_DIRECTORIES="$git_ceiling"
 else
     failed=$((failed + 1))
 fi
