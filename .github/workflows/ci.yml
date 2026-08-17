@@ -9,10 +9,10 @@
 #
 # This is a bounded subset of the local gate: least privilege, a job timeout,
 # cancellation of superseded runs, SHA-pinned actions, and one job as the
-# single aggregate status. It runs the host checks, the package build and
-# downstream consumer, the guard self-test, and the two pinned-toolchain
-# embedded builds. It still SKIPs (never passes) `deny`, the nightly
-# `-Z build-std=core` core-only proofs, and the GitHub metadata check.
+# single aggregate status. It runs the host checks, package build and
+# downstream consumer, code-size snapshot, guard self-test, and the two
+# pinned-toolchain embedded builds. It still SKIPs (never passes) `deny`, the
+# nightly `-Z build-std=core` core-only proofs, and the GitHub metadata check.
 name: CI
 
 on:
@@ -38,7 +38,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
           toolchain: "1.94.0"
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
           targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf
       - name: Run canonical CI script
         run: ./scripts/ci.sh

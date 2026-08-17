@@ -33,7 +33,7 @@
 //! Everything here is core integer arithmetic over indices. There is no
 //! allocation, no floating point, and no extrapolation path.
 
-use crate::axis::AxisLookup;
+use crate::axis::{AxisLookup, search_in_domain};
 use crate::boundary::Boundary;
 use crate::error::SurfaceError;
 use crate::surface::BilinearSurface;
@@ -156,7 +156,10 @@ fn locate<const N: usize, A: AxisLookup<N>>(
         };
     }
 
-    let (found, probes) = axis.search(coordinate);
+    // The endpoint tests above already established the public search contract.
+    // Enter the sealed strategy directly so evaluation keeps exactly those two
+    // shared comparisons rather than paying for a second validation pair.
+    let (found, probes) = search_in_domain(axis, coordinate);
 
     // The last knot has no segment of its own, so it shares the last cell. That
     // is also what makes an exact knot interpolate to its own stored value: the

@@ -15,9 +15,10 @@ use super::{AxisLookup, KnotArray, assert_valid_knots, sealed};
 ///
 /// # Cost
 ///
-/// `2*N` stored bytes, no index, and at most `N - 1` knot comparisons per
-/// in-domain search. Unlike the binary strategy the count is data-dependent: a
-/// coordinate near the first knot costs less than one near the last.
+/// `2*N` stored bytes, no index, and at most `N - 1` strategy-specific knot
+/// comparisons after the endpoint checks. Unlike the binary strategy the count
+/// is data-dependent: a coordinate near the first knot costs less than one near
+/// the last.
 ///
 /// # Examples
 ///
@@ -74,7 +75,39 @@ impl<const N: usize> LinearAxis<N> {
     }
 }
 
-impl<const N: usize> sealed::Sealed for LinearAxis<N> {}
+impl<const N: usize> sealed::Sealed<N> for LinearAxis<N> {
+    fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
+        debug_assert!(
+            self.knots[0] <= coordinate && coordinate <= self.knots[N - 1],
+            "the sealed search is only called on an in-domain coordinate"
+        );
+
+        let mut index = 0;
+        let mut comparisons = 0;
+
+        // Walk while the *next* knot is still at or below the coordinate. The
+        // walk therefore stops on the greatest such knot, and it can never step
+        // past `N - 1`.
+        while index + 1 < N {
+            comparisons += 1;
+            if self.knots[index + 1] > coordinate {
+                break;
+            }
+            index += 1;
+        }
+
+        debug_assert!(
+            comparisons <= <Self as AxisLookup<N>>::MAX_SEARCH_COMPARISONS,
+            "the scan must stay inside the documented bound"
+        );
+        debug_assert!(
+            self.knots[index] <= coordinate,
+            "the located knot must not sit above the coordinate"
+        );
+
+        (index, comparisons)
+    }
+}
 
 impl<const N: usize> KnotArray<N> for LinearAxis<N> {
     fn knots(&self) -> &'static [u16; N] {
@@ -99,38 +132,6 @@ impl<const N: usize> AxisLookup<N> for LinearAxis<N> {
 
     fn knot(&self, index: usize) -> u16 {
         self.knots[index]
-    }
-
-    fn search(&self, coordinate: u16) -> (usize, u32) {
-        debug_assert!(
-            self.knots[0] <= coordinate,
-            "search is only called on a coordinate at or above the first knot"
-        );
-
-        let mut index = 0;
-        let mut comparisons = 0;
-
-        // Walk while the *next* knot is still at or below the coordinate. The
-        // walk therefore stops on the greatest such knot, and it can never step
-        // past `N - 1`.
-        while index + 1 < N {
-            comparisons += 1;
-            if self.knots[index + 1] > coordinate {
-                break;
-            }
-            index += 1;
-        }
-
-        debug_assert!(
-            comparisons <= Self::MAX_SEARCH_COMPARISONS,
-            "the scan must stay inside the documented bound"
-        );
-        debug_assert!(
-            self.knots[index] <= coordinate,
-            "the located knot must not sit above the coordinate"
-        );
-
-        (index, comparisons)
     }
 }
 

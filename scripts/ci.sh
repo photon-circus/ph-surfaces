@@ -16,7 +16,9 @@
 #
 # Usage:
 #   ./scripts/ci.sh                          # full matrix
-#   SKIP_EMBEDDED=1 ./scripts/ci.sh          # host checks only
+#   REQUIRE_NO_SKIPS=1 ./scripts/ci.sh       # release evidence; every SKIP fails
+#   NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD ... # select an exact core-only toolchain
+#   SKIP_EMBEDDED=1 ./scripts/ci.sh          # skip two top-level target builds
 #   FAIL_FAST=1 ./scripts/ci.sh              # stop at the first failure
 #   CI_ONLY='no ph-curves' ./scripts/ci.sh   # run one named check
 #
@@ -46,6 +48,9 @@ cd "$(dirname "$0")/.." || exit 1
 CARGO_INCREMENTAL=0
 export CARGO_INCREMENTAL
 
+NIGHTLY_TOOLCHAIN=${NIGHTLY_TOOLCHAIN:-nightly}
+export NIGHTLY_TOOLCHAIN
+
 PACKAGE_NAME=ph-surfaces
 PACKAGE_VERSION=0.1.0-incubating.1
 CRATE_DIR="${PACKAGE_NAME}-${PACKAGE_VERSION}"
@@ -55,6 +60,10 @@ SCRATCH=target/ci-scratch
 failed=0
 skipped=0
 summary=""
+
+strict_mode() {
+    [ "${REQUIRE_NO_SKIPS:-0}" != "0" ]
+}
 
 run_check() {
     name="$1"
@@ -70,6 +79,16 @@ run_check() {
     status=$?
 
     if [ "$status" -eq 2 ]; then
+        if strict_mode; then
+            printf '%s cannot be skipped when REQUIRE_NO_SKIPS=1.\n' "$name" >&2
+            summary="${summary}  FAIL  ${name} (would skip)\n"
+            failed=$((failed + 1))
+            if [ "${FAIL_FAST:-0}" != "0" ]; then
+                report
+                exit 1
+            fi
+            return 0
+        fi
         summary="${summary}  SKIP  ${name}\n"
         skipped=$((skipped + 1))
         return 0
@@ -301,8 +320,33 @@ check_examples() {
     return 0
 }
 
+run_cargo_package() {
+    if strict_mode; then
+        cargo package --locked "$@"
+    else
+        cargo package --locked --allow-dirty "$@"
+    fi
+}
+
+check_clean_release_tree() {
+    if ! strict_mode; then
+        return 0
+    fi
+    if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+        printf 'strict package verification requires a Git checkout with a HEAD commit.\n' >&2
+        return 1
+    fi
+    status=$(git status --porcelain --untracked-files=normal) || return 1
+    if [ -n "$status" ]; then
+        printf 'strict package verification requires a clean Git worktree:\n%s\n' "$status" >&2
+        return 1
+    fi
+    return 0
+}
+
 check_package_list() {
-    list=$(cargo package --list --allow-dirty | tr '\\' '/') || return 1
+    check_clean_release_tree || return 1
+    list=$(run_cargo_package --list | tr '\134' '/') || return 1
     printf '%s\n' "$list"
     for required in Cargo.toml LICENSE README.md \
         src/lib.rs src/interp.rs src/lookup.rs src/evaluate.rs src/boundary.rs \
@@ -353,14 +397,74 @@ expected_package_files() {
         src/surface.rs
 }
 
+calculate_package_sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$CRATE_FILE" | awk '{ print $1 }'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$CRATE_FILE" | awk '{ print $1 }'
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "$CRATE_FILE" | awk '{ print $NF }'
+    else
+        printf 'no SHA-256 tool found (install sha256sum, shasum, or openssl).\n' >&2
+        return 2
+    fi
+}
+
+check_package_digest() {
+    digest=$(calculate_package_sha256)
+    status=$?
+    [ "$status" -eq 0 ] || return "$status"
+    if ! printf '%s\n' "$digest" | grep -Eq '^[0-9A-Fa-f]{64}$'; then
+        printf 'package SHA-256 output is malformed: %s\n' "$digest" >&2
+        return 1
+    fi
+    verification=$(calculate_package_sha256) || return 1
+    if [ "$digest" != "$verification" ]; then
+        printf 'package changed while its SHA-256 digest was being verified.\n' >&2
+        return 1
+    fi
+    printf 'package SHA-256: %s\n' "$digest"
+    return 0
+}
+
+check_package_provenance() {
+    unpacked_crate=$1
+    if ! strict_mode; then
+        return 0
+    fi
+
+    vcs_info="$unpacked_crate/.cargo_vcs_info.json"
+    if [ ! -f "$vcs_info" ]; then
+        printf 'packaged crate is missing .cargo_vcs_info.json.\n' >&2
+        return 1
+    fi
+    expected_sha=$(git rev-parse --verify HEAD) || return 1
+    packaged_sha=$(sed -n 's/.*"sha1"[[:space:]]*:[[:space:]]*"\([0-9A-Fa-f]*\)".*/\1/p' "$vcs_info")
+    if [ "$packaged_sha" != "$expected_sha" ]; then
+        printf 'packaged VCS SHA does not match HEAD: expected %s, found %s\n' \
+            "$expected_sha" "${packaged_sha:-<missing>}" >&2
+        return 1
+    fi
+    if grep -Eq '"dirty"[[:space:]]*:[[:space:]]*true' "$vcs_info"; then
+        printf 'packaged VCS provenance is marked dirty.\n' >&2
+        return 1
+    fi
+    printf 'package VCS provenance: %s (clean)\n' "$packaged_sha"
+    return 0
+}
+
 check_package_build() {
     # 1. Build the .crate. cargo's own verify step unpacks it and builds it,
     #    so a source file missing from `include` fails here.
-    cargo package --locked --allow-dirty || return 1
+    check_clean_release_tree || return 1
+    run_cargo_package || return 1
     if [ ! -f "$CRATE_FILE" ]; then
         printf 'expected %s to exist after cargo package.\n' "$CRATE_FILE" >&2
         return 1
     fi
+    check_package_digest
+    digest_status=$?
+    [ "$digest_status" -eq 0 ] || return "$digest_status"
 
     # 2. Inspect the archive itself, not `--list`: the file set must match
     #    exactly. A stray file is as much a failure as a missing one.
@@ -386,6 +490,7 @@ check_package_build() {
     rm -rf "$consumer_root"
     mkdir -p "$consumer_root/vendor" "$consumer_root/consumer/src"
     tar xzf "$CRATE_FILE" -C "$consumer_root/vendor" || return 1
+    check_package_provenance "$consumer_root/vendor/$CRATE_DIR" || return 1
 
     consumer_target_dir="$(pwd)/$consumer_root/target"
     (
@@ -713,12 +818,13 @@ EOF
         # build compiles no instantiation of them, because a generic axis
         # strategy is only monomorphised where a surface names it.
         core_only=0
-        if rustup toolchain list 2>/dev/null | grep -q '^nightly' &&
-            rustup component list --toolchain nightly --installed 2>/dev/null |
+        if rustup run "$NIGHTLY_TOOLCHAIN" rustc --version >/dev/null 2>&1 &&
+            rustup component list --toolchain "$NIGHTLY_TOOLCHAIN" --installed 2>/dev/null |
             grep -q '^rust-src'; then
             core_only=1
         else
-            printf 'consumer: nightly with rust-src missing; core-only pairing proof skipped\n'
+            printf 'consumer: %s with rust-src missing; core-only pairing proof skipped\n' \
+                "$NIGHTLY_TOOLCHAIN"
         fi
 
         missing_target=0
@@ -728,7 +834,7 @@ EOF
                     cargo build --offline --target "$target" || exit 1
                 if [ "$core_only" -eq 1 ]; then
                     CARGO_TARGET_DIR="$consumer_target_dir" \
-                        cargo +nightly build --offline --target "$target" \
+                        cargo +"$NIGHTLY_TOOLCHAIN" build --offline --target "$target" \
                         -Z build-std=core || exit 1
                 fi
             else
@@ -754,7 +860,12 @@ check_code_size_snapshot() {
     status=$?
     case "$status" in
         0)
-            if ! diff -u docs/code-size-snapshot.txt "$SCRATCH/code-size-snapshot.txt"; then
+            # Existing Windows worktrees may predate the LF policy in
+            # .gitattributes. Compare normalized text while fresh checkouts
+            # receive LF directly.
+            snapshot_expected="$SCRATCH/code-size-snapshot.expected.txt"
+            tr -d '\r' <docs/code-size-snapshot.txt >"$snapshot_expected"
+            if ! diff -u "$snapshot_expected" "$SCRATCH/code-size-snapshot.txt"; then
                 printf 'code-size snapshot differs from docs/code-size-snapshot.txt.\n' >&2
                 printf 'Re-run scripts/measure-code-size.sh and commit the output.\n' >&2
                 return 1
@@ -780,23 +891,22 @@ check_deny() {
 
 check_core_only() {
     target=$1
-    if [ "${SKIP_EMBEDDED:-0}" != "0" ]; then
-        printf 'SKIP_EMBEDDED=1; skipping core-only %s\n' "$target"
+    if ! rustup run "$NIGHTLY_TOOLCHAIN" rustc --version >/dev/null 2>&1; then
+        printf '%s toolchain not installed; skipping (rustup toolchain install %s)\n' \
+            "$NIGHTLY_TOOLCHAIN" "$NIGHTLY_TOOLCHAIN"
         return 2
     fi
-    if ! rustup toolchain list 2>/dev/null | grep -q '^nightly'; then
-        printf 'nightly toolchain not installed; skipping (rustup toolchain install nightly)\n'
-        return 2
-    fi
-    if ! rustup component list --toolchain nightly --installed 2>/dev/null | grep -q '^rust-src'; then
-        printf 'nightly rust-src not installed; skipping (rustup component add rust-src --toolchain nightly)\n'
+    if ! rustup component list --toolchain "$NIGHTLY_TOOLCHAIN" --installed 2>/dev/null |
+        grep -q '^rust-src'; then
+        printf '%s rust-src not installed; skipping (rustup component add rust-src --toolchain %s)\n' \
+            "$NIGHTLY_TOOLCHAIN" "$NIGHTLY_TOOLCHAIN"
         return 2
     fi
     # `-Z build-std=core` builds a sysroot containing only `core` (and
     # `compiler_builtins`), so any `alloc` or `std` reference fails to
     # resolve. That absence is the no-alloc proof; a plain `--target` build
     # against the shipped `rust-std` sysroot proves nothing here.
-    cargo +nightly build --locked --target "$target" -Z build-std=core
+    cargo +"$NIGHTLY_TOOLCHAIN" build --locked --target "$target" -Z build-std=core
 }
 
 check_embedded_target() {
@@ -814,15 +924,27 @@ check_embedded_target() {
 
 check_github_metadata() {
     if ! command -v gh >/dev/null 2>&1; then
+        if strict_mode; then
+            printf 'gh is required for GitHub topics/properties when REQUIRE_NO_SKIPS=1.\n' >&2
+            return 1
+        fi
         printf 'gh not installed; skipping GitHub topics/properties check\n'
         return 2
     fi
     if ! topics=$(gh api repos/photon-circus/ph-surfaces --jq '.topics | join(",")' 2>/dev/null); then
+        if strict_mode; then
+            printf 'GitHub topics must be readable when REQUIRE_NO_SKIPS=1.\n' >&2
+            return 1
+        fi
         printf 'GitHub topics are not readable with this token; skipping\n'
         return 2
     fi
     printf 'topics: %s\n' "$topics"
     if [ -z "$topics" ]; then
+        if strict_mode; then
+            printf 'GitHub topics are unset; required: rust, embedded, no-std, no-alloc, interpolation\n' >&2
+            return 1
+        fi
         printf 'GitHub topics are unset; skipping (set: rust, embedded, no-std, no-alloc, interpolation)\n'
         return 2
     fi
@@ -839,6 +961,10 @@ check_github_metadata() {
     fi
     if ! props=$(gh api repos/photon-circus/ph-surfaces/properties/values \
         --jq '.[] | [.property_name, (.value // "")] | @tsv' 2>/dev/null); then
+        if strict_mode; then
+            printf 'GitHub custom properties must be readable when REQUIRE_NO_SKIPS=1.\n' >&2
+            return 1
+        fi
         printf 'GitHub custom properties are not readable with this token; skipping\n'
         return 2
     fi
@@ -853,20 +979,25 @@ check_github_metadata() {
 
     properties_unset=0
     if [ -z "$lifecycle" ]; then
-        printf 'Lifecycle custom property is unset; skipping unset properties\n'
+        printf 'Lifecycle custom property is unset.\n'
         properties_unset=1
     elif [ "$lifecycle" != "Incubating" ]; then
         printf 'Lifecycle custom property must be Incubating, found: %s\n' "$lifecycle" >&2
         return 1
     fi
     if [ -z "$domain" ]; then
-        printf 'Domain custom property is unset; skipping unset properties\n'
+        printf 'Domain custom property is unset.\n'
         properties_unset=1
     elif [ "$domain" != "Libraries" ]; then
         printf 'Domain custom property must be Libraries, found: %s\n' "$domain" >&2
         return 1
     fi
     if [ "$properties_unset" -ne 0 ]; then
+        if strict_mode; then
+            printf 'GitHub Lifecycle and Domain custom properties are required when REQUIRE_NO_SKIPS=1.\n' >&2
+            return 1
+        fi
+        printf 'skipping unset GitHub custom properties\n'
         return 2
     fi
     return 0
@@ -875,6 +1006,7 @@ check_github_metadata() {
 run_check 'fmt' cargo fmt --all -- --check
 run_check 'check' cargo check --locked
 run_check 'test' cargo test --locked
+run_check 'release test' cargo test --locked --release
 run_check 'examples' check_examples
 run_check 'clippy' cargo clippy --locked --all-targets -- -D warnings
 run_check 'doc' env RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps

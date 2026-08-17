@@ -18,6 +18,10 @@
 #                       -> 'integer only' must fail
 #   ph-curves           Cargo.toml gains a ph-curves dependency
 #                       -> 'no ph-curves' must fail
+#   strict-skip         an ordinary embedded build is deliberately skipped
+#                       -> REQUIRE_NO_SKIPS must turn that SKIP into a failure
+#   release-provenance  a tracked-file-only copy has no Git provenance
+#                       -> strict 'package list' must fail before packaging
 #
 # Usage:
 #   ./scripts/guard-selftest.sh
@@ -42,16 +46,19 @@ make_copy() {
     return 0
 }
 
-# expect_fail <case> <check name>: run one named check on the mutated copy and
-# require it to fail. Its output is captured and shown only when the guard did
-# not fire, so a passing self-test stays short.
+# expect_fail <case> <check name> [NAME=VALUE ...]: run one named check on the
+# mutated copy with any additional environment assignments and require it to
+# fail. Its output is captured and shown only when the guard did not fire, so a
+# passing self-test stays short.
 expect_fail() {
     case_name=$1
     check=$2
+    shift 2
     dir="$root/$case_name"
     log="$dir/$(printf '%s' "$check" | tr ' /' '__').log"
 
-    if (cd "$dir" && CI_ONLY="$check" CARGO_TARGET_DIR="$OLDPWD/target" sh scripts/ci.sh) >"$log" 2>&1; then
+    if (cd "$dir" && env "$@" CI_ONLY="$check" CARGO_TARGET_DIR="$OLDPWD/target" \
+        sh scripts/ci.sh) >"$log" 2>&1; then
         printf '  FAIL  %-20s guard "%s" did NOT fire\n' "$case_name" "$check"
         sed 's/^/        /' "$log"
         failed=$((failed + 1))
@@ -148,6 +155,23 @@ ph-curves = { path = "../ph-curves" }|'
     else
         expect_fail ph-curves 'no ph-curves'
     fi
+else
+    failed=$((failed + 1))
+fi
+
+# --- strict mode turns every skip into a failure ---------------------------
+if make_copy strict-skip; then
+    expect_fail strict-skip 'thumbv7em-none-eabi' \
+        REQUIRE_NO_SKIPS=1 SKIP_EMBEDDED=1
+else
+    failed=$((failed + 1))
+fi
+
+# --- strict packaging requires auditable Git provenance -------------------
+if make_copy release-provenance; then
+    # make_copy intentionally copies tracked files but not .git. A release
+    # package must refuse to proceed when it cannot identify an exact commit.
+    expect_fail release-provenance 'package list' REQUIRE_NO_SKIPS=1
 else
     failed=$((failed + 1))
 fi

@@ -65,6 +65,40 @@ const fn knot_at_or_below<const N: usize>(knots: &[u16; N], coordinate: u16) -> 
     index as u16
 }
 
+/// Validates the dimensions shared by bucket-index generation and use.
+const fn assert_valid_bucket_dimensions<const N: usize, const B: usize>(knots: &[u16; N]) {
+    assert_valid_knots(knots);
+    assert!(
+        N <= 65_536,
+        "a bucketed axis declares at most 65_536 knots, so every index fits a u16"
+    );
+    assert!(B >= 1, "a bucket index must declare at least one bucket");
+    assert!(
+        B <= 65_536,
+        "a bucket index declares at most 65_536 buckets"
+    );
+}
+
+/// Validates that `index` is the exact bucket table derived from `knots`.
+const fn assert_valid_bucket_index<const N: usize, const B: usize>(
+    knots: &[u16; N],
+    index: &[u16; B],
+) {
+    assert_valid_bucket_dimensions::<N, B>(knots);
+
+    let first = knots[0];
+    let last = knots[N - 1];
+
+    let mut bucket = 0;
+    while bucket < B {
+        assert!(
+            index[bucket] == knot_at_or_below(knots, bucket_start(bucket, first, last, B)),
+            "the bucket index does not match its knots; build it with bucket_index"
+        );
+        bucket += 1;
+    }
+}
+
 /// Builds the bucket index for `knots`, for use as a `static`.
 ///
 /// Entry `b` is the index of the greatest knot at or below the first coordinate
@@ -87,22 +121,13 @@ const fn knot_at_or_below<const N: usize>(knots: &[u16; N], coordinate: u16) -> 
 /// static INDEX: [u16; 4] = bucket_index(&KNOTS);
 /// static AXIS: BucketedAxis<6, 4> = BucketedAxis::new(&KNOTS, &INDEX);
 ///
-/// // Buckets start at 0, 250, 500 and 750; the knots at or below those are
+/// // Buckets start at 0, 251, 501 and 751; the knots at or below those are
 /// // 3 (index 3), 400 (index 4), 400 and 400.
 /// assert_eq!(INDEX, [0, 3, 4, 4]);
 /// ```
 #[must_use]
 pub const fn bucket_index<const N: usize, const B: usize>(knots: &[u16; N]) -> [u16; B] {
-    assert_valid_knots(knots);
-    assert!(
-        N <= 65_536,
-        "a bucketed axis declares at most 65_536 knots, so every index fits a u16"
-    );
-    assert!(B >= 1, "a bucket index must declare at least one bucket");
-    assert!(
-        B <= 65_536,
-        "a bucket index declares at most 65_536 buckets"
-    );
+    assert_valid_bucket_dimensions::<N, B>(knots);
 
     let first = knots[0];
     let last = knots[N - 1];
@@ -137,7 +162,9 @@ pub const fn bucket_index<const N: usize, const B: usize>(knots: &[u16; N]) -> [
 ///
 /// # Panics
 ///
-/// Panics on the same invalid inputs as [`bucket_index`].
+/// Panics unless `N >= 2` and `N <= 65_536`, the knots are strictly increasing,
+/// `1 <= B <= 65_536`, and every entry of `index` equals the entry
+/// [`bucket_index`] derives for the same knots.
 ///
 /// # Examples
 ///
@@ -152,13 +179,23 @@ pub const fn bucket_index<const N: usize, const B: usize>(knots: &[u16; N]) -> [
 /// // A finer index cannot make the local scan longer.
 /// assert!(max_local_comparisons(&KNOTS, &FINE) <= max_local_comparisons(&KNOTS, &COARSE));
 /// ```
+///
+/// An invalid table is rejected during constant evaluation rather than
+/// producing a profile-dependent bound at runtime:
+///
+/// ```compile_fail
+/// use ph_surfaces::max_local_comparisons;
+///
+/// const KNOTS: [u16; 2] = [0, 10];
+/// const DESCENDING: [u16; 2] = [1, 0];
+/// const INVALID_BOUND: u32 = max_local_comparisons(&KNOTS, &DESCENDING);
+/// ```
 #[must_use]
 pub const fn max_local_comparisons<const N: usize, const B: usize>(
     knots: &[u16; N],
     index: &[u16; B],
 ) -> u32 {
-    assert_valid_knots(knots);
-    assert!(B >= 1, "a bucket index must declare at least one bucket");
+    assert_valid_bucket_index(knots, index);
 
     let mut worst = 0;
     let mut bucket = 0;
@@ -171,8 +208,8 @@ pub const fn max_local_comparisons<const N: usize, const B: usize>(
             (N - 1) as u32
         };
 
-        // `end >= start` because the index is non-decreasing, which
-        // `BucketedAxis::new` establishes.
+        // `end >= start` because the exact index validation above establishes
+        // the same non-decreasing table as `BucketedAxis::new`.
         let cost = end - start;
         if cost > worst {
             worst = cost;
@@ -200,8 +237,8 @@ pub const fn max_local_comparisons<const N: usize, const B: usize>(
 ///
 /// # Cost
 ///
-/// `2*N` stored knot bytes plus `2*B` index bytes. One in-domain search reads
-/// one bucket and then performs at most
+/// `2*N` stored knot bytes plus `2*B` index bytes. After the endpoint checks,
+/// the strategy reads one bucket and then performs at most
 /// [`max_local_comparisons`] knot comparisons — a figure exact for these knots,
 /// which never grows when `B` is raised to a multiple of itself.
 ///
@@ -256,28 +293,7 @@ impl<const N: usize, const B: usize> BucketedAxis<N, B> {
     /// with an index that disagrees with its knots.
     #[must_use]
     pub const fn new(knots: &'static [u16; N], index: &'static [u16; B]) -> Self {
-        assert_valid_knots(knots);
-        assert!(
-            N <= 65_536,
-            "a bucketed axis declares at most 65_536 knots, so every index fits a u16"
-        );
-        assert!(B >= 1, "a bucket index must declare at least one bucket");
-        assert!(
-            B <= 65_536,
-            "a bucket index declares at most 65_536 buckets"
-        );
-
-        let first = knots[0];
-        let last = knots[N - 1];
-
-        let mut bucket = 0;
-        while bucket < B {
-            assert!(
-                index[bucket] == knot_at_or_below(knots, bucket_start(bucket, first, last, B)),
-                "the bucket index does not match its knots; build it with bucket_index"
-            );
-            bucket += 1;
-        }
+        assert_valid_bucket_index(knots, index);
 
         Self { knots, index }
     }
@@ -304,42 +320,14 @@ impl<const N: usize, const B: usize> BucketedAxis<N, B> {
     }
 }
 
-impl<const N: usize, const B: usize> sealed::Sealed for BucketedAxis<N, B> {}
-
-impl<const N: usize, const B: usize> KnotArray<N> for BucketedAxis<N, B> {
-    fn knots(&self) -> &'static [u16; N] {
-        self.knots
-    }
-}
-
-impl<const N: usize, const B: usize> AxisLookup<N> for BucketedAxis<N, B> {
-    const KNOT_BYTES: usize = 2 * N;
-    const INDEX_BYTES: usize = 2 * B;
-    // The structural bound, true for any knots: a bucket can hold the whole
-    // axis, and then the local scan is the whole scan. The exact bound for a
-    // particular axis is `BucketedAxis::max_local_comparisons`, which is what
-    // the index is bought for.
-    const MAX_SEARCH_COMPARISONS: u32 = (N - 1) as u32;
-
-    fn first(&self) -> u16 {
-        self.knots[0]
-    }
-
-    fn last(&self) -> u16 {
-        self.knots[N - 1]
-    }
-
-    fn knot(&self, index: usize) -> u16 {
-        self.knots[index]
-    }
-
-    fn search(&self, coordinate: u16) -> (usize, u32) {
+impl<const N: usize, const B: usize> sealed::Sealed<N> for BucketedAxis<N, B> {
+    fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
         let first = self.knots[0];
         let last = self.knots[N - 1];
 
         debug_assert!(
             first <= coordinate && coordinate <= last,
-            "search is only called on an in-domain coordinate"
+            "the sealed search is only called on an in-domain coordinate"
         );
 
         let bucket = bucket_of(coordinate, first, last, B);
@@ -378,6 +366,34 @@ impl<const N: usize, const B: usize> AxisLookup<N> for BucketedAxis<N, B> {
     }
 }
 
+impl<const N: usize, const B: usize> KnotArray<N> for BucketedAxis<N, B> {
+    fn knots(&self) -> &'static [u16; N] {
+        self.knots
+    }
+}
+
+impl<const N: usize, const B: usize> AxisLookup<N> for BucketedAxis<N, B> {
+    const KNOT_BYTES: usize = 2 * N;
+    const INDEX_BYTES: usize = 2 * B;
+    // The structural bound, true for any knots: a bucket can hold the whole
+    // axis, and then the local scan is the whole scan. The exact bound for a
+    // particular axis is `BucketedAxis::max_local_comparisons`, which is what
+    // the index is bought for.
+    const MAX_SEARCH_COMPARISONS: u32 = (N - 1) as u32;
+
+    fn first(&self) -> u16 {
+        self.knots[0]
+    }
+
+    fn last(&self) -> u16 {
+        self.knots[N - 1]
+    }
+
+    fn knot(&self, index: usize) -> u16 {
+        self.knots[index]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{BucketedAxis, bucket_index, max_local_comparisons};
@@ -412,7 +428,7 @@ mod tests {
 
     #[test]
     fn the_generated_index_names_the_knot_at_or_below_each_bucket_start() {
-        // Buckets start at 0, 250, 500, 750; the greatest knot at or below each
+        // Buckets start at 0, 251, 501, 751; the greatest knot at or below each
         // is 3 (index 3), 400 (index 4), 400, 400.
         assert_eq!(CLUSTERED_4, [0, 3, 4, 4]);
         // With one bucket the index can only name the first knot.

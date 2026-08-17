@@ -96,6 +96,10 @@ cargo +nightly build --target riscv32imac-unknown-none-elf -Z build-std=core
 `rust-toolchain.toml` pins 1.94.0, so `+nightly` is required for `-Z`. The
 same two targets are also built with the pinned toolchain as ordinary
 bare-metal builds; do not describe those as a no-alloc proof.
+`scripts/ci.sh` uses the moving `nightly` alias for ordinary developer runs,
+but accepts `NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD`; release evidence must set
+that variable to the reviewed dated nightly and record its exact `rustc` and
+`cargo` versions.
 
 ### 3a. Resource and cost claims stay exact and separate
 
@@ -117,6 +121,11 @@ without assuming a pointer width.
 
 `./scripts/ci.sh` is the verification entry point. It reports `PASS`, `FAIL`,
 and `SKIP` distinctly. A skipped check is not a passed check.
+`NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD REQUIRE_NO_SKIPS=1 ./scripts/ci.sh` is
+the release-evidence mode: every check must run, a would-be `SKIP` is recorded
+as `FAIL`, and package checks require a clean Git worktree, validate the
+packaged commit provenance, and print a verified SHA-256 digest. The matrix
+includes both debug and release test suites.
 `CI_ONLY='<check name>' ./scripts/ci.sh` runs one check. The `package build`
 check builds the `.crate`, asserts its exact file list, and compiles a
 downstream `#![no_std]` consumer against it; `guards fire on mutation` runs
@@ -133,7 +142,7 @@ or failed hosted run as a local-CI failure.
 
 | Change | Also update |
 | --- | --- |
-| Version or `publish` | `README.md` status, `CHANGELOG.md`, `scripts/ci.sh` manifest assertions |
+| Version or crate `publish` setting | `Cargo.lock`, `README.md` and `src/lib.rs` status, this file's status text, `CHANGELOG.md`, `docs/v0.1-traceability.md`, every hardcoded version/tag/dependency/yank example in `RELEASING.md`, and the package constants plus manifest assertions in `scripts/ci.sh` |
 | New packaged file | `include` in `Cargo.toml`, and both `check_package_list` and `expected_package_files` in `scripts/ci.sh` |
 | New guard in `scripts/ci.sh` | A mutation case in `scripts/guard-selftest.sh` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |
@@ -160,17 +169,19 @@ The startup update script provisions everything the full matrix needs beyond the
 pinned toolchain: the `nightly` toolchain with `rust-src` (for the
 `-Z build-std=core` proof), the `thumbv7em-none-eabi` and
 `riscv32imac-unknown-none-elf` targets, and `cargo-deny`. The pinned `1.94.0`
-toolchain (with `rustfmt`, `clippy`, `rust-src`) auto-installs from
-`rust-toolchain.toml` on the first cargo/rustup command run inside the repo.
+toolchain (with `rustfmt`, `clippy`, `rust-src`, `llvm-tools-preview`)
+auto-installs from `rust-toolchain.toml` on the first cargo/rustup command run
+inside the repo.
 
 Non-obvious gotchas:
 - The `github metadata` check reports `SKIP` here (and will keep skipping): it
   needs a public repo plus a token that can read topics/custom properties, which
   the cloud VM does not have. Per this repo's own rules, `SKIP` is expected and is
-  not a failure — do not try to "fix" it.
-- `SKIP_EMBEDDED=1 ./scripts/ci.sh` only skips the two embedded-target `cargo
-  check` steps (`thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`). It does
-  **not** skip the nightly core-only `-Z build-std=core` proof, which still builds
-  for `thumbv7em-none-eabi` whenever the `nightly` toolchain and `rust-src` are
-  installed (as this environment provides); set it only expecting a partial skip,
-  not a fully host-only run. `FAIL_FAST=1` stops at the first failure.
+  not a failure for an ordinary developer run. It is deliberately a failure in
+  `REQUIRE_NO_SKIPS=1` release-evidence mode.
+- `SKIP_EMBEDDED=1 ./scripts/ci.sh` only skips the two top-level ordinary
+  embedded `cargo build` checks (`thumbv7em-none-eabi`,
+  `riscv32imac-unknown-none-elf`). It does **not** skip either nightly core-only
+  `-Z build-std=core` proof or the packaged-consumer matrix; set it only
+  expecting a partial skip, not a fully host-only run. `FAIL_FAST=1` stops at
+  the first failure.

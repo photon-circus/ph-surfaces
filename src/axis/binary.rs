@@ -12,9 +12,9 @@ use super::{AxisLookup, KnotArray, assert_valid_knots, probe_bound, sealed};
 ///
 /// # Cost
 ///
-/// `2*N` stored bytes, no index, and exactly `ceil(log2(N))` knot comparisons
-/// per in-domain search — for a 1024-knot axis, ten comparisons where a scan
-/// would take up to 1024.
+/// `2*N` stored bytes, no index, and exactly `ceil(log2(N))`
+/// strategy-specific knot comparisons after the endpoint checks — for a
+/// 1024-knot axis, ten comparisons where a scan would take up to 1024.
 ///
 /// The count is exact rather than a bound, and it depends only on `N`: the same
 /// number of comparisons for an endpoint, for an exact interior knot, and for a
@@ -86,35 +86,11 @@ impl<const N: usize> BinaryAxis<N> {
     }
 }
 
-impl<const N: usize> sealed::Sealed for BinaryAxis<N> {}
-
-impl<const N: usize> KnotArray<N> for BinaryAxis<N> {
-    fn knots(&self) -> &'static [u16; N] {
-        self.knots
-    }
-}
-
-impl<const N: usize> AxisLookup<N> for BinaryAxis<N> {
-    const KNOT_BYTES: usize = 2 * N;
-    const INDEX_BYTES: usize = 0;
-    const MAX_SEARCH_COMPARISONS: u32 = probe_bound(N);
-
-    fn first(&self) -> u16 {
-        self.knots[0]
-    }
-
-    fn last(&self) -> u16 {
-        self.knots[N - 1]
-    }
-
-    fn knot(&self, index: usize) -> u16 {
-        self.knots[index]
-    }
-
-    fn search(&self, coordinate: u16) -> (usize, u32) {
+impl<const N: usize> sealed::Sealed<N> for BinaryAxis<N> {
+    fn search_in_domain(&self, coordinate: u16) -> (usize, u32) {
         debug_assert!(
-            self.knots[0] <= coordinate,
-            "search is only called on a coordinate at or above the first knot"
+            self.knots[0] <= coordinate && coordinate <= self.knots[N - 1],
+            "the sealed search is only called on an in-domain coordinate"
         );
 
         let mut base = 0;
@@ -138,7 +114,7 @@ impl<const N: usize> AxisLookup<N> for BinaryAxis<N> {
 
         debug_assert_eq!(
             probes,
-            Self::MAX_SEARCH_COMPARISONS,
+            <Self as AxisLookup<N>>::MAX_SEARCH_COMPARISONS,
             "the probe count must match the documented bound exactly"
         );
         debug_assert!(
@@ -147,6 +123,30 @@ impl<const N: usize> AxisLookup<N> for BinaryAxis<N> {
         );
 
         (base, probes)
+    }
+}
+
+impl<const N: usize> KnotArray<N> for BinaryAxis<N> {
+    fn knots(&self) -> &'static [u16; N] {
+        self.knots
+    }
+}
+
+impl<const N: usize> AxisLookup<N> for BinaryAxis<N> {
+    const KNOT_BYTES: usize = 2 * N;
+    const INDEX_BYTES: usize = 0;
+    const MAX_SEARCH_COMPARISONS: u32 = probe_bound(N);
+
+    fn first(&self) -> u16 {
+        self.knots[0]
+    }
+
+    fn last(&self) -> u16 {
+        self.knots[N - 1]
+    }
+
+    fn knot(&self, index: usize) -> u16 {
+        self.knots[index]
     }
 }
 

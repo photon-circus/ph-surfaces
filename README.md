@@ -625,12 +625,20 @@ The canonical entry point is local:
 ```
 
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
-not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
+not a passed check. Release evidence sets an exact nightly and forbids skips:
 
-- formatting, host tests and doctests (including every code block in this
-  README), every Cargo example run as an assertion harness, clippy with
-  warnings denied, and rustdoc with warnings denied and `missing_docs` denied
-  on every public item;
+```sh
+NIGHTLY_TOOLCHAIN=nightly-2026-08-08 REQUIRE_NO_SKIPS=1 ./scripts/ci.sh
+```
+
+Strict mode also requires a clean Git worktree, validates the package's VCS
+commit, and prints a verified archive SHA-256. Local `./scripts/ci.sh` is
+authoritative. It gates:
+
+- formatting, debug and release host tests and doctests (including every code
+  block in this README), every Cargo example run as an assertion harness,
+  clippy with warnings denied, and rustdoc with warnings denied and
+  `missing_docs` denied on every public item;
 - unconditional `#![no_std]`: no `[features]` table, no `cfg_attr` on the
   attribute, and no feature-gated code anywhere in `src/`;
 - an integer-only, core-only, `unsafe`-free runtime, by grepping code paths;
@@ -691,3 +699,17 @@ are not enabled. The workflow file remains for a manual `workflow_dispatch`
 after the repository is public; it is a bounded subset (least privilege, a job
 timeout, cancellation, SHA-pinned actions, one job as the aggregate status) and
 still skips deny, nightly core-only, and GitHub metadata.
+
+## Contributing and releases
+
+Contributions are welcome under the repository-specific
+[`CONTRIBUTING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CONTRIBUTING.md)
+and
+[`CODE_OF_CONDUCT.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CODE_OF_CONDUCT.md).
+Never put vulnerability details in a public issue; follow the organization
+[security policy](https://github.com/photon-circus/.github/security/policy).
+
+Durable publication is a separate maintainer action governed by
+[`RELEASING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/RELEASING.md).
+A pull request approval does not by itself authorize a visibility change, tag,
+crates.io upload, yank, or GitHub Release.
