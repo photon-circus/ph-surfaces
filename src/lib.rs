@@ -7,12 +7,15 @@
 //! representation [`BilinearSurface`], its evaluator
 //! [`BilinearSurface::evaluate`], the boundary policy vocabulary
 //! ([`Boundary`], [`BoundaryPolicy`]), and the out-of-domain outcome type
-//! ([`SurfaceError`]). Axis lookup and scalar interpolation remain private
-//! internals.
+//! ([`SurfaceError`]). Scalar interpolation remains private. This build exposes
+//! the source-compatible binary lookup baseline; compile-time per-axis
+//! strategies (#18), their proof (#19), and the final documentation/package
+//! gate (#9) remain pre-release work.
 //!
 //! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
-//! independent Error/Clamp boundary sides.
+//! independent Error/Clamp boundary sides, with each axis selecting its lookup
+//! strategy at compile time.
 //!
 //! # Evaluation contract
 //!
@@ -41,8 +44,10 @@
 //!
 //! **Representation.** [`BilinearSurface<NX, NY>`](BilinearSurface) references
 //! `&'static [u16; NX]` X knots, `&'static [u16; NY]` Y knots, and a row-major
-//! `&'static [[i32; NX]; NY]` value grid addressed as `values[y][x]`. A
-//! transposed grid is a compile-time type error. [`BilinearSurface::new`] is a
+//! `&'static [[i32; NX]; NY]` value grid addressed as `values[y][x]`. Swapping
+//! unequal X/Y dimensions is a compile-time type error; a square transpose
+//! preserves the type, so callers remain responsible for row-major orientation.
+//! [`BilinearSurface::new`] is a
 //! `const fn` that asserts at least two knots per axis and strict increase of
 //! both axes, so an invalid `static` definition fails to compile. The handle
 //! carries no units, provenance, or other metadata.
@@ -223,8 +228,12 @@
 //! other dimensions, axis widths, or output types; scattered points, irregular
 //! meshes, bicubic interpolation, extrapolation, or fitting; dynamic or
 //! runtime-loaded grids, mutation, caching, allocation, `unsafe`, or floating
-//! point; runtime metadata, units, or provenance; and host generation or CLI
-//! tooling.
+//! point; runtime metadata, units, or provenance; host generation or CLI
+//! tooling; runtime-selectable strategies or runtime-generated indexes; and a
+//! direct coordinate-to-cell LUT before a concrete consumer supplies its
+//! coordinate domain and latency bound, measurements showing Bucketed misses
+//! that bound on a named target/profile, an adequate static-data budget, and a
+//! reproducible generation and validation plan.
 
 #![no_std]
 #![forbid(unsafe_code)]

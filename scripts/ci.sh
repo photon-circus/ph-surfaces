@@ -25,7 +25,7 @@
 #   - no_std unconditional / integer only / no ph-curves / manifest floor:
 #     source and manifest ratchets that `cargo test` cannot observe.
 #   - package list / package build: the exact packaged file set, the packaged
-#     artifact building on its own, its rustdoc and doctests (README blocks
+#     artifact building on its own, its rustdoc and doctests (README Rust blocks
 #     included) passing from the unpacked package, and a downstream
 #     `#![no_std]` consumer that declares and evaluates both documented
 #     example maps compiling and testing against it.
@@ -342,7 +342,7 @@ check_package_build() {
 
     # 3. Unpack the artifact and prove its own documentation from the packaged
     #    files alone: rustdoc with warnings denied, and every doctest,
-    #    including each README code block (README.md ships and is compiled as
+    #    including each README Rust code block (README.md ships and is compiled as
     #    doctests by src/lib.rs). The unpacked crate has no tests/ directory,
     #    so `cargo test` there is unit tests plus doctests only.
     consumer_root="$SCRATCH/package-consumer"
@@ -460,16 +460,26 @@ EOF
             printf 'the downstream consumer resolved an unexpected package.\n' >&2
             exit 1
         fi
+        missing_target=0
         for target in thumbv7em-none-eabi riscv32imac-unknown-none-elf; do
             if rustup target list --installed 2>/dev/null | grep -qx "$target"; then
                 CARGO_TARGET_DIR="$consumer_target_dir" \
                     cargo build --offline --target "$target" || exit 1
             else
-                printf 'consumer: target %s not installed; host build only for it\n' "$target"
+                printf 'consumer: target %s not installed; package target proof skipped\n' "$target"
+                missing_target=1
             fi
         done
-    ) || return 1
-    return 0
+        if [ "$missing_target" -ne 0 ]; then
+            exit 2
+        fi
+    )
+    consumer_status=$?
+    case "$consumer_status" in
+        0) return 0 ;;
+        2) return 2 ;;
+        *) return 1 ;;
+    esac
 }
 
 check_guard_selftest() {

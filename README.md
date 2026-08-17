@@ -12,10 +12,12 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > **Distribution:** Unpublished. `publish = false`. Version `0.1.0-incubating.1`.
 > **Domain:** Libraries.
 
-This repository is a private Incubating Libraries project. It exposes the
-validated static surface representation, its deterministic X-then-Y evaluator,
-and its boundary and error vocabulary. There is no crates.io publication and no
-docs.rs page.
+This repository is a private Incubating Libraries project. It currently exposes
+the validated binary-lookup surface representation, its deterministic X-then-Y
+evaluator, and its boundary and error vocabulary. Compile-time per-axis lookup
+strategies (#18), their conformance and cost evidence (#19), and the final
+documentation/package gate (#9) remain before v0.1 is complete. There is no
+crates.io publication and no docs.rs page.
 
 ## What this is
 
@@ -24,10 +26,12 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 
 > Evaluate a static rectilinear two-dimensional `u16 × u16 → i32` surface with
 > deterministic X-then-Y bilinear interpolation, four independent Error/Clamp
-> boundary sides, no allocation, and no floating point at runtime.
+> boundary sides, no allocation, no floating point at runtime, and an explicit
+> compile-time choice of lookup strategy for each axis.
 
-`BilinearSurface::evaluate` implements that mapping. A minimal static surface
-is three `static` tables and one `static` handle:
+`BilinearSurface::evaluate` currently implements the numerical and boundary
+contract with binary lookup, which remains the default under #18. A minimal
+static surface is three `static` tables and one `static` handle:
 
 ```rust
 use ph_surfaces::BilinearSurface;
@@ -44,7 +48,7 @@ fn main() {
 }
 ```
 
-Every code block in this README is compiled and run as a doctest of the
+Every Rust code block in this README is compiled and run as a doctest of the
 packaged crate, so the README cannot drift from the API it describes.
 
 ## Independence from `ph-curves`
@@ -68,8 +72,9 @@ packages; and `scripts/guard-selftest.sh` shows the guard fires when a
 
 ## Contract
 
-This section is the consumer-facing statement of the frozen v0.1 contract.
-Each item is implemented, tested by the black-box suite in
+This section is the consumer-facing statement of the currently implemented
+binary-lookup contract. Each item below is implemented and tested by the
+black-box suite in
 `tests/conformance/`, and mapped to its evidence in
 [`docs/v0.1-traceability.md`](docs/v0.1-traceability.md).
 
@@ -79,9 +84,11 @@ Each item is implemented, tested by the black-box suite in
 - It references `&'static [u16; NX]` (X knots), `&'static [u16; NY]` (Y
   knots), and a row-major `&'static [[i32; NX]; NY]` value grid. Y selects the
   row and X selects the column: a value is addressed as **`values[y][x]`**.
-- Because the grid type is `[[i32; NX]; NY]`, a transposed grid is a
-  **compile-time type error**, not a runtime error. There is no reachable
-  dimension-mismatch outcome.
+- Because the grid type is `[[i32; NX]; NY]`, swapping unequal X/Y dimensions
+  is a **compile-time type error**, not a runtime error. For a square surface,
+  transposition preserves the type, so the caller must still supply the
+  documented row-major `values[y][x]` orientation. There is no reachable
+  runtime dimension-mismatch outcome.
 - `BilinearSurface::new` is a `const fn`. It asserts at least two knots on each
   axis and strict increase of both axes. In a `static` or `const` definition
   those assertions run at compile time, so an invalid definition **fails to
@@ -295,16 +302,15 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 
 ## What state it is in
 
-Incubating and unpublished. The v0.1 scope is complete: the public
-`BilinearSurface<NX, NY>` representation, the `Boundary` / `BoundaryPolicy`
-policy vocabulary, `SurfaceError`, the private scalar interpolation helper, the
-private binary axis lookup with four-sided boundary handling, and the public
-`BilinearSurface::evaluate`; the black-box conformance suite in
-`tests/conformance/`; the mechanical dependency, `no_std`, no-allocation,
-storage, work-bound, packaging, and target proofs; and this documentation with
-its [traceability checklist](docs/v0.1-traceability.md). Publishing the crate,
-creating a release or tag, and declaring a stable 1.0 API remain separate
-maintainer decisions; `publish = false` stays until then.
+Incubating and unpublished. The binary-lookup baseline, its conformance suite,
+mechanical dependency and embedded proofs, examples, and package checks are
+implemented. The accepted pre-release work still proceeds in this order: #18
+adds compile-time per-axis Linear, Binary, Uniform, and Bucketed lookup; #19
+adds cross-strategy equivalence and exact cost evidence; #9 then freezes the
+final documentation and package-readiness evidence. The interim
+[traceability checklist](docs/v0.1-traceability.md) records both implemented
+and pending claims. Publishing, tagging, and stable 1.0 compatibility remain
+separate maintainer decisions; `publish = false` stays until then.
 
 ## Responsibility
 
@@ -330,6 +336,11 @@ v0.1 explicitly does not include:
   unsafe code, or floating point
 - Runtime semantic metadata, units, provenance, or generated error reports
 - Host generation, CLI tooling, formula ingestion, or numerical fitting
+- Runtime-selectable strategies, runtime-generated indexes, or a direct
+  coordinate-to-cell LUT. A direct LUT remains deferred unless a concrete
+  firmware consumer supplies a coordinate domain and latency/jitter bound,
+  measurements showing Bucketed lookup misses it on a named target/profile, a
+  static-data budget, and a reproducible generation and validation plan.
 - Device-specific equations, source catalogs, filtering, fusion, scheduling,
   buses, GPIO, async, or storage
 
@@ -344,18 +355,18 @@ v0.1 explicitly does not include:
 
 ## Resource accounting and cost
 
-**Storage.** A `BilinearSurface<NX, NY>` references three static tables whose
-element payload is exactly `2*NX + 2*NY + 4*NX*NY` bytes: `NX` X knots of
-`u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`. That figure is exact
-and target-independent, and it is only the referenced element payload. It is
-not total RAM, flash, binary, or linker cost; alignment, section placement,
-code, and stack are outside it. The handle is separate and target-dependent:
-three thin references (one pointer width each), four one-byte boundary
-selections, and any padding the target's alignment requires. It does not grow
-with `NX` or `NY`. Host tests assert both figures without assuming a pointer
-width or a field layout beyond Rust's guarantees. Code size, flash placement,
-and stack depth are properties of the consuming build and its linker; this
-crate states none of them.
+**Storage.** The current binary `BilinearSurface<NX, NY>` references three
+static tables whose element payload is exactly `2*NX + 2*NY + 4*NX*NY` bytes:
+`NX` X knots of `u16`, `NY` Y knots of `u16`, and `NX*NY` values of `i32`. That
+figure is exact and target-independent, and it is only the referenced element
+payload. It is not total RAM, flash, binary, or linker cost; alignment, section
+placement, code, and stack are outside it. The handle is separate and
+target-dependent: three thin references (one pointer width each), four one-byte
+boundary selections, and any padding the target's alignment requires. It does
+not grow with `NX` or `NY`. Host tests assert both figures without assuming a
+pointer width or a field layout beyond Rust's guarantees. Code size, flash
+placement, and stack depth are properties of the consuming build and its
+linker; this crate states none of them.
 
 **Work.** A worst-case `evaluate` is two axis searches and three scalar
 interpolations. Each in-domain axis search is two endpoint comparisons plus

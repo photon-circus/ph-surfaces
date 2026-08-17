@@ -9,18 +9,16 @@ changing code.
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository contains the complete accepted v0.1 scope (issues #2–#9 of the
-umbrella #1): the repository floor, the private scalar segment interpolation
-helper in `src/interp.rs`, the validated static `BilinearSurface`
-representation with its boundary and error vocabulary, the private axis lookup
-in `src/lookup.rs`, the public evaluator in `src/evaluate.rs`, the black-box
-conformance suite in `tests/conformance/`, the mechanical claim proofs in
-`scripts/ci.sh` and `scripts/guard-selftest.sh`, and the consumer-facing
-documentation with its traceability checklist in `docs/v0.1-traceability.md`.
-Publishing, tagging, and a stable 1.0 promise are separate maintainer
-decisions; `publish = false` stays until then.
+This repository contains the accepted binary-lookup baseline through issues
+#2–#8 of umbrella #1, plus preparatory consumer documentation and package
+checks. The remaining pre-release sequence is #18 (compile-time per-axis
+lookup strategies), #19 (cross-strategy conformance and cost evidence), then
+#9 (the final documentation and package-readiness gate). Do not describe v0.1
+as complete or close #9 before that sequence finishes. Publishing, tagging,
+and a stable 1.0 promise are separate maintainer decisions; `publish = false`
+stays until then.
 
-`README.md` is packaged and every one of its code blocks runs as a doctest
+`README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example
 that stops compiling fails `cargo test`. Keep README code blocks complete and
 runnable, or tag a non-Rust block with its language (`sh`, `text`).
@@ -36,11 +34,12 @@ unit tests in `src/`; do not move them into the suite or duplicate them there.
 exact half-way values away from zero. Route every interpolated value through
 `div_round_half_away_from_zero` rather than adding a second implementation.
 
-`src/lookup.rs` owns the only axis search in the crate, and one algorithm serves
-both axes. Do not add a second search, an early exit on an exact match, or any
-extrapolation path. Route new axis work through `locate`, and keep the
-axis-specific `SurfaceError` mapping in the two thin wrappers so the shared
-algorithm stays axis-neutral.
+`src/lookup.rs` currently owns the binary axis search used by both axes. Issue
+#18 will extend lookup with sealed Linear, Binary, Uniform, and Bucketed
+strategies selected independently at compile time. Every strategy
+must produce the same axis-neutral location result and preserve exact-knot,
+boundary, and no-extrapolation semantics; keep axis-specific `SurfaceError`
+mapping thin and outside the strategy algorithms.
 
 `src/evaluate.rs` owns the only composition order in the crate. X is resolved
 before Y, X interpolates on each of the two Y rows before Y interpolates between

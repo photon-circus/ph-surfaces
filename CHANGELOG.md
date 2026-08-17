@@ -18,7 +18,9 @@
   `&'static` axes and a row-major `&'static [[i32; NX]; NY]` value grid. Its
   `const fn new` rejects fewer than two knots on either axis and any axis that
   is not strictly increasing, so an invalid definition fails to compile. A
-  transposed grid is a type error, not a runtime error.
+  axis/grid shape mismatch is a type error, not a runtime error. For square
+  grids, transposition preserves the type, so callers must still supply
+  row-major `values[y][x]` orientation correctly.
 - Public `Boundary` and `BoundaryPolicy`, selecting Error or Clamp
   independently on the X-below, X-above, Y-below, and Y-above domain sides.
   Every side defaults to Error.
@@ -103,8 +105,9 @@
 - The `integer only` check in `scripts/ci.sh` now also greps `tests/` for
   floating-point types and literals and for `ph-curves`, so the conformance
   suite cannot acquire a float or `ph-curves` oracle.
-- Consolidated public v0.1 contract documentation in `README.md` and the
-  crate-level rustdoc: representation and row-major `values[y][x]`
+- Consolidated documentation for the implemented binary-lookup baseline in
+  `README.md` and the crate-level rustdoc: representation and row-major
+  `values[y][x]`
   orientation, compile-time constant validation, the four boundary policies
   and the four `SurfaceError` variants, X-before-Y error precedence,
   nearest/ties-away scalar rounding, the normative X-then-Y order with its
@@ -113,7 +116,7 @@
   no-`ph-curves`-in-any-form statement, the supported verification targets,
   and the explicit v0.1 non-goals. Each contract item in the README is a
   doctest where it can be.
-- Every code block in `README.md` is now compiled and run as a doctest via a
+- Every Rust code block in `README.md` is now compiled and run as a doctest via a
   `cfg(doctest)`-only module in `src/lib.rs`, so the packaged README cannot
   drift from the API. No runtime code and no public API item changed.
 - Two unrelated device-neutral example maps (the conformance suite's
@@ -124,13 +127,12 @@
   runs every doctest (README blocks included) from inside the unpacked
   `.crate`, and its downstream `#![no_std]` consumer now declares both example
   maps as statics, is tested on the host against the documented points, and
-  is built for both embedded targets. `package list` additionally rejects
-  `docs/` and `tests/` from the archive.
-- `docs/v0.1-traceability.md`: the final traceability checklist mapping every
-  acceptance claim of the v0.1 umbrella (#1) and of #9 to its implementation
-  issue, tests, documentation section, and `scripts/ci.sh` gate, with the
-  child-issue dispositions and the explicit not-proven / not-claimed list. It
-  is repository material and is not packaged.
+  is built for both embedded targets when they are installed; the check reports
+  `SKIP`, not `PASS`, if either target is unavailable. `package list`
+  additionally rejects `docs/` and `tests/` from the archive.
+- `docs/v0.1-traceability.md`: an interim traceability checklist for the
+  implemented binary baseline, explicitly recording #18, #19, and the final
+  #9 gate as pending. It remains repository material and is not packaged.
 
 ### Known issues
 
