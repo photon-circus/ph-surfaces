@@ -178,6 +178,16 @@
   (3), and `SUCCESS_GRID_READS` (4). Default binary `PAYLOAD_BYTES` equals
   `2*NX + 2*NY + 4*NX*NY`. Host tests match `size_of` of the declared tables;
   Uniform/Uniform payload is only the grid.
+- Embedded firmware usage guides (`docs/usage-guide.md`), an interpolation
+  walkthrough of the production X-then-Y order
+  (`docs/interpolation-walkthrough.md`), and a prescriptive strategy cookbook
+  (`docs/choosing-a-strategy.md`). Five assertion-harness Cargo examples
+  (`firmware_quickstart`, `uniform_sensor_compensation`,
+  `mixed_calibration_map`, `fail_safe_boundaries`, `firmware_cost_budget`)
+  mechanically assert the documented results and the three exact
+  payload/work comparisons. Local CI runs every example, packages them, runs
+  them from the unpacked `.crate`, and reuses the default, Uniform, and mixed
+  fixtures in the downstream `#![no_std]` consumer.
 - Black-box cross-strategy suite in `tests/conformance/strategies.rs`. Every
   applicable Linear/Binary/Uniform/Bucketed pairing is compared to a
   table-based `i128` linear-scan oracle (`evaluate_tables`); production

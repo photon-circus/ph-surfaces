@@ -12,8 +12,17 @@
 //! the sealed [`AxisLookup`] and [`KnotArray`] traits. Scalar interpolation
 //! remains private. Cross-strategy conformance, the const cost API, the
 //! selection matrix, and a labelled code-size snapshot (#19) have landed. The
-//! documentation/package gate (#9) is closed; embedded-focused examples and
-//! strategy-selection guidance (#22) remain pre-release work.
+//! documentation/package gate (#9) is closed. Embedded usage guides, the
+//! strategy cookbook, and runnable firmware examples (#22) have landed.
+//! Publishing, tagging, and a stable 1.0 promise remain separate maintainer
+//! decisions.
+//!
+//! Firmware-first usage lives in the packaged README ("Start here") and the
+//! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
+//! `mixed_calibration_map`, `fail_safe_boundaries`, and
+//! `firmware_cost_budget`. The repository also carries task-oriented guides
+//! under `docs/` (usage, interpolation walkthrough, choosing a strategy);
+//! those files are not part of the crate artifact.
 //!
 //! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
@@ -139,12 +148,12 @@
 //!
 //! # Examples
 //!
-//! Two unrelated, device-neutral example maps. They demonstrate generic
-//! mechanics only — nonuniform axes, mixed-sign values, a boundary policy, and
-//! the rounding rule on hand-computable points — and make no claim about any
-//! device, vendor, sensor, calibration, or measurement accuracy. The same
-//! tables are the `ELEVATION` and `CORRECTION` fixtures of the conformance
-//! suite.
+//! The Cargo examples listed under Status are the firmware teaching path.
+//! The two maps below remain the packaged `ELEVATION` and `CORRECTION`
+//! fixtures. They demonstrate generic mechanics only — nonuniform axes,
+//! mixed-sign values, a boundary policy, and the rounding rule on
+//! hand-computable points — and make no claim about any device, vendor,
+//! sensor, calibration, or measurement accuracy.
 //!
 //! A mixed-sign elevation map holding its last column past the far X edge:
 //!

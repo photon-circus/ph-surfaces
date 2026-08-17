@@ -25,10 +25,10 @@
 #   - no_std unconditional / integer only / no ph-curves / manifest floor:
 #     source and manifest ratchets that `cargo test` cannot observe.
 #   - package list / package build: the exact packaged file set, the packaged
-#     artifact building on its own, its rustdoc and doctests (README Rust blocks
-#     included) passing from the unpacked package, and a downstream
-#     `#![no_std]` consumer that declares and evaluates both documented
-#     example maps compiling and testing against it.
+#     artifact building on its own, its rustdoc, doctests (README Rust blocks
+#     included), and Cargo examples passing from the unpacked package, and a
+#     downstream `#![no_std]` consumer that declares the documented firmware
+#     fixtures and both example maps compiling and testing against it.
 #   - code size snapshot: `scripts/measure-code-size.sh` vs
 #     `docs/code-size-snapshot.txt`. SKIP if a target or llvm-tools-preview is
 #     missing. Not a source ratchet.
@@ -145,18 +145,24 @@ check_integer_only() {
     # floating point, magnitude bounds such as 4.23e14, and the banned crate by
     # name, and none of that is a code path.
     #
-    # The black-box conformance suite in `tests/` is held to the float and
-    # `ph-curves` bans as well: its expected values must come from an integer
-    # reference, and `ph-curves` is not an oracle. It runs under the std test
-    # harness, so only `src/` is held to the alloc/std ban.
+    # The black-box conformance suite in `tests/` and the Cargo examples in
+    # `examples/` are held to the float and `ph-curves` bans as well: expected
+    # values must come from an integer reference or hand computation, and
+    # `ph-curves` is not an oracle. Tests run under the std harness, so only
+    # runtime `src/` and the embedded example code are held to the host-path
+    # bans below.
     code=$(source_without_comments)
-    all_code=$(find src tests -name '*.rs' -print0 \
+    all_code=$(find src tests examples -name '*.rs' -print0 \
+        | sort -z \
+        | xargs -0 cat \
+        | grep -vE '^[[:space:]]*(//|/\*|\*)')
+    example_code=$(find examples -name '*.rs' -print0 \
         | sort -z \
         | xargs -0 cat \
         | grep -vE '^[[:space:]]*(//|/\*|\*)')
 
     if printf '%s\n' "$all_code" | grep -nE '\bf32\b|\bf64\b'; then
-        printf 'src/tests: code names a floating-point type.\n' >&2
+        printf 'src/tests/examples: code names a floating-point type.\n' >&2
         return 1
     fi
     # Cover every Rust float-literal shape without mistaking an integer range
@@ -165,15 +171,20 @@ check_integer_only() {
     float_literal='(^|[^[:alnum:]_])([0-9][0-9_]*\.[0-9_]+([eE][+-]?[0-9_]+)?(_?(f32|f64))?|[0-9][0-9_]*[eE][+-]?[0-9_]+(_?(f32|f64))?|[0-9][0-9_]*_?(f32|f64))([^[:alnum:]_]|$)'
     trailing_dot_float='(^|[^[:alnum:]_])[0-9][0-9_]*\.([^[:alnum:]_.]|$)'
     if printf '%s\n' "$all_code" | grep -nE "$float_literal|$trailing_dot_float"; then
-        printf 'src/tests: code contains a floating-point literal.\n' >&2
+        printf 'src/tests/examples: code contains a floating-point literal.\n' >&2
         return 1
     fi
     if printf '%s\n' "$code" | grep -nE '\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)'; then
         printf 'src: runtime code reaches for alloc or std.\n' >&2
         return 1
     fi
+    example_host_path='\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)|\b(Vec|String|Box|Rc|Arc)\b|\b(vec|print|println|eprint|eprintln|dbg)[[:space:]]*!|\bunsafe\b'
+    if printf '%s\n' "$example_code" | grep -nE "$example_host_path"; then
+        printf 'examples: code uses an allocator/std path, host output/debug macro, or unsafe.\n' >&2
+        return 1
+    fi
     if printf '%s\n' "$all_code" | grep -nE 'ph.curves'; then
-        printf 'src/tests: code references ph-curves.\n' >&2
+        printf 'src/tests/examples: code references ph-curves.\n' >&2
         return 1
     fi
     # A negative grep for `unsafe` would match this very declaration, so assert
@@ -282,13 +293,24 @@ check_manifest_floor() {
     return 0
 }
 
+check_examples() {
+    for example in firmware_quickstart uniform_sensor_compensation \
+        mixed_calibration_map fail_safe_boundaries firmware_cost_budget; do
+        cargo run --locked --example "$example" || return 1
+    done
+    return 0
+}
+
 check_package_list() {
     list=$(cargo package --list --allow-dirty | tr '\\' '/') || return 1
     printf '%s\n' "$list"
     for required in Cargo.toml LICENSE README.md \
         src/lib.rs src/interp.rs src/lookup.rs src/evaluate.rs src/boundary.rs \
         src/error.rs src/surface.rs src/axis/mod.rs src/axis/linear.rs \
-        src/axis/binary.rs src/axis/uniform.rs src/axis/bucketed.rs; do
+        src/axis/binary.rs src/axis/uniform.rs src/axis/bucketed.rs \
+        examples/firmware_quickstart.rs examples/uniform_sensor_compensation.rs \
+        examples/mixed_calibration_map.rs examples/fail_safe_boundaries.rs \
+        examples/firmware_cost_budget.rs; do
         if ! printf '%s\n' "$list" | grep -qx "$required"; then
             printf 'packaged crate is missing %s\n' "$required" >&2
             return 1
@@ -312,6 +334,11 @@ expected_package_files() {
         Cargo.toml.orig \
         LICENSE \
         README.md \
+        examples/fail_safe_boundaries.rs \
+        examples/firmware_cost_budget.rs \
+        examples/firmware_quickstart.rs \
+        examples/mixed_calibration_map.rs \
+        examples/uniform_sensor_compensation.rs \
         src/axis/binary.rs \
         src/axis/bucketed.rs \
         src/axis/linear.rs \
@@ -350,10 +377,11 @@ check_package_build() {
     cat "$actual"
 
     # 3. Unpack the artifact and prove its own documentation from the packaged
-    #    files alone: rustdoc with warnings denied, and every doctest,
+    #    files alone: rustdoc with warnings denied, every doctest,
     #    including each README Rust code block (README.md ships and is compiled as
-    #    doctests by src/lib.rs). The unpacked crate has no tests/ directory,
-    #    so `cargo test` there is unit tests plus doctests only.
+    #    doctests by src/lib.rs), and every Cargo example. The unpacked crate has
+    #    no tests/ directory, so `cargo test --doc` there is unit tests plus
+    #    doctests only; examples are run explicitly.
     consumer_root="$SCRATCH/package-consumer"
     rm -rf "$consumer_root"
     mkdir -p "$consumer_root/vendor" "$consumer_root/consumer/src"
@@ -365,14 +393,20 @@ check_package_build() {
         CARGO_TARGET_DIR="$consumer_target_dir" RUSTDOCFLAGS='-D warnings' \
             cargo doc --offline --no-deps || exit 1
         CARGO_TARGET_DIR="$consumer_target_dir" cargo test --offline --doc || exit 1
+        for example in firmware_quickstart uniform_sensor_compensation \
+            mixed_calibration_map fail_safe_boundaries firmware_cost_budget; do
+            CARGO_TARGET_DIR="$consumer_target_dir" \
+                cargo run --offline --example "$example" || exit 1
+        done
     ) || return 1
 
     # 4. Compile and test a fresh downstream #![no_std] consumer against the
     #    unpacked artifact. It declares both documented device-neutral example
-    #    maps as statics with a boundary policy, evaluates them, and its host
-    #    tests assert the hand-computed points the README states. It is then
-    #    built for each bare-metal target that is installed. This is what a
-    #    firmware crate would do with the package.
+    #    maps as statics with a boundary policy, the firmware quickstart,
+    #    Uniform, and mixed fixtures from the Cargo examples, evaluates them,
+    #    and its host tests assert the hand-computed points the README and
+    #    examples state. It is then built for each bare-metal target that is
+    #    installed. This is what a firmware crate would do with the package.
     cat >"$consumer_root/consumer/Cargo.toml" <<EOF
 [package]
 name = "ph-surfaces-consumer"
@@ -425,6 +459,52 @@ pub fn elevation(x: u16, y: u16) -> Result<i32, SurfaceError> {
 /// Evaluates the correction map; the caller sees the crate's error type.
 pub fn correction(x: u16, y: u16) -> Result<i32, SurfaceError> {
     CORRECTION.evaluate(x, y)
+}
+
+/// Firmware quickstart, Uniform compensation, and mixed Bucketed/Uniform
+/// tables from the packaged examples. Declared as `static`s with no allocator
+/// or runtime initialization.
+pub mod firmware {
+    use ph_surfaces::{
+        BilinearSurface, BucketedAxis, SurfaceError, UniformAxis, bucket_index,
+    };
+
+    static QUICKSTART_X: [u16; 2] = [100, 200];
+    static QUICKSTART_Y: [u16; 2] = [10, 30];
+    static QUICKSTART_VALUES: [[i32; 2]; 2] = [[0, 100], [40, 180]];
+    static QUICKSTART: BilinearSurface<2, 2> =
+        BilinearSurface::new(&QUICKSTART_X, &QUICKSTART_Y, &QUICKSTART_VALUES);
+
+    pub fn quickstart(x: u16, y: u16) -> Result<i32, SurfaceError> {
+        QUICKSTART.evaluate(x, y)
+    }
+
+    type Compensation =
+        BilinearSurface<3, 3, UniformAxis<3, 0, 100>, UniformAxis<3, 0, 50>>;
+    static COMP_VALUES: [[i32; 3]; 3] = [[0, 20, 40], [10, 30, 50], [20, 40, 60]];
+    static COMPENSATION: Compensation =
+        BilinearSurface::from_axes(UniformAxis::new(), UniformAxis::new(), &COMP_VALUES);
+
+    pub fn compensation(x: u16, y: u16) -> Result<i32, SurfaceError> {
+        COMPENSATION.evaluate(x, y)
+    }
+
+    static MIXED_X: [u16; 17] = [
+        0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100, 1_205,
+        1_300, 1_410, 1_500, 1_600,
+    ];
+    static MIXED_X_INDEX: [u16; 8] = bucket_index(&MIXED_X);
+    static MIXED_VALUES: [[i32; 17]; 9] = [[0; 17]; 9];
+    type Mixed = BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+    static MIXED: Mixed = BilinearSurface::from_axes(
+        BucketedAxis::new(&MIXED_X, &MIXED_X_INDEX),
+        UniformAxis::new(),
+        &MIXED_VALUES,
+    );
+
+    pub fn mixed(x: u16, y: u16) -> Result<i32, SurfaceError> {
+        MIXED.evaluate(x, y)
+    }
 }
 
 /// Every X/Y pairing of the four compile-time lookup strategies, declared as
@@ -579,6 +659,41 @@ mod tests {
             correction(39, 500),
             Err(SurfaceError::XBelow { coordinate: 39, bound: 40 })
         );
+    }
+
+    #[test]
+    fn firmware_examples_match_the_documented_points_and_cost_figures() {
+        use super::firmware;
+        use ph_surfaces::{
+            BilinearSurface, BucketedAxis, SurfaceError, UniformAxis, bucket_index,
+            max_local_comparisons,
+        };
+
+        assert_eq!(firmware::quickstart(100, 10), Ok(0));
+        assert_eq!(firmware::quickstart(125, 20), Ok(50));
+        assert_eq!(
+            firmware::quickstart(0, 20),
+            Err(SurfaceError::XBelow { coordinate: 0, bound: 100 })
+        );
+
+        assert_eq!(firmware::compensation(50, 25), Ok(15));
+        assert_eq!(firmware::mixed(610, 400), Ok(0));
+
+        type UniformPair =
+            BilinearSurface<17, 9, UniformAxis<17, 0, 100>, UniformAxis<9, 0, 200>>;
+        assert_eq!(UniformPair::VALUE_BYTES, 612);
+        assert_eq!(UniformPair::PAYLOAD_BYTES, 612);
+
+        type Mixed =
+            BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+        assert_eq!(Mixed::VALUE_BYTES, 612);
+        assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+        static X: [u16; 17] = [
+            0, 100, 210, 300, 405, 500, 610, 700, 805, 900, 1_010, 1_100,
+            1_205, 1_300, 1_410, 1_500, 1_600,
+        ];
+        static X_INDEX: [u16; 8] = bucket_index(&X);
+        assert_eq!(max_local_comparisons(&X, &X_INDEX), 3);
     }
 }
 EOF
@@ -760,6 +875,7 @@ check_github_metadata() {
 run_check 'fmt' cargo fmt --all -- --check
 run_check 'check' cargo check --locked
 run_check 'test' cargo test --locked
+run_check 'examples' check_examples
 run_check 'clippy' cargo clippy --locked --all-targets -- -D warnings
 run_check 'doc' env RUSTDOCFLAGS='-D warnings' cargo doc --locked --no-deps
 run_check 'no_std unconditional' check_no_std_unconditional

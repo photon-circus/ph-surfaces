@@ -17,9 +17,10 @@ the validated surface representation, its deterministic X-then-Y evaluator, its
 boundary and error vocabulary, the four compile-time per-axis lookup
 strategies, and the const cost API. Cross-strategy conformance, the selection
 matrix, and a labelled code-size snapshot (#19) have landed. The final
-documentation/package gate (#9) is closed; embedded-focused examples and
-strategy-selection guidance (#22) remain before v0.1 is complete. There is no
-crates.io publication and no docs.rs page.
+documentation/package gate (#9) is closed, and the embedded usage guides,
+strategy cookbook, and runnable firmware examples (#22) have landed. There is
+no crates.io publication and no docs.rs page. Publishing, tagging, and a
+stable 1.0 promise remain separate maintainer decisions.
 
 ## What this is
 
@@ -32,26 +33,74 @@ surfaces on embedded firmware. The accepted v0.1 destination is:
 > compile-time choice of lookup strategy for each axis.
 
 `BilinearSurface::evaluate` implements that contract, and binary lookup remains
-the default on both axes. A minimal static surface is three `static` tables and
-one `static` handle:
+the default on both axes. A firmware compensation table is three `static`
+arrays and one `static` handle — no allocator, no warm-up, no cache. Coordinates
+are already quantized to `u16` and values to `i32` by the application; the
+surface stores neither units nor provenance.
 
 ```rust
-use ph_surfaces::BilinearSurface;
+use ph_surfaces::{BilinearSurface, SurfaceError};
 
-static X: [u16; 3] = [0, 10, 30];
-static Y: [u16; 2] = [0, 100];
-static VALUES: [[i32; 3]; 2] = [[0, 10, 30], [100, 110, 130]];
+// Operating codes and a signed correction. Invented, device-neutral numbers.
+static X: [u16; 2] = [100, 200];
+static Y: [u16; 2] = [10, 30];
+static VALUES: [[i32; 2]; 2] = [
+    [0, 100],  // Y = 10
+    [40, 180], // Y = 30
+];
 
-static SURFACE: BilinearSurface<3, 2> = BilinearSurface::new(&X, &Y, &VALUES);
+static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES);
 
 fn main() {
-    assert_eq!(SURFACE.evaluate(10, 100), Ok(110)); // a declared knot
-    assert_eq!(SURFACE.evaluate(20, 50), Ok(70)); // an interior point
+    assert_eq!(SURFACE.evaluate(100, 10), Ok(0)); // a declared knot
+    assert_eq!(SURFACE.evaluate(125, 20), Ok(50)); // interior point; see the walkthrough
+    assert_eq!(
+        SURFACE.evaluate(0, 20),
+        Err(SurfaceError::XBelow {
+            coordinate: 0,
+            bound: 100
+        })
+    );
 }
 ```
 
 Every Rust code block in this README is compiled and run as a doctest of the
 packaged crate, so the README cannot drift from the API it describes.
+
+## Start here
+
+Task-oriented firmware guidance lives next to this README, not inside the
+normative contract below.
+
+1. **[Usage guide](docs/usage-guide.md)** — lay out axes as `values[y][x]`,
+   declare a static Binary surface, name all four boundary sides, and place
+   payload / handle / work figures in the right budget.
+2. **One evaluation.** The query `(125, 20)` above sits in the cell
+   `X ∈ [100, 200]`, `Y ∈ [10, 30]`. X interpolates on each Y row, each step
+   rounds to nearest with ties away from zero, then Y interpolates those two
+   already-rounded results: `25`, then `75`, then `50`. An X-side `Error`
+   short-circuits before Y. The arithmetic is walked in
+   **[the interpolation walkthrough](docs/interpolation-walkthrough.md)**.
+3. **Choose a strategy** independently on each axis. Changing a strategy cannot
+   change a value, an error, rounding, order, or boundary behaviour.
+
+   | Situation | Starting choice | Then verify |
+   | --- | --- | --- |
+   | Unsure, or a general irregular axis | `BinaryAxis` (default) | its exact comparison bound is acceptable |
+   | Knots are an exact arithmetic progression | `UniformAxis` | dropped knot storage is valuable; measure division on the target if timing matters |
+   | Axis is very small | compare `LinearAxis` with `BinaryAxis` | generated target code and measured timing — no universal knot-count threshold |
+   | Irregular axis needs a smaller proven local bound | `BucketedAxis` | `max_local_comparisons` improves enough to justify `2*B` index bytes |
+
+   The cookbook, including Bucketed index tuning, is
+   **[choosing a strategy](docs/choosing-a-strategy.md)**.
+4. **Runnable examples** (host `main` is an assertion harness; the tables are
+   `static` and `core`-only):
+   `firmware_quickstart`, `uniform_sensor_compensation`,
+   `mixed_calibration_map`, `fail_safe_boundaries`, `firmware_cost_budget`.
+
+   ```sh
+   cargo run --example firmware_quickstart
+   ```
 
 ## Independence from `ph-curves`
 
@@ -269,14 +318,16 @@ the same result, and evaluating never mutates or allocates anything.
 
 ## Examples
 
-Two unrelated, device-neutral example maps. **They demonstrate generic
-mechanics only** — nonuniform axes, mixed-sign values, a boundary policy, and
-the rounding rule on hand-computable points. They are invented tables and make
-no claim about any device, vendor, sensor, calibration, or measurement
-accuracy. The same tables are the `ELEVATION` and `CORRECTION` fixtures in
-`tests/conformance/`, where every one of their declared points is checked
-against the independent reference, and they are the two surfaces the packaged
-downstream `no_std` consumer declares and evaluates.
+The firmware-first Cargo examples listed under [Start here](#start-here) are
+the teaching path: static compensation, derating, and calibration maps, plus
+an exact resource-budget comparison. They make no vendor, sensor, accuracy, or
+safety claim.
+
+The two maps below remain the packaged `ELEVATION` and `CORRECTION` fixtures.
+They demonstrate nonuniform axes, mixed-sign values, a boundary policy, and
+the rounding rule on hand-computable points. Every declared point is checked
+against the independent reference in `tests/conformance/`, and they are two of
+the surfaces the packaged downstream `no_std` consumer declares and evaluates.
 
 A mixed-sign elevation map over unevenly spaced plan-view positions, holding
 the last column past the far X edge:
@@ -361,13 +412,13 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 Incubating and unpublished. The binary-lookup baseline, its conformance suite,
 mechanical dependency and embedded proofs, examples, package checks, the
 compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18),
-and cross-strategy conformance with a const cost API, selection matrix, and
-labelled code-size snapshot (#19) are implemented. The documentation and
-package-readiness gate (#9) is closed; #22 remains for embedded-focused
-examples and prescriptive strategy guidance. The interim
-[traceability checklist](docs/v0.1-traceability.md) records both implemented
-and pending claims. Publishing, tagging, and stable 1.0 compatibility remain
-separate maintainer decisions; `publish = false` stays until then.
+cross-strategy conformance with a const cost API, selection matrix, and
+labelled code-size snapshot (#19), the documentation and package-readiness
+gate (#9), and the embedded usage guides, strategy cookbook, and runnable
+firmware examples (#22) are implemented. The
+[traceability checklist](docs/v0.1-traceability.md) records the evidence.
+Publishing, tagging, and stable 1.0 compatibility remain separate maintainer
+decisions; `publish = false` stays until then.
 
 ## Responsibility
 
@@ -577,8 +628,9 @@ That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
 not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
 
 - formatting, host tests and doctests (including every code block in this
-  README), clippy with warnings denied, and rustdoc with warnings denied and
-  `missing_docs` denied on every public item;
+  README), every Cargo example run as an assertion harness, clippy with
+  warnings denied, and rustdoc with warnings denied and `missing_docs` denied
+  on every public item;
 - unconditional `#![no_std]`: no `[features]` table, no `cfg_attr` on the
   attribute, and no feature-gated code anywhere in `src/`;
 - an integer-only, core-only, `unsafe`-free runtime, by grepping code paths;
@@ -590,9 +642,10 @@ not a passed check. Local `./scripts/ci.sh` is authoritative. It gates:
   empty dependency tables);
 - the package: the exact packaged file set (no agent notes, changelog, CI,
   deny, toolchain, script, or `docs/` material), a `cargo package` build of
-  the artifact, the artifact's own rustdoc and doctests — README blocks
-  included — built from the unpacked package, and a fresh downstream
-  `#![no_std]` consumer that declares both example maps above together with all
+  the artifact, the artifact's own rustdoc, doctests — README blocks
+  included — and Cargo examples built from the unpacked package, and a fresh
+  downstream `#![no_std]` consumer that declares the firmware quickstart,
+  Uniform, and mixed fixtures together with both example maps above and all
   sixteen X/Y strategy pairings, is built and tested against the unpacked
   package on the host, and is built for both embedded targets — ordinarily and
   against a core-only sysroot, which is what proves the pairings themselves are

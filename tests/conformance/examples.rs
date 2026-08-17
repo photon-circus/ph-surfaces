@@ -164,3 +164,153 @@ fn the_correction_map_holds_the_last_load_row_above_its_range() {
         })
     );
 }
+
+// ---------------------------------------------------------------------------
+// Issue #22 firmware examples: walkthrough result, fail-safe sides, cost
+// figures. Expected values come from hand computation (comments) or the
+// independent i128 reference; production locators are not the oracle.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn the_walkthrough_query_returns_fifty_and_agrees_with_the_reference() {
+    // Lower-X: (0*75 + 100*25)/100 = 25. Upper-X: (40*75 + 180*25)/100 = 75.
+    // Y: (25*10 + 75*10)/20 = 50. All three divisions are exact.
+    assert_eq!(WALKTHROUGH.evaluate(125, 20), Ok(50));
+    assert_eq!(
+        WALKTHROUGH.evaluate(125, 20),
+        reference::evaluate(&WALKTHROUGH, 125, 20)
+    );
+    reference::assert_every_knot_exact(&WALKTHROUGH, "WALKTHROUGH");
+}
+
+#[test]
+fn the_fail_safe_map_rejects_low_codes_holds_high_edges_and_never_extrapolates() {
+    assert_eq!(FAIL_SAFE.evaluate(125, 20), Ok(50));
+    assert_eq!(
+        FAIL_SAFE.evaluate(0, 20),
+        Err(SurfaceError::XBelow {
+            coordinate: 0,
+            bound: 100
+        })
+    );
+    assert_eq!(
+        FAIL_SAFE.evaluate(125, 0),
+        Err(SurfaceError::YBelow {
+            coordinate: 0,
+            bound: 10
+        })
+    );
+    // Clamp evaluates the endpoint cell: last X column at Y=20 is 140;
+    // last Y row at X=125 is 75. Same as evaluating the declared edge.
+    assert_eq!(FAIL_SAFE.evaluate(4_000, 20), Ok(140));
+    assert_eq!(FAIL_SAFE.evaluate(4_000, 20), FAIL_SAFE.evaluate(200, 20));
+    assert_eq!(FAIL_SAFE.evaluate(125, 4_000), Ok(75));
+    assert_eq!(FAIL_SAFE.evaluate(125, 4_000), FAIL_SAFE.evaluate(125, 30));
+    assert_eq!(
+        FAIL_SAFE.evaluate(4_000, 20),
+        reference::evaluate(&FAIL_SAFE, 4_000, 20)
+    );
+    // Both outside Error sides: X wins.
+    assert_eq!(
+        WALKTHROUGH.evaluate(0, 0),
+        Err(SurfaceError::XBelow {
+            coordinate: 0,
+            bound: 100
+        })
+    );
+    // Clamped X still lets Y error.
+    assert_eq!(
+        FAIL_SAFE.evaluate(4_000, 0),
+        Err(SurfaceError::YBelow {
+            coordinate: 0,
+            bound: 10
+        })
+    );
+}
+
+#[test]
+fn the_uniform_compensation_interior_point_agrees_with_the_reference() {
+    use ph_surfaces::{BilinearSurface, UniformAxis};
+
+    // Lower-X: (0*50 + 20*50)/100 = 10. Upper-X: (10*50 + 30*50)/100 = 20.
+    // Y: (10*25 + 20*25)/50 = 15.
+    assert_eq!(UNIFORM_COMP.evaluate(50, 25), Ok(15));
+    assert_eq!(
+        UNIFORM_COMP.evaluate(50, 25),
+        reference::evaluate(&UNIFORM_COMP, 50, 25)
+    );
+
+    type Compensation = BilinearSurface<3, 3, UniformAxis<3, 0, 100>, UniformAxis<3, 0, 50>>;
+    static UNIFORM: Compensation =
+        BilinearSurface::from_axes(UniformAxis::new(), UniformAxis::new(), &UNIFORM_COMP_VALUES);
+    assert_eq!(UNIFORM.evaluate(50, 25), Ok(15));
+    assert_eq!(
+        UNIFORM.evaluate(50, 25),
+        reference::evaluate_tables(
+            &UNIFORM_COMP_X,
+            &UNIFORM_COMP_Y,
+            &UNIFORM_COMP_VALUES,
+            UNIFORM.policy(),
+            50,
+            25,
+        )
+    );
+}
+
+#[test]
+fn documented_firmware_cost_figures_match_the_public_const_api() {
+    use ph_surfaces::{
+        AxisLookup, BilinearSurface, BinaryAxis, BucketedAxis, LinearAxis, UniformAxis,
+        bucket_index, max_local_comparisons,
+    };
+
+    type TinyLinear = BilinearSurface<3, 2, LinearAxis<3>, LinearAxis<2>>;
+    assert_eq!(TinyLinear::VALUE_BYTES, 24);
+    assert_eq!(TinyLinear::PAYLOAD_BYTES, 34);
+    assert_eq!(BilinearSurface::<3, 2>::PAYLOAD_BYTES, 34);
+    assert_eq!(<LinearAxis<3>>::MAX_SEARCH_COMPARISONS, 2);
+    assert_eq!(<LinearAxis<2>>::MAX_SEARCH_COMPARISONS, 1);
+    assert_eq!(<BinaryAxis<3>>::MAX_SEARCH_COMPARISONS, 2);
+    assert_eq!(<BinaryAxis<2>>::MAX_SEARCH_COMPARISONS, 1);
+    assert_eq!(TINY.evaluate(10, 100), Ok(11));
+    assert_eq!(TINY.evaluate(10, 100), reference::evaluate(&TINY, 10, 100));
+
+    type UniformPair = BilinearSurface<17, 9, UniformAxis<17, 0, 100>, UniformAxis<9, 0, 200>>;
+    assert_eq!(UniformPair::VALUE_BYTES, 612);
+    assert_eq!(UniformPair::PAYLOAD_BYTES, 612);
+    assert_eq!(BilinearSurface::<17, 9>::PAYLOAD_BYTES, 664);
+    assert_eq!(<UniformAxis<17, 0, 100>>::MAX_SEARCH_COMPARISONS, 0);
+    assert_eq!(<UniformAxis<9, 0, 200>>::MAX_SEARCH_COMPARISONS, 0);
+
+    static X_INDEX: [u16; 8] = bucket_index(&MIXED_CAL_X);
+    type Mixed = BilinearSurface<17, 9, BucketedAxis<17, 8>, UniformAxis<9, 0, 200>>;
+    assert_eq!(Mixed::VALUE_BYTES, 612);
+    assert_eq!(<BucketedAxis<17, 8>>::KNOT_BYTES, 34);
+    assert_eq!(<BucketedAxis<17, 8>>::INDEX_BYTES, 16);
+    assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+    assert_eq!(max_local_comparisons(&MIXED_CAL_X, &X_INDEX), 3);
+    assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
+    assert_eq!(<BinaryAxis<9>>::MAX_SEARCH_COMPARISONS, 4);
+    assert_eq!(
+        MIXED_CAL.evaluate(610, 400),
+        reference::evaluate(&MIXED_CAL, 610, 400)
+    );
+    static MIXED_SURFACE: Mixed = BilinearSurface::from_axes(
+        BucketedAxis::new(&MIXED_CAL_X, &X_INDEX),
+        UniformAxis::new(),
+        &MIXED_CAL_VALUES,
+    );
+    assert_eq!(
+        MIXED_SURFACE.evaluate(610, 400),
+        reference::evaluate_tables(
+            &MIXED_CAL_X,
+            &MIXED_CAL_Y,
+            &MIXED_CAL_VALUES,
+            MIXED_SURFACE.policy(),
+            610,
+            400,
+        )
+    );
+    assert_eq!(Mixed::SUCCESS_INTERPOLATIONS, 3);
+    assert_eq!(Mixed::SUCCESS_GRID_READS, 4);
+}

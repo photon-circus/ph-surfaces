@@ -11,11 +11,11 @@ nice-to-have.
 
 This repository contains the accepted binary-lookup baseline through issues
 #2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18,
-cross-strategy conformance and cost evidence from #19, and the completed
-documentation/package-readiness gate #9. Embedded-focused examples and
-prescriptive strategy-selection guidance remain in #22. Do not describe v0.1
-as complete before that work lands. Publishing, tagging, and a stable 1.0
-promise are separate maintainer decisions; `publish = false` stays until then.
+cross-strategy conformance and cost evidence from #19, the completed
+documentation/package-readiness gate #9, and the embedded usage guides,
+strategy cookbook, and runnable firmware examples of #22. Publishing, tagging,
+and a stable 1.0 promise are separate maintainer decisions; `publish = false`
+stays until then.
 
 `README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example
@@ -78,9 +78,11 @@ attribute.
 Do not introduce `alloc`, `std`, `unsafe`, or floating point. The `integer
 only` check in `scripts/ci.sh` greps `src/` for those code paths, ignoring full
 line comments so documentation may still discuss them. The float and
-`ph-curves` greps also cover `tests/`, so the conformance suite cannot acquire
-a floating-point or `ph-curves` oracle; the alloc/std grep stays on `src/`
-because integration tests run under the std harness.
+`ph-curves` greps also cover `tests/` and `examples/`, so the conformance suite
+and Cargo examples cannot acquire a floating-point or `ph-curves` oracle.
+Examples use a host `main` only as an assertion harness: a separate examples
+guard rejects allocator/std paths, common allocating prelude types and macros,
+host printing/debug macros, and `unsafe` from their uncommented code.
 
 A plain `--target` build does not prove no-alloc: bare-metal `rust-std` ships
 `alloc` in the sysroot. The proof is the core-only build, run for both
@@ -139,6 +141,7 @@ or failed hosted run as a local-CI failure.
 | New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
 | New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
 | Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, the consumer heredoc in `scripts/ci.sh` `check_package_build` |
+| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `examples/*.rs`, `tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, the consumer heredoc in `scripts/ci.sh` `check_package_build` |
 | Contract wording or acceptance claim | `README.md` "Contract", `src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
 
 ## Validating

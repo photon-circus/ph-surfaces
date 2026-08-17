@@ -12,6 +12,10 @@
 #   alloc               runtime code takes an allocator path
 #                       -> 'integer only' must fail, and when nightly rust-src
 #                          is present 'core-only thumbv7em-none-eabi' must fail
+#   example-float       a Cargo example acquires a floating-point path
+#                       -> 'integer only' must fail
+#   example-host-path   a Cargo example acquires a std/allocator path
+#                       -> 'integer only' must fail
 #   ph-curves           Cargo.toml gains a ph-curves dependency
 #                       -> 'no ph-curves' must fail
 #
@@ -101,6 +105,32 @@ EOF
     else
         printf '  SKIP  %-20s nightly rust-src or thumbv7em-none-eabi missing; build-std half not exercised\n' alloc
     fi
+else
+    failed=$((failed + 1))
+fi
+
+# --- a floating-point path in a Cargo example -------------------------------
+if make_copy example-float; then
+    cat >>"$root/example-float/examples/firmware_quickstart.rs" <<'EOF'
+
+fn forbidden_float() {
+    let _: f32 = 0.0;
+}
+EOF
+    expect_fail example-float 'integer only'
+else
+    failed=$((failed + 1))
+fi
+
+# --- a host-only allocator path in a Cargo example --------------------------
+if make_copy example-host-path; then
+    cat >>"$root/example-host-path/examples/firmware_quickstart.rs" <<'EOF'
+
+fn forbidden_host_path() -> std::vec::Vec<u8> {
+    std::vec::Vec::new()
+}
+EOF
+    expect_fail example-host-path 'integer only'
 else
     failed=$((failed + 1))
 fi
