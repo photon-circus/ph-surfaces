@@ -136,12 +136,22 @@ check_integer_only() {
     # evidence for that claim; the nightly `-Z build-std=core` check below is
     # the matching proof for the allocator.
     #
-    # Full-line comments are stripped first: doc comments may mention magnitude
-    # bounds such as 4.23e14 without that being a code path.
+    # Full-line comments are stripped first. Doc comments legitimately discuss
+    # floating point, magnitude bounds such as 4.23e14, and the banned crate by
+    # name, and none of that is a code path.
+    #
+    # The black-box conformance suite in `tests/` is held to the float and
+    # `ph-curves` bans as well: its expected values must come from an integer
+    # reference, and `ph-curves` is not an oracle. It runs under the std test
+    # harness, so only `src/` is held to the alloc/std ban.
     code=$(source_without_comments)
+    all_code=$(find src tests -name '*.rs' -print0 \
+        | sort -z \
+        | xargs -0 cat \
+        | grep -vE '^[[:space:]]*(//|/\*|\*)')
 
-    if printf '%s\n' "$code" | grep -nE '\bf32\b|\bf64\b'; then
-        printf 'src: runtime code names a floating-point type.\n' >&2
+    if printf '%s\n' "$all_code" | grep -nE '\bf32\b|\bf64\b'; then
+        printf 'src/tests: code names a floating-point type.\n' >&2
         return 1
     fi
     # Cover every Rust float-literal shape without mistaking an integer range
@@ -149,16 +159,16 @@ check_integer_only() {
     # boundaries keep digits embedded in names from matching.
     float_literal='(^|[^[:alnum:]_])([0-9][0-9_]*\.[0-9_]+([eE][+-]?[0-9_]+)?(_?(f32|f64))?|[0-9][0-9_]*[eE][+-]?[0-9_]+(_?(f32|f64))?|[0-9][0-9_]*_?(f32|f64))([^[:alnum:]_]|$)'
     trailing_dot_float='(^|[^[:alnum:]_])[0-9][0-9_]*\.([^[:alnum:]_.]|$)'
-    if printf '%s\n' "$code" | grep -nE "$float_literal|$trailing_dot_float"; then
-        printf 'src: runtime code contains a floating-point literal.\n' >&2
+    if printf '%s\n' "$all_code" | grep -nE "$float_literal|$trailing_dot_float"; then
+        printf 'src/tests: code contains a floating-point literal.\n' >&2
         return 1
     fi
     if printf '%s\n' "$code" | grep -nE '\balloc::|\bstd::|extern[[:space:]]+crate[[:space:]]+(alloc|std)'; then
         printf 'src: runtime code reaches for alloc or std.\n' >&2
         return 1
     fi
-    if printf '%s\n' "$code" | grep -nE 'ph.curves'; then
-        printf 'src: runtime code references ph-curves.\n' >&2
+    if printf '%s\n' "$all_code" | grep -nE 'ph.curves'; then
+        printf 'src/tests: code references ph-curves.\n' >&2
         return 1
     fi
     # A negative grep for `unsafe` would match this very declaration, so assert
