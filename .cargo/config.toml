@@ -1,0 +1,5 @@
+# Alias only. A `[build]` section here would be discovered by every cargo
+# invocation in this repository, silently change codegen, and invalidate
+# docs/code-size-snapshot.txt. Do not add one.
+[alias]
+xtask = "run --quiet --manifest-path tools/xtask/Cargo.toml --"

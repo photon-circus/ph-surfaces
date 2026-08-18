@@ -1,0 +1,14 @@
+# Its own workspace root, so the repository manifest never gains a
+# `[workspace]` table. The path dependency points at the working tree here; the
+# `package consumer` check rewrites it to the unpacked .crate so the same source
+# proves both the tree and the packaged artifact.
+[workspace]
+
+[package]
+name = "ph-surfaces-consumer"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ph-surfaces = { path = "../.." }

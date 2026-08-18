@@ -61,7 +61,7 @@ development, build, path, or Git dependency. v0.1 interpolation is a private
 helper in this crate (issue #3). Shared arithmetic is a later decision after
 shipped duplication exists. `deny.toml` bans the crate name; the `no ph-curves` check greps the manifest
 text outside comments, `Cargo.lock`, and `cargo metadata --all-features`, and
-`scripts/guard-selftest.sh` proves that guard fires.
+the mutation tests in `tools/xtask/tests/mutation.rs` prove that guard fires.
 
 ### 2. `#![no_std]` is unconditional
 
@@ -76,7 +76,7 @@ attribute.
 ### 3. Core-only, no allocator, no unsafe
 
 Do not introduce `alloc`, `std`, `unsafe`, or floating point. The `integer
-only` check in `scripts/ci.sh` greps `src/` for those code paths, ignoring full
+only` check in `tools/xtask` scans `src/` for those code paths, ignoring full
 line comments so documentation may still discuss them. The float and
 `ph-curves` greps also cover `tests/` and `examples/`, so the conformance suite
 and Cargo examples cannot acquire a floating-point or `ph-curves` oracle.
@@ -96,10 +96,10 @@ cargo +nightly build --target riscv32imac-unknown-none-elf -Z build-std=core
 `rust-toolchain.toml` pins 1.94.0, so `+nightly` is required for `-Z`. The
 same two targets are also built with the pinned toolchain as ordinary
 bare-metal builds; do not describe those as a no-alloc proof.
-`scripts/ci.sh` uses the moving `nightly` alias for ordinary developer runs,
-but accepts `NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD`; release evidence must set
-that variable to the reviewed dated nightly and record its exact `rustc` and
-`cargo` versions.
+The gate uses the moving `nightly` alias for ordinary developer runs, but
+accepts `--nightly nightly-YYYY-MM-DD`; the release profile requires that flag
+to name the reviewed dated nightly, and evidence must record its exact `rustc`
+and `cargo` versions.
 
 ### 3a. Resource and cost claims stay exact and separate
 
@@ -119,19 +119,30 @@ without assuming a pointer width.
 
 ### 4. Local CI is authoritative
 
-`./scripts/ci.sh` is the verification entry point. It reports `PASS`, `FAIL`,
+`cargo xtask ci` is the verification entry point. It reports `PASS`, `FAIL`,
 and `SKIP` distinctly. A skipped check is not a passed check.
-`NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD REQUIRE_NO_SKIPS=1 ./scripts/ci.sh` is
-the release-evidence mode: every check must run, a would-be `SKIP` is recorded
-as `FAIL`, and package checks require a clean Git worktree, validate the
-packaged commit provenance, and print a verified SHA-256 digest. The matrix
-includes both debug and release test suites.
-`CI_ONLY='<check name>' ./scripts/ci.sh` runs one check. The `package build`
-check builds the `.crate`, asserts its exact file list, and compiles a
-downstream `#![no_std]` consumer against it; `guards fire on mutation` runs
-`scripts/guard-selftest.sh`, which mutates copies under `target/` and requires
-the intended guard to fail. Every check that needs an optional tool or target
-returns `2` (SKIP) when it is missing rather than passing.
+
+The gate is `tools/xtask`, a zero-dependency Rust crate in its own workspace,
+so it runs identically on Windows and Linux with nothing but the pinned cargo
+this crate already requires. There is no shell script and no PowerShell twin.
+`tools/xtask/Cargo.toml` carries an empty `[workspace]` table so the repository
+manifest never gains one and the root `Cargo.lock` stays dependency-free.
+
+`cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD` is the
+release-evidence mode: every check must run, a would-be `SKIP` is recorded as
+`FAIL`, and package checks require a clean Git worktree, validate the packaged
+commit provenance, and print a verified SHA-256 digest. The matrix includes both
+debug and release test suites.
+
+`cargo xtask ci --only '<check name>'` runs one check; `cargo xtask list` prints
+the registry. `--skip-embedded` drops the target-dependent checks and
+`--fail-fast` stops at the first failure. The `package` family builds the
+`.crate`, asserts its exact file list, verifies its provenance and digest, and
+compiles the downstream `#![no_std]` consumer in `tools/consumer` against it.
+`guards fire on mutation` runs `tools/xtask/tests/mutation.rs`, which mutates
+copies of the tracked tree and requires the intended guard to fail. Every check
+that needs an optional tool or target reports `SKIP`, with the reason, rather
+than passing.
 
 Hosted GitHub Actions are a known gap until this repository is public:
 private workflow runs fail before any step starts. Do not re-enable
@@ -142,27 +153,27 @@ or failed hosted run as a local-CI failure.
 
 | Change | Also update |
 | --- | --- |
-| Version or crate `publish` setting | `Cargo.lock`, `README.md` and `src/lib.rs` status, this file's status text, `CHANGELOG.md`, `docs/v0.1-traceability.md`, every hardcoded version/tag/dependency/yank example in `RELEASING.md`, and the package constants plus manifest assertions in `scripts/ci.sh` |
-| New packaged file | `include` in `Cargo.toml`, and both `check_package_list` and `expected_package_files` in `scripts/ci.sh` |
-| New guard in `scripts/ci.sh` | A mutation case in `scripts/guard-selftest.sh` showing it fails |
+| Version or crate `publish` setting | `Cargo.lock`, `README.md` and `src/lib.rs` status, this file's status text, `CHANGELOG.md`, `docs/v0.1-traceability.md`, every hardcoded version/tag/dependency/yank example in `RELEASING.md`, and the package constants plus manifest assertions in `tools/xtask/src/checks/` |
+| New packaged file | `include` in `Cargo.toml`, and `PACKAGED_FILES` in `tools/xtask/src/checks/package.rs` |
+| New guard in `tools/xtask` | A row in `CHECKS` (`tools/xtask/src/checks/mod.rs`) and a mutation case in `tools/xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |
-| New or changed axis strategy | `src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `scripts/ci.sh` `check_package_build`, `docs/v0.1-traceability.md` |
+| New or changed axis strategy | `src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `tools/consumer/src/lib.rs`, `docs/v0.1-traceability.md` |
 | New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
 | New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
-| Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, the consumer heredoc in `scripts/ci.sh` `check_package_build` |
-| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `examples/*.rs`, `tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, the consumer heredoc in `scripts/ci.sh` `check_package_build` |
+| Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, `tools/consumer/src/lib.rs` |
+| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `examples/*.rs`, `tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs` |
 | Contract wording or acceptance claim | `README.md` "Contract", `src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
 
 ## Validating
 
 ```sh
-./scripts/ci.sh
+cargo xtask ci
 ```
 
 ## Cursor Cloud specific instructions
 
 This crate has no runtime services; "running the app" means the compile/test/lint
-matrix. `./scripts/ci.sh` is the authoritative end-to-end check and is what to run
+matrix. `cargo xtask ci` is the authoritative end-to-end check and is what to run
 to prove the environment works.
 
 The startup update script provisions everything the full matrix needs beyond the
@@ -178,10 +189,10 @@ Non-obvious gotchas:
   needs a public repo plus a token that can read topics/custom properties, which
   the cloud VM does not have. Per this repo's own rules, `SKIP` is expected and is
   not a failure for an ordinary developer run. It is deliberately a failure in
-  `REQUIRE_NO_SKIPS=1` release-evidence mode.
-- `SKIP_EMBEDDED=1 ./scripts/ci.sh` only skips the two top-level ordinary
-  embedded `cargo build` checks (`thumbv7em-none-eabi`,
-  `riscv32imac-unknown-none-elf`). It does **not** skip either nightly core-only
-  `-Z build-std=core` proof or the packaged-consumer matrix; set it only
-  expecting a partial skip, not a fully host-only run. `FAIL_FAST=1` stops at
-  the first failure.
+  the `release` profile.
+- `cargo xtask ci --skip-embedded` skips the two top-level ordinary embedded
+  `cargo build` checks (`thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`)
+  and the `code size snapshot`, which also needs those targets. It does **not**
+  skip either nightly core-only `-Z build-std=core` proof or the
+  packaged-consumer matrix; pass it only expecting a partial skip, not a fully
+  host-only run.

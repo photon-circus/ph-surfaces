@@ -1,0 +1,24 @@
+# Its own workspace root. The repository manifest must not gain a
+# `[workspace]` table (the `manifest floor` check rejects one), so this empty
+# table stops cargo's upward manifest walk and keeps the root Cargo.lock
+# dependency-free.
+[workspace]
+
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.94.0"
+publish = false
+
+# The crate under test proves dependency independence. The gate that proves it
+# holds itself to the same standard: no third-party crates, ever.
+[lib]
+name = "xtask"
+path = "src/lib.rs"
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]

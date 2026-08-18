@@ -1,6 +1,6 @@
 # Known gap: GitHub-hosted Actions fail on this private repository before
 # any step runs. Do not restore `pull_request` / `push` triggers until the
-# repository is public. Local `./scripts/ci.sh` is the verification entry
+# repository is public. Local `cargo xtask ci` is the verification entry
 # point and remains authoritative.
 #
 # `workflow_dispatch` is kept so the subset job can be turned on by hand
@@ -12,7 +12,8 @@
 # single aggregate status. It runs the host checks, package build and
 # downstream consumer, code-size snapshot, guard self-test, and the two
 # pinned-toolchain embedded builds. It still SKIPs (never passes) `deny`, the
-# nightly `-Z build-std=core` core-only proofs, and the GitHub metadata check.
+# nightly `-Z build-std=core` core-only proofs, `actionlint`, and the GitHub
+# metadata check.
 name: CI
 
 on:
@@ -30,7 +31,7 @@ env:
 
 jobs:
   ci:
-    name: scripts/ci.sh (hosted subset)
+    name: cargo xtask ci (hosted subset)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -40,5 +41,5 @@ jobs:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools-preview
           targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf
-      - name: Run canonical CI script
-        run: ./scripts/ci.sh
+      - name: Run the canonical gate
+        run: cargo xtask ci

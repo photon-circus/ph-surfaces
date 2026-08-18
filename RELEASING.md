@@ -86,7 +86,7 @@ organization standard before upload.
 
 Use a fresh clone of the exact proposed release commit. Provision and record
 the pinned stable toolchain, a reviewed dated nightly with `rust-src`, both
-embedded targets, cargo-deny, ShellCheck, actionlint, gitleaks, and git-sizer.
+embedded targets, cargo-deny, actionlint, gitleaks, and git-sizer.
 The date below is the audited starting point; deliberately update it everywhere
 if the release uses a later reviewed nightly.
 
@@ -103,20 +103,17 @@ rustup target add --toolchain 1.94.0 \
   rustup run nightly-2026-08-08 rustc -Vv
   cargo +nightly-2026-08-08 -V
   cargo deny --version
-  shellcheck --version
   actionlint -version
   gitleaks version
   git-sizer --version
   git --version
   rustup target list --toolchain 1.94.0 --installed
 } | tee target/release-tool-versions.log
-NIGHTLY_TOOLCHAIN=nightly-2026-08-08 \
-  REQUIRE_NO_SKIPS=1 ./scripts/ci.sh 2>&1 | tee target/release-ci.log
+cargo xtask ci --profile release --nightly nightly-2026-08-08 2>&1 | tee target/release-ci.log
 ! grep -Eq '^  (FAIL|SKIP)  ' target/release-ci.log
 cargo test --locked --release
 cargo deny check
 cargo tree --locked --edges all
-shellcheck --severity=warning scripts/*.sh
 actionlint .github/workflows/*.yml
 gitleaks git . --redact
 git fsck --full
