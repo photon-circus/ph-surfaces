@@ -181,7 +181,10 @@ static EVEN_Y: BilinearSurface<2, 2, BinaryAxis<2>, UniformAxis<2, 10, 20>> =
 ```
 
 `EVEN_Y.evaluate(125, 20)` is still `Ok(50)`. Starting recommendations and
-Bucketed tuning are in [choosing a strategy](choosing-a-strategy.md).
+Bucketed tuning are in [choosing a strategy](choosing-a-strategy.md). The
+Uniform/Uniform and mixed Bucketed/Uniform shapes are
+`examples/uniform_sensor_compensation.rs` and
+`examples/mixed_calibration_map.rs`.
 
 ## 10. Put every cost figure in the correct budget
 
@@ -233,3 +236,7 @@ labelled non-normative for the same reason.
 - The table's behaviour for invalid or saturated input codes is explicit.
 - Examples perform no heap allocation, I/O, clocks, caching, runtime table
   construction, or hidden initialization.
+
+Runnable Cargo examples (same fixtures as this guide, the walkthrough, and
+the cookbook): `firmware_quickstart`, `uniform_sensor_compensation`,
+`mixed_calibration_map`, `fail_safe_boundaries`, `firmware_cost_budget`.
