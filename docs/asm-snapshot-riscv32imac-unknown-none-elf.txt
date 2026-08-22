@@ -1,0 +1,1397 @@
+# ph-surfaces emitted-instruction snapshot (non-normative)
+# Target: riscv32imac-unknown-none-elf
+# Toolchain: rustc 1.94.0 (4a4ef493e 2026-03-02)
+# Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false
+# Tool: llvm-objdump -d -r --demangle --no-show-raw-insn (single-pairing compiler object); relocation lines name the
+# out-of-object callees behind otherwise-anonymous branch targets
+# This is not a timing, WCET, or branch-freedom guarantee; it is the
+# instruction stream to review when one of those properties matters.
+
+## ph_eval_binary (pairing-binary)
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h2fb21b18376822d2E:
+
+00000000 <ph_surfaces::lookup::locate::h2fb21b18376822d2>:
+       0:      	lw	a6, 0x0(a1)
+       4:      	lhu	a1, 0x0(a6)
+       8:      	bgeu	a2, a1, 0x1e <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x1e>
+       c:      	beqz	a3, 0x36 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x36>
+       e:      	sb	zero, 0x0(a0)
+      12:      	sw	zero, 0x4(a0)
+      16:      	sh	a1, 0x8(a0)
+      1a:      	li	a1, 0x1
+      1c:      	j	0x8c <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x8c>
+      1e:      	lhu	a3, 0x6(a6)
+      22:      	bgeu	a3, a2, 0x3e <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x3e>
+      26:      	beqz	a4, 0x82 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x82>
+      28:      	li	a1, 0x2
+      2a:      	sb	zero, 0x0(a0)
+      2e:      	sw	a1, 0x4(a0)
+      30:      	sh	a3, 0x8(a0)
+      34:      	j	0x8c <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x8c>
+      36:      	li	a1, 0x1
+      38:      	sh	a1, 0x0(a0)
+      3c:      	j	0x8c <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x8c>
+      3e:      	li	t0, 0x0
+      40:      	li	t1, 0x4
+      42:      	li	a1, 0x2
+      44:      	li	a7, 0x3
+      46:      	srli	a4, t1, 0x1
+      4a:      	add	a5, t0, a4
+      4e:      	bltu	a7, a5, 0x90 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x90>
+      52:      	slli	a3, a5, 0x1
+      56:      	add	a3, a3, a6
+      58:      	lhu	a3, 0x0(a3)
+      5c:      	bltu	a2, a3, 0x62 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x62>
+      60:      	mv	t0, a5
+      62:      	addi	a1, a1, -0x1
+      64:      	sub	t1, t1, a4
+      68:      	bnez	a1, 0x46 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x46>
+      6a:      	li	a1, 0x2
+      6c:      	bltu	t0, a1, 0x72 <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x72>
+      70:      	li	t0, 0x2
+      72:      	sb	zero, 0x0(a0)
+      76:      	sw	t0, 0x4(a0)
+      7a:      	sh	a2, 0x8(a0)
+      7e:      	li	a1, 0x4
+      80:      	j	0x8c <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x8c>
+      82:      	li	a1, 0x101
+      86:      	sh	a1, 0x0(a0)
+      8a:      	li	a1, 0x2
+      8c:      	sw	a1, 0xc(a0)
+      8e:      	ret
+      90:      	lui	a2, 0x0
+			00000090:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.2
+      94:      	mv	a2, a2
+			00000094:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.2
+      98:      	li	a1, 0x4
+      9a:      	mv	a0, a5
+      9c:      	auipc	ra, 0x0
+			0000009c:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      a0:      	jalr	ra <ph_surfaces::lookup::locate::h2fb21b18376822d2+0x9c>
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hdefd8746ba59d790E:
+
+00000000 <ph_surfaces::lookup::locate::hdefd8746ba59d790>:
+       0:      	lw	a6, 0x0(a1)
+       4:      	lhu	a1, 0x0(a6)
+       8:      	bgeu	a2, a1, 0x1e <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x1e>
+       c:      	beqz	a3, 0x36 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x36>
+       e:      	sb	zero, 0x0(a0)
+      12:      	sw	zero, 0x4(a0)
+      16:      	sh	a1, 0x8(a0)
+      1a:      	li	a1, 0x1
+      1c:      	j	0x8c <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x8c>
+      1e:      	lhu	a1, 0x8(a6)
+      22:      	bgeu	a1, a2, 0x3e <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x3e>
+      26:      	beqz	a4, 0x82 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x82>
+      28:      	li	a2, 0x3
+      2a:      	sb	zero, 0x0(a0)
+      2e:      	sw	a2, 0x4(a0)
+      30:      	sh	a1, 0x8(a0)
+      34:      	j	0x8a <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x8a>
+      36:      	li	a1, 0x1
+      38:      	sh	a1, 0x0(a0)
+      3c:      	j	0x8c <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x8c>
+      3e:      	li	t0, 0x0
+      40:      	li	t1, 0x5
+      42:      	li	a1, 0x3
+      44:      	li	a7, 0x4
+      46:      	srli	a4, t1, 0x1
+      4a:      	add	a5, t0, a4
+      4e:      	bltu	a7, a5, 0x90 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x90>
+      52:      	slli	a3, a5, 0x1
+      56:      	add	a3, a3, a6
+      58:      	lhu	a3, 0x0(a3)
+      5c:      	bltu	a2, a3, 0x62 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x62>
+      60:      	mv	t0, a5
+      62:      	addi	a1, a1, -0x1
+      64:      	sub	t1, t1, a4
+      68:      	bnez	a1, 0x46 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x46>
+      6a:      	li	a1, 0x3
+      6c:      	bltu	t0, a1, 0x72 <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x72>
+      70:      	li	t0, 0x3
+      72:      	sb	zero, 0x0(a0)
+      76:      	sw	t0, 0x4(a0)
+      7a:      	sh	a2, 0x8(a0)
+      7e:      	li	a1, 0x5
+      80:      	j	0x8c <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x8c>
+      82:      	li	a1, 0x101
+      86:      	sh	a1, 0x0(a0)
+      8a:      	li	a1, 0x2
+      8c:      	sw	a1, 0xc(a0)
+      8e:      	ret
+      90:      	lui	a2, 0x0
+			00000090:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.2
+      94:      	mv	a2, a2
+			00000094:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.2
+      98:      	li	a1, 0x5
+      9a:      	mv	a0, a5
+      9c:      	auipc	ra, 0x0
+			0000009c:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      a0:      	jalr	ra <ph_surfaces::lookup::locate::hdefd8746ba59d790+0x9c>
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17ha124fe377b098a9eE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha124fe377b098a9e>:
+       0:      	addi	sp, sp, -0x20
+       2:      	sw	ra, 0x1c(sp)
+       4:      	sw	s0, 0x18(sp)
+       6:      	sw	s1, 0x14(sp)
+       8:      	sw	s2, 0x10(sp)
+       a:      	mv	s2, a2
+       c:      	mv	s0, a0
+       e:      	lw	a3, 0x0(a1)
+      10:      	addi	s1, a1, 0x4
+      14:      	slli	a4, a3, 0x17
+      18:      	srli	a4, a4, 0x1f
+      1a:      	andi	a3, a3, 0x1
+      1c:      	mv	a0, sp
+      1e:      	mv	a1, s1
+      20:      	auipc	ra, 0x0
+			00000020:  R_RISCV_CALL_PLT	ph_surfaces::lookup::locate::hdefd8746ba59d790
+      24:      	jalr	ra <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha124fe377b098a9e+0x20>
+      28:      	lbu	a0, 0x0(sp)
+      2c:      	andi	a0, a0, 0x1
+      2e:      	beqz	a0, 0x50 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha124fe377b098a9e+0x50>
+      30:      	lbu	a0, 0x1(sp)
+      34:      	lw	a1, 0x0(s1)
+      36:      	slli	a2, a0, 0x3
+      3a:      	add	a1, a1, a2
+      3c:      	lh	a1, 0x0(a1)
+      40:      	sh	a0, 0x2(s0)
+      44:      	sh	s2, 0x4(s0)
+      48:      	sh	a1, 0x6(s0)
+      4c:      	li	a0, 0x1
+      4e:      	j	0x5c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha124fe377b098a9e+0x5c>
+      50:      	lw	a1, 0x4(sp)
+      52:      	lhu	a2, 0x8(sp)
+      56:      	sw	a1, 0x4(s0)
+      58:      	sh	a2, 0x8(s0)
+      5c:      	sh	a0, 0x0(s0)
+      60:      	lw	ra, 0x1c(sp)
+      62:      	lw	s0, 0x18(sp)
+      64:      	lw	s1, 0x14(sp)
+      66:      	lw	s2, 0x10(sp)
+      68:      	addi	sp, sp, 0x20
+      6a:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17hf7f4b46b4e2643a6E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hf7f4b46b4e2643a6>:
+       0:      	addi	sp, sp, -0x20
+       2:      	sw	ra, 0x1c(sp)
+       4:      	sw	s0, 0x18(sp)
+       6:      	sw	s1, 0x14(sp)
+       8:      	sw	s2, 0x10(sp)
+       a:      	mv	s2, a2
+       c:      	mv	s0, a0
+       e:      	lw	a0, 0x0(a1)
+      10:      	addi	s1, a1, 0x8
+      14:      	slli	a3, a0, 0xf
+      18:      	slli	a0, a0, 0x7
+      1a:      	srli	a3, a3, 0x1f
+      1c:      	srli	a4, a0, 0x1f
+      20:      	mv	a0, sp
+      22:      	mv	a1, s1
+      24:      	auipc	ra, 0x0
+			00000024:  R_RISCV_CALL_PLT	ph_surfaces::lookup::locate::h2fb21b18376822d2
+      28:      	jalr	ra <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hf7f4b46b4e2643a6+0x24>
+      2c:      	lbu	a0, 0x0(sp)
+      30:      	andi	a0, a0, 0x1
+      32:      	beqz	a0, 0x5a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hf7f4b46b4e2643a6+0x5a>
+      34:      	lbu	a0, 0x1(sp)
+      38:      	lw	a1, 0x0(s1)
+      3a:      	andi	a0, a0, 0x1
+      3c:      	neg	a2, a0
+      40:      	andi	a2, a2, 0x6
+      42:      	add	a1, a1, a2
+      44:      	lh	a1, 0x0(a1)
+      48:      	addi	a0, a0, 0x2
+      4a:      	sh	a0, 0x2(s0)
+      4e:      	sh	s2, 0x4(s0)
+      52:      	sh	a1, 0x6(s0)
+      56:      	li	a0, 0x1
+      58:      	j	0x66 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hf7f4b46b4e2643a6+0x66>
+      5a:      	lw	a1, 0x4(sp)
+      5c:      	lhu	a2, 0x8(sp)
+      60:      	sw	a1, 0x4(s0)
+      62:      	sh	a2, 0x8(s0)
+      66:      	sh	a0, 0x0(s0)
+      6a:      	lw	ra, 0x1c(sp)
+      6c:      	lw	s0, 0x18(sp)
+      6e:      	lw	s1, 0x14(sp)
+      70:      	lw	s2, 0x10(sp)
+      72:      	addi	sp, sp, 0x20
+      74:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17hfd04163f504f5228E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228>:
+       0:      	mv	a4, a1
+       2:      	li	a5, 0x5
+       4:      	bgeu	a1, a5, 0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228+0x46>
+       8:      	mv	a1, a0
+       a:      	li	a5, 0x4
+       c:      	addi	a0, a4, 0x1
+      10:      	beq	a4, a5, 0x5a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228+0x5a>
+      14:      	lw	a1, 0x4(a1)
+      16:      	slli	a6, a4, 0x1
+      1a:      	slli	a5, a0, 0x1
+      1e:      	slli	a4, a4, 0x2
+      20:      	slli	a0, a0, 0x2
+      22:      	add	a4, a4, a3
+      24:      	add	a0, a0, a3
+      26:      	add	a6, a6, a1
+      28:      	add	a5, a5, a1
+      2a:      	lhu	a1, 0x0(a6)
+      2e:      	lhu	a5, 0x0(a5)
+      32:      	lw	a3, 0x0(a4)
+      34:      	lw	a4, 0x0(a0)
+      36:      	slli	a0, a2, 0x10
+      3a:      	srli	a0, a0, 0x10
+      3c:      	mv	a2, a5
+      3e:      	auipc	t1, 0x0
+			0000003e:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      42:      	jr	t1 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228+0x3e>
+      46:      	lui	a2, 0x0
+			00000046:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.1
+      4a:      	mv	a2, a2
+			0000004a:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.1
+      4e:      	li	a1, 0x5
+      50:      	mv	a0, a4
+      52:      	auipc	ra, 0x0
+			00000052:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      56:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228+0x52>
+      5a:      	lui	a2, 0x0
+			0000005a:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.1
+      5e:      	mv	a2, a2
+			0000005e:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.1
+      62:      	li	a1, 0x5
+      64:      	auipc	ra, 0x0
+			00000064:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      68:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228+0x64>
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17hf699650ca684cab6E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6>:
+       0:      	addi	sp, sp, -0x40
+       2:      	sw	ra, 0x3c(sp)
+       4:      	sw	s0, 0x38(sp)
+       6:      	sw	s1, 0x34(sp)
+       8:      	sw	s2, 0x30(sp)
+       a:      	sw	s3, 0x2c(sp)
+       c:      	sw	s4, 0x28(sp)
+       e:      	sw	s5, 0x24(sp)
+      10:      	sw	s6, 0x20(sp)
+      12:      	sw	s7, 0x1c(sp)
+      14:      	sw	s8, 0x18(sp)
+      16:      	mv	s0, a3
+      18:      	mv	s1, a1
+      1a:      	mv	s6, a0
+      1c:      	addi	a0, sp, 0xc
+      1e:      	auipc	ra, 0x0
+			0000001e:  R_RISCV_CALL_PLT	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha124fe377b098a9e
+      22:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x1e>
+      26:      	lhu	a0, 0xc(sp)
+      2a:      	bnez	a0, 0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x46>
+      2c:      	lw	s2, 0x10(sp)
+      2e:      	lhu	s3, 0x14(sp)
+      32:      	addi	a0, sp, 0xc
+      34:      	mv	a1, s1
+      36:      	mv	a2, s0
+      38:      	auipc	ra, 0x0
+			00000038:  R_RISCV_CALL_PLT	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hf7f4b46b4e2643a6
+      3c:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x38>
+      40:      	lhu	a0, 0xc(sp)
+      44:      	beqz	a0, 0x54 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x54>
+      46:      	lh	a1, 0xe(sp)
+      4a:      	lw	a0, 0x10(sp)
+      4c:      	sh	a1, 0x2(s6)
+      50:      	li	a1, 0x1
+      52:      	j	0xc6 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0xc6>
+      54:      	lw	s4, 0x10(sp)
+      56:      	li	a0, 0x3
+      58:      	bltu	a0, s4, 0xe6 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0xe6>
+      5c:      	addi	s5, s4, 0x1
+      60:      	beq	s4, a0, 0xfa <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0xfa>
+      64:      	lhu	s7, 0x14(sp)
+      68:      	lw	s0, 0xc(s1)
+      6a:      	slli	a0, s4, 0x2
+      6e:      	slli	a1, s4, 0x4
+      72:      	slli	a2, s5, 0x2
+      76:      	add	a0, a0, a1
+      78:      	slli	a1, s5, 0x4
+      7c:      	add	a1, a1, a2
+      7e:      	add	a3, s0, a0
+      82:      	add	s0, s0, a1
+      84:      	mv	a0, s1
+      86:      	mv	a1, s2
+      88:      	mv	a2, s3
+      8a:      	auipc	ra, 0x0
+			0000008a:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228
+      8e:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x8a>
+      92:      	mv	s8, a0
+      94:      	mv	a0, s1
+      96:      	mv	a1, s2
+      98:      	mv	a2, s3
+      9a:      	mv	a3, s0
+      9c:      	auipc	ra, 0x0
+			0000009c:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfd04163f504f5228
+      a0:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x9c>
+      a4:      	lw	a1, 0x8(s1)
+      a6:      	slli	s4, s4, 0x1
+      a8:      	slli	s5, s5, 0x1
+      aa:      	add	s4, s4, a1
+      ac:      	add	s5, s5, a1
+      ae:      	lhu	a1, 0x0(s4)
+      b2:      	lhu	a2, 0x0(s5)
+      b6:      	mv	a4, a0
+      b8:      	mv	a0, s7
+      ba:      	mv	a3, s8
+      bc:      	auipc	ra, 0x0
+			000000bc:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      c0:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0xbc>
+      c4:      	li	a1, 0x0
+      c6:      	sh	a1, 0x0(s6)
+      ca:      	sw	a0, 0x4(s6)
+      ce:      	lw	ra, 0x3c(sp)
+      d0:      	lw	s0, 0x38(sp)
+      d2:      	lw	s1, 0x34(sp)
+      d4:      	lw	s2, 0x30(sp)
+      d6:      	lw	s3, 0x2c(sp)
+      d8:      	lw	s4, 0x28(sp)
+      da:      	lw	s5, 0x24(sp)
+      dc:      	lw	s6, 0x20(sp)
+      de:      	lw	s7, 0x1c(sp)
+      e0:      	lw	s8, 0x18(sp)
+      e2:      	addi	sp, sp, 0x40
+      e4:      	ret
+      e6:      	lui	a2, 0x0
+			000000e6:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.4
+      ea:      	mv	a2, a2
+			000000ea:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.4
+      ee:      	li	a1, 0x4
+      f0:      	mv	a0, s4
+      f2:      	auipc	ra, 0x0
+			000000f2:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      f6:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0xf2>
+      fa:      	lui	a2, 0x0
+			000000fa:  R_RISCV_HI20	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.5
+      fe:      	mv	a2, a2
+			000000fe:  R_RISCV_LO12_I	.Lanon.252ca2cea1a092cf4a0635de310ae5b8.5
+     102:      	li	a1, 0x4
+     104:      	mv	a0, s5
+     106:      	auipc	ra, 0x0
+			00000106:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+     10a:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6+0x106>
+
+Disassembly of section .text._ZN21ph_surfaces_code_size14ph_eval_binary17h20a0e951d9806951E:
+
+00000000 <ph_surfaces_code_size::ph_eval_binary::h20a0e951d9806951>:
+       0:      	addi	sp, sp, -0x10
+       2:      	sw	ra, 0xc(sp)
+       4:      	mv	a3, a1
+       6:      	mv	a2, a0
+       8:      	lui	a1, 0x0
+			00000008:  R_RISCV_HI20	ph_surfaces_code_size::BINARY::hd5679e7ef44464f3
+       c:      	mv	a1, a1
+			0000000c:  R_RISCV_LO12_I	ph_surfaces_code_size::BINARY::hd5679e7ef44464f3
+      10:      	addi	a0, sp, 0x4
+      12:      	auipc	ra, 0x0
+			00000012:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hf699650ca684cab6
+      16:      	jalr	ra <ph_surfaces_code_size::ph_eval_binary::h20a0e951d9806951+0x12>
+      1a:      	lhu	a0, 0x4(sp)
+      1e:      	lw	a1, 0x8(sp)
+      20:      	addi	a0, a0, -0x1
+      22:      	and	a0, a0, a1
+      24:      	lw	ra, 0xc(sp)
+      26:      	addi	sp, sp, 0x10
+      28:      	ret
+
+## ph_eval_linear (pairing-linear)
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h31c91e9c056e5653E:
+
+00000000 <ph_surfaces::lookup::locate::h31c91e9c056e5653>:
+       0:      	lw	a5, 0x0(a1)
+       2:      	lhu	a1, 0x0(a5)
+       6:      	bgeu	a2, a1, 0x1c <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x1c>
+       a:      	beqz	a3, 0x34 <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x34>
+       c:      	sb	zero, 0x0(a0)
+      10:      	sw	zero, 0x4(a0)
+      14:      	sh	a1, 0x8(a0)
+      18:      	li	a1, 0x1
+      1a:      	j	0x68 <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x68>
+      1c:      	lhu	a1, 0x2(a5)
+      20:      	bgeu	a1, a2, 0x3c <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x3c>
+      24:      	beqz	a4, 0x5e <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x5e>
+      26:      	sb	zero, 0x0(a0)
+      2a:      	sw	zero, 0x4(a0)
+      2e:      	sh	a1, 0x8(a0)
+      32:      	j	0x66 <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x66>
+      34:      	li	a1, 0x1
+      36:      	sh	a1, 0x0(a0)
+      3a:      	j	0x68 <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x68>
+      3c:      	li	a3, 0x0
+      3e:      	li	a4, 0x1
+      40:      	beq	a3, a4, 0x4c <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x4c>
+      44:      	addi	a3, a3, 0x1
+      46:      	mv	a4, a3
+      48:      	bgeu	a2, a1, 0x3e <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x3e>
+      4c:      	addi	a1, a4, 0x2
+      50:      	sb	zero, 0x0(a0)
+      54:      	sw	zero, 0x4(a0)
+      58:      	sh	a2, 0x8(a0)
+      5c:      	j	0x68 <ph_surfaces::lookup::locate::h31c91e9c056e5653+0x68>
+      5e:      	li	a1, 0x101
+      62:      	sh	a1, 0x0(a0)
+      66:      	li	a1, 0x2
+      68:      	sw	a1, 0xc(a0)
+      6a:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h5a0e805ece6d49ddE:
+
+00000000 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd>:
+       0:      	lw	a5, 0x0(a1)
+       2:      	lhu	a1, 0x0(a5)
+       6:      	bgeu	a2, a1, 0x1c <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x1c>
+       a:      	beqz	a3, 0x34 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x34>
+       c:      	sb	zero, 0x0(a0)
+      10:      	sw	zero, 0x4(a0)
+      14:      	sh	a1, 0x8(a0)
+      18:      	li	a3, 0x1
+      1a:      	j	0x74 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x74>
+      1c:      	lhu	a1, 0x4(a5)
+      20:      	bgeu	a1, a2, 0x3c <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x3c>
+      24:      	beqz	a4, 0x6a <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x6a>
+      26:      	li	a2, 0x1
+      28:      	sb	zero, 0x0(a0)
+      2c:      	sw	a2, 0x4(a0)
+      2e:      	sh	a1, 0x8(a0)
+      32:      	j	0x72 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x72>
+      34:      	li	a3, 0x1
+      36:      	sh	a3, 0x0(a0)
+      3a:      	j	0x74 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x74>
+      3c:      	li	a3, 0x0
+      3e:      	addi	a1, a5, 0x2
+      42:      	mv	a4, a3
+      44:      	li	a3, 0x2
+      46:      	beq	a4, a3, 0x58 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x58>
+      4a:      	lhu	a5, 0x0(a1)
+      4e:      	addi	a3, a4, 0x1
+      52:      	addi	a1, a1, 0x2
+      54:      	bgeu	a2, a5, 0x42 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x42>
+      58:      	snez	a1, a4
+      5c:      	addi	a3, a3, 0x2
+      5e:      	sb	zero, 0x0(a0)
+      62:      	sw	a1, 0x4(a0)
+      64:      	sh	a2, 0x8(a0)
+      68:      	j	0x74 <ph_surfaces::lookup::locate::h5a0e805ece6d49dd+0x74>
+      6a:      	li	a1, 0x101
+      6e:      	sh	a1, 0x0(a0)
+      72:      	li	a3, 0x2
+      74:      	sw	a3, 0xc(a0)
+      76:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17h6ecf0460e7397beaE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea>:
+       0:      	lw	a3, 0x4(a1)
+       2:      	lhu	a4, 0x0(a3)
+       6:      	lw	a5, 0x0(a1)
+       8:      	bgeu	a2, a4, 0x1a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x1a>
+       c:      	li	a1, 0x0
+       e:      	andi	a6, a5, 0x1
+      12:      	li	a5, 0x0
+      14:      	beqz	a6, 0x2e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x2e>
+      18:      	j	0x68 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x68>
+      1a:      	lhu	a4, 0x4(a3)
+      1e:      	bgeu	a4, a2, 0x48 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x48>
+      22:      	andi	a6, a5, 0x100
+      26:      	li	a1, 0x1
+      28:      	li	a5, 0x1
+      2a:      	bnez	a6, 0x68 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x68>
+      2e:      	slli	a4, a1, 0x2
+      32:      	add	a3, a3, a4
+      34:      	lh	a3, 0x0(a3)
+      38:      	sh	a1, 0x2(a0)
+      3c:      	sh	a2, 0x4(a0)
+      40:      	sh	a3, 0x6(a0)
+      44:      	li	a1, 0x1
+      46:      	j	0x70 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x70>
+      48:      	li	a4, 0x0
+      4a:      	addi	a3, a3, 0x2
+      4c:      	li	a6, 0x2
+      4e:      	mv	a5, a4
+      50:      	beq	a4, a6, 0x62 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x62>
+      54:      	lhu	a1, 0x0(a3)
+      58:      	addi	a4, a5, 0x1
+      5c:      	addi	a3, a3, 0x2
+      5e:      	bgeu	a2, a1, 0x4e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea+0x4e>
+      62:      	snez	a5, a5
+      66:      	mv	a4, a2
+      68:      	li	a1, 0x0
+      6a:      	sw	a5, 0x4(a0)
+      6c:      	sh	a4, 0x8(a0)
+      70:      	sh	a1, 0x0(a0)
+      74:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17h2c97f382b9474bc5E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5>:
+       0:      	lw	a5, 0x8(a1)
+       2:      	lhu	a3, 0x0(a5)
+       6:      	lw	a4, 0x0(a1)
+       8:      	bgeu	a2, a3, 0x16 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x16>
+       c:      	slli	a4, a4, 0xf
+       e:      	bltz	a4, 0x40 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x40>
+      12:      	li	a1, 0x2
+      14:      	j	0x30 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x30>
+      16:      	lhu	a3, 0x2(a5)
+      1a:      	mv	a1, a2
+      1c:      	bltu	a2, a3, 0x22 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x22>
+      20:      	mv	a1, a3
+      22:      	bgeu	a3, a2, 0x42 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x42>
+      26:      	lui	a5, 0x1000
+      2a:      	and	a4, a4, a5
+      2c:      	bnez	a4, 0x42 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x42>
+      2e:      	li	a1, 0x3
+      30:      	sh	a1, 0x2(a0)
+      34:      	sh	a2, 0x4(a0)
+      38:      	sh	a3, 0x6(a0)
+      3c:      	li	a2, 0x1
+      3e:      	j	0x4c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h2c97f382b9474bc5+0x4c>
+      40:      	mv	a1, a3
+      42:      	li	a2, 0x0
+      44:      	sw	zero, 0x4(a0)
+      48:      	sh	a1, 0x8(a0)
+      4c:      	sh	a2, 0x0(a0)
+      50:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17hb07907eb1e1b54f9E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9>:
+       0:      	mv	a4, a1
+       2:      	li	a5, 0x3
+       4:      	bgeu	a1, a5, 0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9+0x46>
+       8:      	mv	a1, a0
+       a:      	li	a5, 0x2
+       c:      	addi	a0, a4, 0x1
+      10:      	beq	a4, a5, 0x5a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9+0x5a>
+      14:      	lw	a1, 0x4(a1)
+      16:      	slli	a6, a4, 0x1
+      1a:      	slli	a5, a0, 0x1
+      1e:      	slli	a4, a4, 0x2
+      20:      	slli	a0, a0, 0x2
+      22:      	add	a4, a4, a3
+      24:      	add	a0, a0, a3
+      26:      	add	a6, a6, a1
+      28:      	add	a5, a5, a1
+      2a:      	lhu	a1, 0x0(a6)
+      2e:      	lhu	a5, 0x0(a5)
+      32:      	lw	a3, 0x0(a4)
+      34:      	lw	a4, 0x0(a0)
+      36:      	slli	a0, a2, 0x10
+      3a:      	srli	a0, a0, 0x10
+      3c:      	mv	a2, a5
+      3e:      	auipc	t1, 0x0
+			0000003e:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      42:      	jr	t1 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9+0x3e>
+      46:      	lui	a2, 0x0
+			00000046:  R_RISCV_HI20	.Lanon.8f71c4e44583548cc052c455e62efce4.1
+      4a:      	mv	a2, a2
+			0000004a:  R_RISCV_LO12_I	.Lanon.8f71c4e44583548cc052c455e62efce4.1
+      4e:      	li	a1, 0x3
+      50:      	mv	a0, a4
+      52:      	auipc	ra, 0x0
+			00000052:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      56:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9+0x52>
+      5a:      	lui	a2, 0x0
+			0000005a:  R_RISCV_HI20	.Lanon.8f71c4e44583548cc052c455e62efce4.1
+      5e:      	mv	a2, a2
+			0000005e:  R_RISCV_LO12_I	.Lanon.8f71c4e44583548cc052c455e62efce4.1
+      62:      	li	a1, 0x3
+      64:      	auipc	ra, 0x0
+			00000064:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      68:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9+0x64>
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17h1750dca5de177ac8E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8>:
+       0:      	addi	sp, sp, -0x30
+       2:      	sw	ra, 0x2c(sp)
+       4:      	sw	s0, 0x28(sp)
+       6:      	sw	s1, 0x24(sp)
+       8:      	sw	s2, 0x20(sp)
+       a:      	sw	s3, 0x1c(sp)
+       c:      	sw	s4, 0x18(sp)
+       e:      	sw	s5, 0x14(sp)
+      10:      	sw	s6, 0x10(sp)
+      12:      	sw	s7, 0xc(sp)
+      14:      	mv	s0, a3
+      16:      	mv	s1, a1
+      18:      	mv	s2, a0
+      1a:      	mv	a0, sp
+      1c:      	auipc	ra, 0x0
+			0000001c:  R_RISCV_CALL_PLT	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6ecf0460e7397bea
+      20:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x1c>
+      24:      	lhu	a0, 0x0(sp)
+      28:      	beqz	a0, 0x36 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x36>
+      2a:      	lh	a1, 0x2(sp)
+      2e:      	lw	a0, 0x4(sp)
+      30:      	sh	a1, 0x2(s2)
+      34:      	j	0x76 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x76>
+      36:      	lw	s7, 0x8(s1)
+      3a:      	lw	a1, 0x0(s1)
+      3c:      	lhu	a0, 0x0(s7)
+      40:      	lw	s3, 0x4(sp)
+      42:      	lhu	s4, 0x8(sp)
+      46:      	bgeu	s0, a0, 0x54 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x54>
+      4a:      	slli	a1, a1, 0xf
+      4c:      	bltz	a1, 0x7a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x7a>
+      50:      	li	a1, 0x2
+      52:      	j	0x6e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x6e>
+      54:      	lhu	a0, 0x2(s7)
+      58:      	mv	s5, s0
+      5a:      	bltu	s0, a0, 0x60 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x60>
+      5e:      	mv	s5, a0
+      60:      	bgeu	a0, s0, 0x7c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x7c>
+      64:      	lui	a2, 0x1000
+      68:      	and	a1, a1, a2
+      6a:      	bnez	a1, 0x7c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x7c>
+      6c:      	li	a1, 0x3
+      6e:      	slli	a0, a0, 0x10
+      70:      	sh	a1, 0x2(s2)
+      74:      	or	a0, a0, s0
+      76:      	li	a1, 0x1
+      78:      	j	0xba <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0xba>
+      7a:      	mv	s5, a0
+      7c:      	lw	a3, 0xc(s1)
+      7e:      	addi	s0, a3, 0xc
+      82:      	mv	a0, s1
+      84:      	mv	a1, s3
+      86:      	mv	a2, s4
+      88:      	auipc	ra, 0x0
+			00000088:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9
+      8c:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x88>
+      90:      	mv	s6, a0
+      92:      	mv	a0, s1
+      94:      	mv	a1, s3
+      96:      	mv	a2, s4
+      98:      	mv	a3, s0
+      9a:      	auipc	ra, 0x0
+			0000009a:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hb07907eb1e1b54f9
+      9e:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0x9a>
+      a2:      	lhu	a1, 0x0(s7)
+      a6:      	lhu	a2, 0x2(s7)
+      aa:      	mv	a4, a0
+      ac:      	mv	a0, s5
+      ae:      	mv	a3, s6
+      b0:      	auipc	ra, 0x0
+			000000b0:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      b4:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8+0xb0>
+      b8:      	li	a1, 0x0
+      ba:      	sh	a1, 0x0(s2)
+      be:      	sw	a0, 0x4(s2)
+      c2:      	lw	ra, 0x2c(sp)
+      c4:      	lw	s0, 0x28(sp)
+      c6:      	lw	s1, 0x24(sp)
+      c8:      	lw	s2, 0x20(sp)
+      ca:      	lw	s3, 0x1c(sp)
+      cc:      	lw	s4, 0x18(sp)
+      ce:      	lw	s5, 0x14(sp)
+      d0:      	lw	s6, 0x10(sp)
+      d2:      	lw	s7, 0xc(sp)
+      d4:      	addi	sp, sp, 0x30
+      d6:      	ret
+
+Disassembly of section .text._ZN21ph_surfaces_code_size14ph_eval_linear17h67655700eebdd5caE:
+
+00000000 <ph_surfaces_code_size::ph_eval_linear::h67655700eebdd5ca>:
+       0:      	addi	sp, sp, -0x10
+       2:      	sw	ra, 0xc(sp)
+       4:      	mv	a3, a1
+       6:      	mv	a2, a0
+       8:      	lui	a1, 0x0
+			00000008:  R_RISCV_HI20	ph_surfaces_code_size::LINEAR::h22b7c64b15b85267
+       c:      	mv	a1, a1
+			0000000c:  R_RISCV_LO12_I	ph_surfaces_code_size::LINEAR::h22b7c64b15b85267
+      10:      	addi	a0, sp, 0x4
+      12:      	auipc	ra, 0x0
+			00000012:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h1750dca5de177ac8
+      16:      	jalr	ra <ph_surfaces_code_size::ph_eval_linear::h67655700eebdd5ca+0x12>
+      1a:      	lhu	a0, 0x4(sp)
+      1e:      	lw	a1, 0x8(sp)
+      20:      	addi	a0, a0, -0x1
+      22:      	and	a0, a0, a1
+      24:      	lw	ra, 0xc(sp)
+      26:      	addi	sp, sp, 0x10
+      28:      	ret
+
+## ph_eval_mixed (pairing-mixed)
+Disassembly of section .text._ZN11ph_surfaces4axis7uniform28UniformAxis$LT$_$C$_$C$_$GT$4knot17h71f7be6c6f67c4b9E:
+
+00000000 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h71f7be6c6f67c4b9>:
+       0:      	li	a0, 0x9
+       2:      	bgeu	a1, a0, 0x10 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h71f7be6c6f67c4b9+0x10>
+       6:      	li	a0, 0xc8
+       a:      	mul	a0, a1, a0
+       e:      	ret
+      10:      	lui	a0, 0x0
+			00000010:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.4
+      14:      	mv	a0, a0
+			00000014:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.4
+      18:      	lui	a2, 0x0
+			00000018:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.6
+      1c:      	mv	a2, a2
+			0000001c:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.6
+      20:      	li	a1, 0x3d
+      24:      	auipc	ra, 0x0
+			00000024:  R_RISCV_CALL_PLT	core::panicking::panic_fmt::h5e4384c1985efd7d
+      28:      	jalr	ra <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h71f7be6c6f67c4b9+0x24>
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hd3a89070b4e19816E:
+
+00000000 <ph_surfaces::lookup::locate::hd3a89070b4e19816>:
+       0:      	li	a1, 0x640
+       4:      	bgeu	a1, a2, 0x12 <ph_surfaces::lookup::locate::hd3a89070b4e19816+0x12>
+       8:      	beqz	a4, 0x36 <ph_surfaces::lookup::locate::hd3a89070b4e19816+0x36>
+       a:      	li	a1, 0x7
+       c:      	li	a2, 0x640
+      10:      	j	0x2a <ph_surfaces::lookup::locate::hd3a89070b4e19816+0x2a>
+      12:      	srli	a1, a2, 0x3
+      16:      	lui	a3, 0x1
+      18:      	addi	a3, a3, 0x47b
+      1c:      	mul	a1, a1, a3
+      20:      	srli	a1, a1, 0x11
+      22:      	li	a3, 0x7
+      24:      	bltu	a1, a3, 0x2a <ph_surfaces::lookup::locate::hd3a89070b4e19816+0x2a>
+      28:      	li	a1, 0x7
+      2a:      	sb	zero, 0x0(a0)
+      2e:      	sw	a1, 0x4(a0)
+      30:      	sh	a2, 0x8(a0)
+      34:      	j	0x3e <ph_surfaces::lookup::locate::hd3a89070b4e19816+0x3e>
+      36:      	li	a1, 0x101
+      3a:      	sh	a1, 0x0(a0)
+      3e:      	li	a1, 0x2
+      40:      	sw	a1, 0xc(a0)
+      42:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hff3adc9a9a9b127aE:
+
+00000000 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a>:
+       0:      	lw	t0, 0x0(a1)
+       4:      	lhu	a5, 0x0(t0)
+       8:      	bgeu	a2, a5, 0x1e <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x1e>
+       c:      	beqz	a3, 0x36 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x36>
+       e:      	sb	zero, 0x0(a0)
+      12:      	sw	zero, 0x4(a0)
+      16:      	sh	a5, 0x8(a0)
+      1a:      	li	a3, 0x1
+      1c:      	j	0xd6 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xd6>
+      1e:      	lhu	a3, 0x20(t0)
+      22:      	bgeu	a3, a2, 0x3e <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x3e>
+      26:      	beqz	a4, 0x70 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x70>
+      28:      	li	a1, 0xf
+      2a:      	sb	zero, 0x0(a0)
+      2e:      	sw	a1, 0x4(a0)
+      30:      	sh	a3, 0x8(a0)
+      34:      	j	0x78 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x78>
+      36:      	li	a3, 0x1
+      38:      	sh	a3, 0x0(a0)
+      3c:      	j	0xd6 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xd6>
+      3e:      	sub	a3, a3, a5
+      40:      	sub	a4, a2, a5
+      44:      	slli	a3, a3, 0x10
+      46:      	slli	a4, a4, 0x10
+      48:      	srli	a3, a3, 0x10
+      4a:      	addi	a3, a3, 0x1
+      4c:      	srli	a4, a4, 0xd
+      4e:      	divu	a3, a4, a3
+      52:      	li	a4, 0x7
+      54:      	bltu	a4, a3, 0xf0 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xf0>
+      58:      	lw	a1, 0x4(a1)
+      5a:      	slli	a5, a3, 0x1
+      5e:      	add	a1, a1, a5
+      60:      	lhu	t1, 0x0(a1)
+      64:      	bne	a3, a4, 0x7c <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x7c>
+      68:      	li	a7, 0x10
+      6a:      	bgeu	t1, a7, 0x84 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x84>
+      6e:      	j	0x86 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x86>
+      70:      	li	a1, 0x101
+      74:      	sh	a1, 0x0(a0)
+      78:      	li	a3, 0x2
+      7a:      	j	0xd6 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xd6>
+      7c:      	lhu	a7, 0x2(a1)
+      80:      	bltu	t1, a7, 0x86 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x86>
+      84:      	mv	a7, t1
+      86:      	li	a1, 0x10
+      88:      	mv	a6, t1
+      8a:      	bltu	a1, t1, 0x90 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0x90>
+      8e:      	li	a6, 0x10
+      90:      	li	a3, 0x0
+      92:      	sub	t2, a7, t1
+      96:      	slli	a4, t1, 0x1
+      9a:      	add	a4, a4, t0
+      9c:      	sub	a5, a6, t1
+      a0:      	addi	a4, a4, 0x2
+      a2:      	beq	t2, a3, 0xbe <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xbe>
+      a6:      	beq	a5, a3, 0xda <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xda>
+      aa:      	lhu	a1, 0x0(a4)
+      ae:      	addi	a3, a3, 0x1
+      b0:      	addi	a4, a4, 0x2
+      b2:      	bgeu	a2, a1, 0xa2 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xa2>
+      b6:      	add	a7, t1, a3
+      ba:      	addi	a7, a7, -0x1
+      bc:      	j	0xc0 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xc0>
+      be:      	mv	a3, t2
+      c0:      	li	a1, 0xf
+      c2:      	bltu	a7, a1, 0xc8 <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xc8>
+      c6:      	li	a7, 0xf
+      c8:      	addi	a3, a3, 0x2
+      ca:      	sb	zero, 0x0(a0)
+      ce:      	sw	a7, 0x4(a0)
+      d2:      	sh	a2, 0x8(a0)
+      d6:      	sw	a3, 0xc(a0)
+      d8:      	ret
+      da:      	addi	a0, a6, 0x1
+      de:      	lui	a2, 0x0
+			000000de:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.3
+      e2:      	mv	a2, a2
+			000000e2:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.3
+      e6:      	li	a1, 0x11
+      e8:      	auipc	ra, 0x0
+			000000e8:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      ec:      	jalr	ra <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xe8>
+      f0:      	lui	a2, 0x0
+			000000f0:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.2
+      f4:      	mv	a2, a2
+			000000f4:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.2
+      f8:      	li	a1, 0x8
+      fa:      	mv	a0, a3
+      fc:      	auipc	ra, 0x0
+			000000fc:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+     100:      	jalr	ra <ph_surfaces::lookup::locate::hff3adc9a9a9b127a+0xfc>
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17h6e52087f39fb736bE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6e52087f39fb736b>:
+       0:      	addi	sp, sp, -0x20
+       2:      	sw	ra, 0x1c(sp)
+       4:      	sw	s0, 0x18(sp)
+       6:      	sw	s1, 0x14(sp)
+       8:      	sw	s2, 0x10(sp)
+       a:      	mv	s2, a2
+       c:      	mv	s0, a0
+       e:      	lw	a3, 0x0(a1)
+      10:      	addi	s1, a1, 0x4
+      14:      	slli	a4, a3, 0x17
+      18:      	srli	a4, a4, 0x1f
+      1a:      	andi	a3, a3, 0x1
+      1c:      	mv	a0, sp
+      1e:      	mv	a1, s1
+      20:      	auipc	ra, 0x0
+			00000020:  R_RISCV_CALL_PLT	ph_surfaces::lookup::locate::hff3adc9a9a9b127a
+      24:      	jalr	ra <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6e52087f39fb736b+0x20>
+      28:      	lbu	a0, 0x0(sp)
+      2c:      	andi	a0, a0, 0x1
+      2e:      	beqz	a0, 0x50 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6e52087f39fb736b+0x50>
+      30:      	lbu	a0, 0x1(sp)
+      34:      	lw	a1, 0x0(s1)
+      36:      	slli	a2, a0, 0x5
+      3a:      	add	a1, a1, a2
+      3c:      	lh	a1, 0x0(a1)
+      40:      	sh	a0, 0x2(s0)
+      44:      	sh	s2, 0x4(s0)
+      48:      	sh	a1, 0x6(s0)
+      4c:      	li	a0, 0x1
+      4e:      	j	0x5c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6e52087f39fb736b+0x5c>
+      50:      	lw	a1, 0x4(sp)
+      52:      	lhu	a2, 0x8(sp)
+      56:      	sw	a1, 0x4(s0)
+      58:      	sh	a2, 0x8(s0)
+      5c:      	sh	a0, 0x0(s0)
+      60:      	lw	ra, 0x1c(sp)
+      62:      	lw	s0, 0x18(sp)
+      64:      	lw	s1, 0x14(sp)
+      66:      	lw	s2, 0x10(sp)
+      68:      	addi	sp, sp, 0x20
+      6a:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17haaddb44ff27bdc4dE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d>:
+       0:      	li	a3, 0x640
+       4:      	bgeu	a3, a2, 0x26 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d+0x26>
+       8:      	lbu	a1, 0x3(a1)
+       c:      	andi	a1, a1, 0x1
+       e:      	bnez	a1, 0x40 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d+0x40>
+      10:      	li	a1, 0x3
+      12:      	li	a3, 0x640
+      16:      	sh	a1, 0x2(a0)
+      1a:      	sh	a2, 0x4(a0)
+      1e:      	sh	a3, 0x6(a0)
+      22:      	li	a3, 0x1
+      24:      	j	0x4e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d+0x4e>
+      26:      	srli	a1, a2, 0x3
+      2a:      	lui	a3, 0x1
+      2c:      	addi	a3, a3, 0x47b
+      30:      	mul	a1, a1, a3
+      34:      	srli	a1, a1, 0x11
+      36:      	li	a3, 0x7
+      38:      	bltu	a1, a3, 0x46 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d+0x46>
+      3c:      	li	a1, 0x7
+      3e:      	j	0x46 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::haaddb44ff27bdc4d+0x46>
+      40:      	li	a1, 0x7
+      42:      	li	a2, 0x640
+      46:      	li	a3, 0x0
+      48:      	sw	a1, 0x4(a0)
+      4a:      	sh	a2, 0x8(a0)
+      4e:      	sh	a3, 0x0(a0)
+      52:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17hfa161235c6834a1cE:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c>:
+       0:      	mv	a4, a1
+       2:      	li	a5, 0x11
+       4:      	bgeu	a1, a5, 0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c+0x46>
+       8:      	mv	a1, a0
+       a:      	li	a5, 0x10
+       c:      	addi	a0, a4, 0x1
+      10:      	beq	a4, a5, 0x5a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c+0x5a>
+      14:      	lw	a1, 0x4(a1)
+      16:      	slli	a6, a4, 0x1
+      1a:      	slli	a5, a0, 0x1
+      1e:      	slli	a4, a4, 0x2
+      20:      	slli	a0, a0, 0x2
+      22:      	add	a4, a4, a3
+      24:      	add	a0, a0, a3
+      26:      	add	a6, a6, a1
+      28:      	add	a5, a5, a1
+      2a:      	lhu	a1, 0x0(a6)
+      2e:      	lhu	a5, 0x0(a5)
+      32:      	lw	a3, 0x0(a4)
+      34:      	lw	a4, 0x0(a0)
+      36:      	slli	a0, a2, 0x10
+      3a:      	srli	a0, a0, 0x10
+      3c:      	mv	a2, a5
+      3e:      	auipc	t1, 0x0
+			0000003e:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      42:      	jr	t1 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c+0x3e>
+      46:      	lui	a2, 0x0
+			00000046:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.1
+      4a:      	mv	a2, a2
+			0000004a:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.1
+      4e:      	li	a1, 0x11
+      50:      	mv	a0, a4
+      52:      	auipc	ra, 0x0
+			00000052:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      56:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c+0x52>
+      5a:      	lui	a2, 0x0
+			0000005a:  R_RISCV_HI20	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.1
+      5e:      	mv	a2, a2
+			0000005e:  R_RISCV_LO12_I	.Lanon.65b6cf3145dfa70d2827771a6e4dde70.1
+      62:      	li	a1, 0x11
+      64:      	auipc	ra, 0x0
+			00000064:  R_RISCV_CALL_PLT	core::panicking::panic_bounds_check::h095802f12123dfa9
+      68:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c+0x64>
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17hd8d6564c33badfa9E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9>:
+       0:      	addi	sp, sp, -0x40
+       2:      	sw	ra, 0x3c(sp)
+       4:      	sw	s0, 0x38(sp)
+       6:      	sw	s1, 0x34(sp)
+       8:      	sw	s2, 0x30(sp)
+       a:      	sw	s3, 0x2c(sp)
+       c:      	sw	s4, 0x28(sp)
+       e:      	sw	s5, 0x24(sp)
+      10:      	sw	s6, 0x20(sp)
+      12:      	sw	s7, 0x1c(sp)
+      14:      	sw	s8, 0x18(sp)
+      16:      	mv	s2, a3
+      18:      	mv	s1, a1
+      1a:      	mv	s7, a0
+      1c:      	addi	a0, sp, 0xc
+      1e:      	auipc	ra, 0x0
+			0000001e:  R_RISCV_CALL_PLT	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::h6e52087f39fb736b
+      22:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x1e>
+      26:      	lhu	a0, 0xc(sp)
+      2a:      	beqz	a0, 0x3a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x3a>
+      2c:      	lh	a1, 0xe(sp)
+      30:      	lw	a0, 0x10(sp)
+      32:      	sh	a1, 0x2(s7)
+      36:      	li	a1, 0x1
+      38:      	j	0xe4 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0xe4>
+      3a:      	lw	s3, 0x10(sp)
+      3c:      	lhu	s4, 0x14(sp)
+      40:      	li	a0, 0x641
+      44:      	bltu	s2, a0, 0x5c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x5c>
+      48:      	lbu	a0, 0x3(s1)
+      4c:      	andi	a0, a0, 0x1
+      4e:      	bnez	a0, 0x7a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x7a>
+      50:      	lui	a0, 0x6400
+      54:      	or	a0, s2, a0
+      58:      	li	a1, 0x3
+      5a:      	j	0x32 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x32>
+      5c:      	srli	a0, s2, 0x3
+      60:      	lui	a1, 0x1
+      62:      	addi	a1, a1, 0x47b
+      66:      	mul	s0, a0, a1
+      6a:      	srli	s0, s0, 0x11
+      6c:      	li	a0, 0x7
+      6e:      	bltu	s0, a0, 0x74 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x74>
+      72:      	li	s0, 0x7
+      74:      	addi	s8, s0, 0x1
+      78:      	j	0x82 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0x82>
+      7a:      	li	s0, 0x7
+      7c:      	li	s2, 0x640
+      80:      	li	s8, 0x8
+      82:      	lw	s5, 0xc(s1)
+      86:      	slli	a0, s0, 0x2
+      8a:      	slli	a1, s0, 0x6
+      8e:      	slli	a2, s8, 0x2
+      92:      	add	a0, a0, a1
+      94:      	slli	a1, s8, 0x6
+      98:      	add	a1, a1, a2
+      9a:      	add	a3, s5, a0
+      9e:      	add	s5, s5, a1
+      a0:      	mv	a0, s1
+      a2:      	mv	a1, s3
+      a4:      	mv	a2, s4
+      a6:      	auipc	ra, 0x0
+			000000a6:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c
+      aa:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0xa6>
+      ae:      	mv	s6, a0
+      b0:      	mv	a0, s1
+      b2:      	mv	a1, s3
+      b4:      	mv	a2, s4
+      b6:      	mv	a3, s5
+      b8:      	auipc	ra, 0x0
+			000000b8:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hfa161235c6834a1c
+      bc:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0xb8>
+      c0:      	mv	a4, a0
+      c2:      	li	a0, 0xc8
+      c6:      	mul	a1, s0, a0
+      ca:      	mul	a0, s8, a0
+      ce:      	lui	a2, 0x10
+      d0:      	addi	a2, a2, -0x1
+      d2:      	and	a1, a1, a2
+      d4:      	and	a2, a2, a0
+      d6:      	mv	a0, s2
+      d8:      	mv	a3, s6
+      da:      	auipc	ra, 0x0
+			000000da:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      de:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9+0xda>
+      e2:      	li	a1, 0x0
+      e4:      	sh	a1, 0x0(s7)
+      e8:      	sw	a0, 0x4(s7)
+      ec:      	lw	ra, 0x3c(sp)
+      ee:      	lw	s0, 0x38(sp)
+      f0:      	lw	s1, 0x34(sp)
+      f2:      	lw	s2, 0x30(sp)
+      f4:      	lw	s3, 0x2c(sp)
+      f6:      	lw	s4, 0x28(sp)
+      f8:      	lw	s5, 0x24(sp)
+      fa:      	lw	s6, 0x20(sp)
+      fc:      	lw	s7, 0x1c(sp)
+      fe:      	lw	s8, 0x18(sp)
+     100:      	addi	sp, sp, 0x40
+     102:      	ret
+
+Disassembly of section .text._ZN21ph_surfaces_code_size13ph_eval_mixed17h87db2cf981ba2e6eE:
+
+00000000 <ph_surfaces_code_size::ph_eval_mixed::h87db2cf981ba2e6e>:
+       0:      	addi	sp, sp, -0x10
+       2:      	sw	ra, 0xc(sp)
+       4:      	mv	a3, a1
+       6:      	mv	a2, a0
+       8:      	lui	a1, 0x0
+			00000008:  R_RISCV_HI20	ph_surfaces_code_size::MIXED::hc5f65f86eaf898f7
+       c:      	mv	a1, a1
+			0000000c:  R_RISCV_LO12_I	ph_surfaces_code_size::MIXED::hc5f65f86eaf898f7
+      10:      	addi	a0, sp, 0x4
+      12:      	auipc	ra, 0x0
+			00000012:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hd8d6564c33badfa9
+      16:      	jalr	ra <ph_surfaces_code_size::ph_eval_mixed::h87db2cf981ba2e6e+0x12>
+      1a:      	lhu	a0, 0x4(sp)
+      1e:      	lw	a1, 0x8(sp)
+      20:      	addi	a0, a0, -0x1
+      22:      	and	a0, a0, a1
+      24:      	lw	ra, 0xc(sp)
+      26:      	addi	sp, sp, 0x10
+      28:      	ret
+
+## ph_eval_uniform (pairing-uniform)
+Disassembly of section .text._ZN11ph_surfaces4axis7uniform28UniformAxis$LT$_$C$_$C$_$GT$4knot17h208b77e6261b7d5cE:
+
+00000000 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h208b77e6261b7d5c>:
+       0:      	li	a0, 0x2
+       2:      	bgeu	a1, a0, 0x10 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h208b77e6261b7d5c+0x10>
+       6:      	slli	a0, a1, 0x1
+       a:      	slli	a1, a1, 0x3
+       c:      	add	a0, a0, a1
+       e:      	ret
+      10:      	lui	a0, 0x0
+			00000010:  R_RISCV_HI20	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.0
+      14:      	mv	a0, a0
+			00000014:  R_RISCV_LO12_I	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.0
+      18:      	lui	a2, 0x0
+			00000018:  R_RISCV_HI20	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.2
+      1c:      	mv	a2, a2
+			0000001c:  R_RISCV_LO12_I	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.2
+      20:      	li	a1, 0x3d
+      24:      	auipc	ra, 0x0
+			00000024:  R_RISCV_CALL_PLT	core::panicking::panic_fmt::h5e4384c1985efd7d
+      28:      	jalr	ra <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::h208b77e6261b7d5c+0x24>
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h3bcc144ecb2d38a1E:
+
+00000000 <ph_surfaces::lookup::locate::h3bcc144ecb2d38a1>:
+       0:      	li	a1, 0xa
+       2:      	bgeu	a1, a2, 0x18 <ph_surfaces::lookup::locate::h3bcc144ecb2d38a1+0x18>
+       6:      	beqz	a4, 0x26 <ph_surfaces::lookup::locate::h3bcc144ecb2d38a1+0x26>
+       8:      	li	a1, 0xa
+       a:      	sb	zero, 0x0(a0)
+       e:      	sw	zero, 0x4(a0)
+      12:      	sh	a1, 0x8(a0)
+      16:      	j	0x2e <ph_surfaces::lookup::locate::h3bcc144ecb2d38a1+0x2e>
+      18:      	sb	zero, 0x0(a0)
+      1c:      	sw	zero, 0x4(a0)
+      20:      	sh	a2, 0x8(a0)
+      24:      	j	0x2e <ph_surfaces::lookup::locate::h3bcc144ecb2d38a1+0x2e>
+      26:      	li	a1, 0x101
+      2a:      	sh	a1, 0x0(a0)
+      2e:      	li	a1, 0x2
+      30:      	sw	a1, 0xc(a0)
+      32:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17hb37717a8432c7ac4E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hb37717a8432c7ac4>:
+       0:      	li	a3, 0xb
+       2:      	bltu	a2, a3, 0x20 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hb37717a8432c7ac4+0x20>
+       6:      	lw	a1, 0x0(a1)
+       8:      	andi	a1, a1, 0x100
+       c:      	bnez	a1, 0x20 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hb37717a8432c7ac4+0x20>
+       e:      	li	a1, 0x1
+      10:      	li	a3, 0xa
+      12:      	sh	a1, 0x2(a0)
+      16:      	sh	a2, 0x4(a0)
+      1a:      	sh	a3, 0x6(a0)
+      1e:      	j	0x30 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hb37717a8432c7ac4+0x30>
+      20:      	bltu	a2, a3, 0x26 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hb37717a8432c7ac4+0x26>
+      24:      	li	a2, 0xa
+      26:      	li	a1, 0x0
+      28:      	sw	zero, 0x4(a0)
+      2c:      	sh	a2, 0x8(a0)
+      30:      	sh	a1, 0x0(a0)
+      34:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17h33f6653592eb432dE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h33f6653592eb432d>:
+       0:      	li	a3, 0xb
+       2:      	bltu	a2, a3, 0x24 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h33f6653592eb432d+0x24>
+       6:      	lw	a1, 0x0(a1)
+       8:      	lui	a4, 0x1000
+       c:      	and	a1, a1, a4
+       e:      	bnez	a1, 0x24 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h33f6653592eb432d+0x24>
+      10:      	li	a1, 0x3
+      12:      	li	a3, 0xa
+      14:      	sh	a1, 0x2(a0)
+      18:      	sh	a2, 0x4(a0)
+      1c:      	sh	a3, 0x6(a0)
+      20:      	li	a1, 0x1
+      22:      	j	0x34 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h33f6653592eb432d+0x34>
+      24:      	bltu	a2, a3, 0x2a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h33f6653592eb432d+0x2a>
+      28:      	li	a2, 0xa
+      2a:      	li	a1, 0x0
+      2c:      	sw	zero, 0x4(a0)
+      30:      	sh	a2, 0x8(a0)
+      34:      	sh	a1, 0x0(a0)
+      38:      	ret
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17h8ee970a0e2035163E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163>:
+       0:      	li	a0, 0x2
+       2:      	bgeu	a1, a0, 0x1e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163+0x1e>
+       6:      	bnez	a1, 0x1e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163+0x1e>
+       8:      	lw	a5, 0x0(a3)
+       a:      	lw	a4, 0x4(a3)
+       c:      	slli	a0, a2, 0x10
+      10:      	srli	a0, a0, 0x10
+      12:      	li	a2, 0xa
+      14:      	mv	a3, a5
+      16:      	auipc	t1, 0x0
+			00000016:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      1a:      	jr	t1 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163+0x16>
+      1e:      	lui	a0, 0x0
+			0000001e:  R_RISCV_HI20	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.0
+      22:      	mv	a0, a0
+			00000022:  R_RISCV_LO12_I	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.0
+      26:      	lui	a2, 0x0
+			00000026:  R_RISCV_HI20	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.2
+      2a:      	mv	a2, a2
+			0000002a:  R_RISCV_LO12_I	.Lanon.dee1f1ed7b543cd6599622eeac987a2a.2
+      2e:      	li	a1, 0x3d
+      32:      	auipc	ra, 0x0
+			00000032:  R_RISCV_CALL_PLT	core::panicking::panic_fmt::h5e4384c1985efd7d
+      36:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163+0x32>
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17h415d627551cbb1e3E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3>:
+       0:      	addi	sp, sp, -0x20
+       2:      	sw	ra, 0x1c(sp)
+       4:      	sw	s0, 0x18(sp)
+       6:      	sw	s1, 0x14(sp)
+       8:      	sw	s2, 0x10(sp)
+       a:      	sw	s3, 0xc(sp)
+       c:      	sw	s4, 0x8(sp)
+       e:      	mv	s2, a3
+      10:      	mv	s1, a2
+      12:      	lw	a2, 0x0(a1)
+      14:      	li	a3, 0xb
+      16:      	mv	s0, a0
+      18:      	bltu	s1, a3, 0x30 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x30>
+      1c:      	andi	a0, a2, 0x100
+      20:      	bnez	a0, 0x30 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x30>
+      22:      	lui	a0, 0xa0
+      26:      	or	a0, a0, s1
+      28:      	li	a1, 0x1
+      2a:      	sh	a1, 0x2(s0)
+      2e:      	j	0x92 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x92>
+      30:      	bltu	s2, a3, 0x4e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x4e>
+      34:      	lui	a0, 0x1000
+      38:      	and	a0, a0, a2
+      3a:      	bnez	a0, 0x4e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x4e>
+      3c:      	lui	a0, 0xa0
+      40:      	or	a0, s2, a0
+      44:      	li	a1, 0x3
+      46:      	sh	a1, 0x2(s0)
+      4a:      	li	a1, 0x1
+      4c:      	j	0x92 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x92>
+      4e:      	li	a0, 0xb
+      50:      	bltu	s1, a0, 0x56 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x56>
+      54:      	li	s1, 0xa
+      56:      	bltu	s2, a0, 0x5c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x5c>
+      5a:      	li	s2, 0xa
+      5c:      	lw	a3, 0x4(a1)
+      5e:      	addi	s3, a3, 0x8
+      62:      	li	a1, 0x0
+      64:      	mv	a2, s1
+      66:      	auipc	ra, 0x0
+			00000066:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163
+      6a:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x66>
+      6e:      	mv	s4, a0
+      70:      	li	a1, 0x0
+      72:      	mv	a2, s1
+      74:      	mv	a3, s3
+      76:      	auipc	ra, 0x0
+			00000076:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h8ee970a0e2035163
+      7a:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x76>
+      7e:      	mv	a4, a0
+      80:      	li	a2, 0xa
+      82:      	mv	a0, s2
+      84:      	li	a1, 0x0
+      86:      	mv	a3, s4
+      88:      	auipc	ra, 0x0
+			00000088:  R_RISCV_CALL_PLT	ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde
+      8c:      	jalr	ra <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3+0x88>
+      90:      	li	a1, 0x0
+      92:      	sh	a1, 0x0(s0)
+      96:      	sw	a0, 0x4(s0)
+      98:      	lw	ra, 0x1c(sp)
+      9a:      	lw	s0, 0x18(sp)
+      9c:      	lw	s1, 0x14(sp)
+      9e:      	lw	s2, 0x10(sp)
+      a0:      	lw	s3, 0xc(sp)
+      a2:      	lw	s4, 0x8(sp)
+      a4:      	addi	sp, sp, 0x20
+      a6:      	ret
+
+Disassembly of section .text._ZN21ph_surfaces_code_size15ph_eval_uniform17hc9f04c81a00b2cfdE:
+
+00000000 <ph_surfaces_code_size::ph_eval_uniform::hc9f04c81a00b2cfd>:
+       0:      	addi	sp, sp, -0x10
+       2:      	sw	ra, 0xc(sp)
+       4:      	mv	a3, a1
+       6:      	mv	a2, a0
+       8:      	lui	a1, 0x0
+			00000008:  R_RISCV_HI20	ph_surfaces_code_size::UNIFORM::hd1d9d84dfa58669f
+       c:      	mv	a1, a1
+			0000000c:  R_RISCV_LO12_I	ph_surfaces_code_size::UNIFORM::hd1d9d84dfa58669f
+      10:      	addi	a0, sp, 0x4
+      12:      	auipc	ra, 0x0
+			00000012:  R_RISCV_CALL_PLT	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h415d627551cbb1e3
+      16:      	jalr	ra <ph_surfaces_code_size::ph_eval_uniform::hc9f04c81a00b2cfd+0x12>
+      1a:      	lhu	a0, 0x4(sp)
+      1e:      	lw	a1, 0x8(sp)
+      20:      	addi	a0, a0, -0x1
+      22:      	and	a0, a0, a1
+      24:      	lw	ra, 0xc(sp)
+      26:      	addi	sp, sp, 0x10
+      28:      	ret
+
+## ph_interp_kernel (ph_surfaces::interp, from the rlib)
+Disassembly of section .text._ZN11ph_surfaces6interp19interpolate_segment17h0e0151785f1f0fdeE:
+
+00000000 <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde>:
+       0:      	addi	sp, sp, -0x10
+       2:      	sw	ra, 0xc(sp)
+       4:      	mv	a6, a2
+       6:      	sub	a2, a2, a1
+       8:      	sub	a0, a0, a1
+       a:      	sub	a5, a2, a0
+       e:      	mulh	a7, a0, a4
+      12:      	mul	t0, a0, a4
+      16:      	mulh	a4, a5, a3
+      1a:      	mul	a5, a5, a3
+      1e:      	srli	a0, a2, 0x1f
+      22:      	add	a3, a5, t0
+      26:      	add	a4, a4, a7
+      28:      	sltu	a5, a3, a5
+      2c:      	add	a4, a4, a5
+      2e:      	add	a0, a0, a2
+      30:      	srai	a0, a0, 0x1
+      32:      	bltz	a4, 0x4a <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x4a>
+      36:      	beq	a6, a1, 0x76 <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x76>
+      3a:      	srai	a5, a0, 0x1f
+      3e:      	add	a0, a0, a3
+      40:      	sltu	a3, a0, a3
+      44:      	add	a4, a4, a5
+      46:      	add	a4, a4, a3
+      48:      	j	0x5e <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x5e>
+      4a:      	beq	a6, a1, 0x86 <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x86>
+      4e:      	srai	a7, a0, 0x1f
+      52:      	sltu	a5, a3, a0
+      56:      	add	a5, a5, a7
+      58:      	sub	a4, a4, a5
+      5a:      	sub	a0, a3, a0
+      5e:      	sltu	a1, a6, a1
+      62:      	neg	a3, a1
+      66:      	mv	a1, a4
+      68:      	auipc	ra, 0x0
+			00000068:  R_RISCV_CALL_PLT	__divdi3
+      6c:      	jalr	ra <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x68>
+      70:      	lw	ra, 0xc(sp)
+      72:      	addi	sp, sp, 0x10
+      74:      	ret
+      76:      	lui	a0, 0x0
+			00000076:  R_RISCV_HI20	.Lanon.74e81dd86c6ba02484044c1d2cbf2e38.2
+      7a:      	mv	a0, a0
+			0000007a:  R_RISCV_LO12_I	.Lanon.74e81dd86c6ba02484044c1d2cbf2e38.2
+      7e:      	auipc	ra, 0x0
+			0000007e:  R_RISCV_CALL_PLT	core::panicking::panic_const::panic_const_div_by_zero::he59756b5babb4cf4
+      82:      	jalr	ra <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x7e>
+      86:      	lui	a0, 0x0
+			00000086:  R_RISCV_HI20	.Lanon.74e81dd86c6ba02484044c1d2cbf2e38.1
+      8a:      	mv	a0, a0
+			0000008a:  R_RISCV_LO12_I	.Lanon.74e81dd86c6ba02484044c1d2cbf2e38.1
+      8e:      	auipc	ra, 0x0
+			0000008e:  R_RISCV_CALL_PLT	core::panicking::panic_const::panic_const_div_by_zero::he59756b5babb4cf4
+      92:      	jalr	ra <ph_surfaces::interp::interpolate_segment::h0e0151785f1f0fde+0x8e>
+

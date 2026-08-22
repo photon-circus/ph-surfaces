@@ -49,17 +49,26 @@ evidence from the resulting commit.
 For the release commit:
 
 - set `version = "0.1.0"` in `Cargo.toml`;
+- regenerate the matching `version` line in `Cargo.lock` (for example with
+  `cargo update --workspace`); a stale lockfile fails `cargo package --locked`
+  and `cargo publish --locked`;
 - replace `publish = false` with `publish = ["crates-io"]`;
 - do not restore the deprecated Cargo `authors` field;
 - add `documentation = "https://docs.rs/ph-surfaces"`;
-- pin unpackaged README guide links from `blob/main/` to immutable
-  `blob/v0.1.0/` URLs (do not package `docs/`);
+- pin unpackaged guide links from `blob/main/` to immutable `blob/v0.1.0/`
+  URLs everywhere they appear in packaged files — `README.md`, the crate docs
+  in `src/lib.rs`, and the five `examples/*.rs` headers (do not package
+  `docs/`);
 - move accumulated changelog entries into `## 0.1.0 - YYYY-MM-DD` (UTC),
   retaining an empty `Unreleased` section and a value statement under the
   release heading;
-- update `PACKAGE_VERSION` and the Cargo.toml version/`publish` assertions in
-  `tools/xtask/src/checks/`, and set `LIFECYCLE` in
-  `tools/xtask/src/checks/metadata.rs` to `Active`.
+- update `PACKAGE_VERSION` in `tools/xtask/src/checks/package.rs` — the
+  gate's single version literal, read by the `manifest floor` ratchet, the
+  package checks, and the mutation fixtures — and the `publish = false`
+  assertion in `tools/xtask/src/checks/ratchets.rs`.
+
+After this step, `grep -r "0.1.0-incubating" --include="*.rs" --include="*.toml"
+--include="*.lock" .` from the repository root must return nothing.
 
 The changelog release section must state the user value, important constraints,
 known issues, and any breaking change explicitly.
@@ -74,11 +83,22 @@ Domain=Libraries
 topics: rust, embedded, no-std, no-alloc, interpolation
 ```
 
-Enable appropriate dependency, secret, and code-security features. Enable
-bounded `pull_request` and `push`-to-`main` CI, obtain one green aggregate `ci`
-check on the exact release commit, and protect `main` according to the
-organization standard before upload. Do not enable those triggers while the
-repository is still private.
+Verifying those fields is a release-checklist action, not a code gate — no
+code change can fix a wrong repository setting. The operator confirms them
+with:
+
+```sh
+gh api repos/photon-circus/ph-surfaces --jq '.topics'
+gh api repos/photon-circus/ph-surfaces/properties/values
+```
+
+Enable appropriate dependency, secret, and code-security features. Enabling
+hosted CI is a file edit, not only a settings action: add bounded
+`pull_request` and `push`-to-`main` triggers to `.github/workflows/ci.yml`
+(currently `workflow_dispatch` only, by design while private). Obtain one
+green aggregate `ci` check on the exact release commit, and protect `main`
+according to the organization standard before upload. Do not enable those
+triggers while the repository is still private.
 
 ## 4. Run the final clean matrix
 

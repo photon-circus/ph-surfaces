@@ -19,8 +19,10 @@
 //! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
 //! `mixed_calibration_map`, `fail_safe_boundaries`, and
 //! `firmware_cost_budget`. The repository also carries task-oriented guides
-//! under `docs/` (usage, interpolation walkthrough, choosing a strategy);
-//! those files are not part of the crate artifact.
+//! that are not part of the crate artifact:
+//! [usage](https://github.com/photon-circus/ph-surfaces/blob/main/docs/usage-guide.md),
+//! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/main/docs/interpolation-walkthrough.md),
+//! and [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md).
 //!
 //! A `BilinearSurface` evaluates a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
@@ -72,6 +74,11 @@
 //! scan of a long irregular axis. A surface that names strategies is built with
 //! [`BilinearSurface::from_axes`].
 //!
+//! A surface hands out its axes: [`BilinearSurface::x`] and
+//! [`BilinearSurface::y`] return each axis with its strategy, so generic code
+//! bounded on [`AxisLookup`] (or [`KnotArray`] for the stored strategies) can
+//! read domain bounds, knots, and cost constants from any surface.
+//!
 //! [`AxisLookup`] and [`KnotArray`] are sealed: the four strategies above are
 //! the only implementations, each validating its own invariants in a `const fn`
 //! constructor. Selection is type-level, so there is no runtime discriminant
@@ -105,6 +112,31 @@
 //! already-rounded values. Because every step rounds, that order is observable
 //! and normative; see the locked fixture under [Evaluation
 //! contract](#evaluation-contract) above.
+//!
+//! **Panics.** [`BilinearSurface::evaluate`] cannot panic for any surface
+//! that can exist: every index it computes is bounded by the located cell's
+//! invariant, its one division is by a validated positive span, and its
+//! arithmetic cannot overflow (see below). That is a structural argument,
+//! exercised by the exhaustive conformance sweeps — not a claim that the
+//! compiled artifact contains no panic branches: the compiler keeps the
+//! bounds checks it cannot prove dead, and the repository's committed
+//! per-target emitted-instruction snapshots record exactly what is
+//! generated. The panicking paths in this crate's API are confined to the
+//! `const fn` constructors and to index accessors with documented `# Panics`
+//! sections (the knot accessors and [`AxisLookup::search`]); in
+//! `static`/`const` position those assertions are compile errors, and at
+//! runtime they fire only on a violated caller precondition, never on data.
+//!
+//! **Cross-target determinism.** Evaluation is integer-only with one fixed
+//! rounding rule, so a given surface and coordinate pair produces the
+//! bit-identical `i32` on every supported target — host, ARM, and RISC-V.
+//! There is no floating-point rounding mode, target-width, or build-profile
+//! dependence to vary the result. Floating point never participates: the
+//! crate declares no features, and any future hardware-specific fast path
+//! (for example an FPU path on Cortex-M4F/M7) would have to arrive as an
+//! off-by-default feature gate that leaves default-build results untouched,
+//! with its determinism trade-offs documented — it is excluded today
+//! precisely because per-target float rounding would break this guarantee.
 //!
 //! # No arithmetic-overflow variant
 //!

@@ -2,6 +2,9 @@ xtask -- the ph-surfaces verification gate
 
 USAGE
   cargo xtask ci [options]
+  cargo xtask code-size [--write]   re-measure the code-size snapshot
+  cargo xtask asm [--write]         re-disassemble the emitted-instruction
+                                    snapshots (informational, not a gate)
   cargo xtask list
 
 OPTIONS

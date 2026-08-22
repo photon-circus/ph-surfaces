@@ -13,6 +13,8 @@
 //!   cargo xtask ci --nightly nightly-YYYY-MM-DD     exact core-only toolchain
 //!   cargo xtask ci --skip-embedded                  skip target-dependent checks
 //!   cargo xtask ci --fail-fast                      stop at the first failure
+//!   cargo xtask code-size [--write]                 re-measure the code-size snapshot
+//!   cargo xtask asm [--write]                       re-disassemble the instruction snapshots
 //!   cargo xtask list                                the registry
 
 use std::env;
@@ -40,6 +42,7 @@ fn dispatch() -> Result<u8, String> {
     match command.as_str() {
         "ci" => run_ci(&rest),
         "code-size" => run_code_size(&rest),
+        "asm" => run_asm(&rest),
         "list" => {
             runner::list(checks::CHECKS);
             Ok(0)
@@ -49,7 +52,7 @@ fn dispatch() -> Result<u8, String> {
             Ok(0)
         }
         other => Err(format!(
-            "unknown command `{other}`; try `ci`, `code-size`, or `list`"
+            "unknown command `{other}`; try `ci`, `code-size`, `asm`, or `list`"
         )),
     }
 }
@@ -84,6 +87,38 @@ fn run_code_size(args: &[String]) -> Result<u8, String> {
         println!("wrote {}", path.display());
     } else {
         print!("{snapshot}");
+    }
+    Ok(0)
+}
+
+/// Re-disassemble the hot-path pairings, and optionally rewrite the committed
+/// per-target emitted-instruction snapshots. Informational, not a gate.
+fn run_asm(args: &[String]) -> Result<u8, String> {
+    let write = args.iter().any(|argument| argument == "--write");
+    for argument in args {
+        if argument != "--write" {
+            return Err(format!("unknown option `{argument}`"));
+        }
+    }
+
+    let here = env::current_dir().map_err(|error| error.to_string())?;
+    let root = runner::find_root(&here)
+        .ok_or_else(|| format!("no ph-surfaces checkout at or above {}", here.display()))?;
+    let ctx = Ctx {
+        root,
+        profile: Profile::Full,
+        nightly: "nightly".to_string(),
+        skip_embedded: false,
+    };
+
+    for (relative, snapshot) in checks::code_size::emit_asm(&ctx)? {
+        if write {
+            let path = ctx.path(&relative);
+            std::fs::write(&path, &snapshot).map_err(|error| error.to_string())?;
+            println!("wrote {}", path.display());
+        } else {
+            print!("{snapshot}");
+        }
     }
     Ok(0)
 }

@@ -20,6 +20,9 @@ dependency on `ph-curves`. There is no 1.0 compatibility promise.
   `BucketedAxis` (static index plus a bounded local scan).
   `BilinearSurface::from_axes` builds a mixed pairing. Every pairing locates
   the same cell, returns the same value, and reports the same error.
+  `AxisLookup::search` rejects an out-of-domain coordinate and
+  `max_local_comparisons` rejects a malformed bucket table in every build
+  profile, not only in debug.
 - `Boundary` / `BoundaryPolicy`: Error or Clamp on each of the four domain
   sides, every side defaulting to Error. `SurfaceError` names the side and
   carries the supplied coordinate and the applicable bound. Clamp holds the
@@ -29,6 +32,19 @@ dependency on `ph-curves`. There is no 1.0 compatibility promise.
   half-way values away from zero. The X-side error wins when both coordinates
   leave Error sides. Evaluation is stateless and cannot overflow for any
   surface this crate can define.
+- Public axis access: `BilinearSurface::x()` / `y()` return each axis with
+  its strategy, so generic code bounded on `AxisLookup` (or `KnotArray` for
+  the stored strategies) can read domain bounds, knots, comparison counts,
+  and cost constants from any surface. The strategy-specific
+  `x_knot`/`x_min`/`x_max` accessors remain the constant-context
+  conveniences, and `UniformAxis` gains const `knot`/`last` so the
+  descriptor arithmetic has one home.
+- A documented panics-and-determinism contract: `evaluate` cannot panic for
+  any constructible surface (a structural argument; compiler-retained bounds
+  checks are visible in the committed instruction snapshots), results are
+  bit-identical across host, ARM, and RISC-V, and floating point is excluded
+  by disclosed policy — any future FPU fast path must be an off-by-default
+  feature gate that leaves default-build results untouched.
 - Exact cost constants on the handle: `VALUE_BYTES`, `PAYLOAD_BYTES`,
   `HANDLE_BYTES`, `SUCCESS_INTERPOLATIONS` (3), and `SUCCESS_GRID_READS` (4).
   Default binary payload is `2*NX + 2*NY + 4*NX*NY` bytes. Those figures are
@@ -43,21 +59,15 @@ dependency on `ph-curves`. There is no 1.0 compatibility promise.
 - Canonical verification entry point `cargo xtask ci`, reporting `PASS`,
   `FAIL`, and `SKIP` distinctly. Release evidence is
   `--profile release --nightly nightly-YYYY-MM-DD`. A skipped check is not a
-  pass. The gate proves unconditional `no_std`, integer-only core runtime,
-  absence of `ph-curves`, packaged file set, doctests from the unpacked
-  `.crate`, and a downstream `#![no_std]` consumer of all sixteen strategy
-  pairings on host and both representative embedded targets.
-
-### Fixed
-
-- `max_local_comparisons` validates the complete supplied bucket index before
-  subtraction, so a malformed table is rejected in every build profile
-  instead of panicking only in debug or wrapping in release.
-- Public `AxisLookup::search` rejects out-of-domain coordinates in every
-  build profile. Surface evaluation still performs exactly two endpoint
-  comparisons plus each strategy's declared probe bound.
-
-### Documentation
-
-- The four-bucket coordinate example uses `0, 251, 501, 751`. Square-grid
-  callers are warned that transposition preserves the type.
+  pass. The gate proves unconditional `no_std`, integer-only core runtime —
+  including wide-integer confinement (64-bit arithmetic only inside the
+  `src/interp.rs` kernel, 128-bit only in test oracles) — absence of
+  `ph-curves`, a full-history secret scan, per-target clippy, packaged file
+  set, doctests from the unpacked `.crate`, and a downstream `#![no_std]`
+  consumer of all sixteen strategy pairings on host and both representative
+  embedded targets.
+- Committed per-architecture measurement artifacts: the code-size snapshot
+  now includes the shared `ph_interp_kernel` size, and
+  `cargo xtask asm --write` records the emitted instruction streams
+  (`docs/asm-snapshot-<target>.txt`) for both embedded targets, relocations
+  named, as informational review material.

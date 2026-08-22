@@ -39,8 +39,9 @@ The complete local gate additionally needs:
 - a nightly toolchain with `rust-src` for ordinary development, and a dated
   nightly for release evidence;
 - `llvm-tools-preview` (declared by `rust-toolchain.toml`) for the code-size
-  snapshot;
-- GitHub CLI access when running the metadata check.
+  and instruction snapshots;
+- `gitleaks` for the full-history secret scan (`SKIP` without it; required
+  for release evidence).
 
 Start with focused tests while developing. Before requesting review, run the
 ordinary canonical gate:
