@@ -48,6 +48,14 @@
 
 ### Added
 
+- README "Start here" now links each firmware Cargo example to its source
+  file. The usage guide names the Uniform and mixed examples beside the
+  strategy switch and lists all five runnable examples after the authoring
+  checklist.
+- The packaged downstream `#![no_std]` consumer asserts the tiny 3×2 Linear
+  referenced payload (34 bytes). Black-box tests assert the documented
+  7-versus-13 knot-comparison totals. Issue #22 editorial/acceptance evidence
+  is retained; immutable release-tag README links remain #29.
 - A `line endings` check that fails on a carriage return in any tracked text
   file. `.gitattributes` already declared `* text=auto eol=lf`; this enforces
   it, addressing the cause of the issue #27 snapshot failure rather than
@@ -187,9 +195,10 @@
   `SKIP`, not `PASS`, if either target is unavailable. `package list`
   additionally rejects `docs/` and `tests/` from the archive.
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
-  implemented binary baseline and the remaining #22 and #27 acceptance
-  work (#26 is closed). It records #18 and #19 as implemented and #9 as
-  closed. It remains repository material and is not packaged.
+  implemented binary baseline. #22 editorial/acceptance evidence is retained;
+  #27 acceptance work remains open (#26 is closed). It records #18 and #19 as
+  implemented and #9 as closed. It remains repository material and is not
+  packaged.
 - Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
   (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
   (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),

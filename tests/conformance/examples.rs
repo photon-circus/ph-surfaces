@@ -272,6 +272,11 @@ fn documented_firmware_cost_figures_match_the_public_const_api() {
     assert_eq!(<LinearAxis<2>>::MAX_SEARCH_COMPARISONS, 1);
     assert_eq!(<BinaryAxis<3>>::MAX_SEARCH_COMPARISONS, 2);
     assert_eq!(<BinaryAxis<2>>::MAX_SEARCH_COMPARISONS, 1);
+    // Four successful endpoint comparisons plus (3-1)+(2-1) search comparisons.
+    assert_eq!(
+        4 + <LinearAxis<3>>::MAX_SEARCH_COMPARISONS + <LinearAxis<2>>::MAX_SEARCH_COMPARISONS,
+        7
+    );
     assert_eq!(TINY.evaluate(10, 100), Ok(11));
     assert_eq!(TINY.evaluate(10, 100), reference::evaluate(&TINY, 10, 100));
 
@@ -288,9 +293,22 @@ fn documented_firmware_cost_figures_match_the_public_const_api() {
     assert_eq!(<BucketedAxis<17, 8>>::KNOT_BYTES, 34);
     assert_eq!(<BucketedAxis<17, 8>>::INDEX_BYTES, 16);
     assert_eq!(Mixed::PAYLOAD_BYTES, 662);
+    assert_eq!(BilinearSurface::<17, 9>::PAYLOAD_BYTES, 664);
+    assert_eq!(<UniformAxis<9, 0, 200>>::KNOT_BYTES, 0);
+    assert_eq!(<UniformAxis<9, 0, 200>>::INDEX_BYTES, 0);
     assert_eq!(max_local_comparisons(&MIXED_CAL_X, &X_INDEX), 3);
     assert_eq!(<BinaryAxis<17>>::MAX_SEARCH_COMPARISONS, 5);
     assert_eq!(<BinaryAxis<9>>::MAX_SEARCH_COMPARISONS, 4);
+    // Four endpoint comparisons plus Binary probes 5+4 = 13; mixed is 4+3+0 = 7.
+    assert_eq!(
+        4 + <BinaryAxis<17>>::MAX_SEARCH_COMPARISONS + <BinaryAxis<9>>::MAX_SEARCH_COMPARISONS,
+        13
+    );
+    assert_eq!(
+        4 + max_local_comparisons(&MIXED_CAL_X, &X_INDEX)
+            + <UniformAxis<9, 0, 200>>::MAX_SEARCH_COMPARISONS,
+        7
+    );
     assert_eq!(
         MIXED_CAL.evaluate(610, 400),
         reference::evaluate(&MIXED_CAL, 610, 400)

@@ -282,7 +282,7 @@ mod tests {
     fn firmware_examples_match_the_documented_points_and_cost_figures() {
         use super::firmware;
         use ph_surfaces::{
-            BilinearSurface, BucketedAxis, SurfaceError, UniformAxis, bucket_index,
+            BilinearSurface, BucketedAxis, LinearAxis, SurfaceError, UniformAxis, bucket_index,
             max_local_comparisons,
         };
 
@@ -298,6 +298,10 @@ mod tests {
 
         assert_eq!(firmware::compensation(50, 25), Ok(15));
         assert_eq!(firmware::mixed(610, 400), Ok(0));
+
+        type TinyLinear = BilinearSurface<3, 2, LinearAxis<3>, LinearAxis<2>>;
+        assert_eq!(TinyLinear::VALUE_BYTES, 24);
+        assert_eq!(TinyLinear::PAYLOAD_BYTES, 34);
 
         type UniformPair = BilinearSurface<17, 9, UniformAxis<17, 0, 100>, UniformAxis<9, 0, 200>>;
         assert_eq!(UniformPair::VALUE_BYTES, 612);
