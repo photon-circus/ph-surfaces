@@ -1,10 +1,10 @@
-//! Required GitHub repository metadata.
+//! Required GitHub repository metadata (topics and custom properties).
 //!
-//! Tracked by issue #28, which supplies the real settings. Until then this
-//! reports SKIP for an ordinary run and, because the runner escalates every
-//! would-be SKIP in the release profile, FAIL for release evidence -- which is
-//! exactly what issue #27 asked for. The strict branches the shell gate
-//! repeated at each site are therefore not duplicated here.
+//! Until those settings exist this reports SKIP for an ordinary run and,
+//! because the runner escalates every would-be SKIP in the release profile,
+//! FAIL for release evidence -- which is exactly what issue #27 asked for.
+//! The strict branches the shell gate repeated at each site are therefore
+//! not duplicated here.
 
 use crate::proc;
 use crate::runner::{Ctx, Outcome};

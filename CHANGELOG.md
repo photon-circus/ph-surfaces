@@ -41,10 +41,9 @@
   can still produce the file-set evidence.
 - Issue #27 close-out: live comments name `cargo xtask ci` rather than the
   deleted `scripts/ci.sh`, and traceability records the portable gate as
-  implemented with retained fresh-clone evidence. The zero-FAIL release
-  matrix remains #29 after #28. The local gate does not lint GitHub Actions
-  YAML: hosted CI runs `cargo xtask ci`, so a separate `actionlint` check
-  would only require a Go tool the evidence machine may not have.
+  implemented with retained fresh-clone evidence. The local gate does not
+  lint GitHub Actions YAML: hosted CI runs `cargo xtask ci`. Publication
+  and public-repository controls remain separate maintainer actions.
 
 ### Removed
 
@@ -61,7 +60,8 @@
 - The packaged downstream `#![no_std]` consumer asserts the tiny 3×2 Linear
   referenced payload (34 bytes). Black-box tests assert the documented
   7-versus-13 knot-comparison totals. Issue #22 editorial/acceptance evidence
-  is retained; immutable release-tag README links remain #29.
+  is retained; immutable release-tag README links remain a publication-time
+  maintainer action.
 - A `line endings` check that fails on a carriage return in any tracked text
   file. `.gitattributes` already declared `* text=auto eol=lf`; this enforces
   it, addressing the cause of the issue #27 snapshot failure rather than
