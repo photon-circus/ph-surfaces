@@ -11,10 +11,9 @@
 # cancellation of superseded runs, SHA-pinned actions, and one job as the
 # single aggregate status. It runs the host checks, package build and
 # downstream consumer, code-size snapshot, guard self-test, and the two
-# pinned-toolchain embedded builds. It still SKIPs (never passes) `deny`, the
-# nightly `-Z build-std=core` core-only proofs, and the GitHub metadata
-# check. The workflow is proven by hosted CI running `cargo xtask ci`, not
-# by a separate workflow linter.
+# pinned-toolchain embedded builds. It still SKIPs (never passes) `deny` and
+# the nightly `-Z build-std=core` core-only proofs. The workflow is proven by
+# hosted CI running `cargo xtask ci`, not by a separate workflow linter.
 name: CI
 
 on:
@@ -37,10 +36,20 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master
         with:
           toolchain: "1.94.0"
           components: rustfmt, clippy, llvm-tools-preview
           targets: thumbv7em-none-eabi, riscv32imac-unknown-none-elf
+      # Cold builds plus the package/consumer matrix and eight code-size
+      # builds sit uncomfortably close to the job timeout; the cache is not
+      # part of the evidence, only of the wall clock.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            .
+            tools/xtask
       - name: Run the canonical gate
         run: cargo xtask ci

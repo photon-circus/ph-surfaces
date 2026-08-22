@@ -3,9 +3,9 @@
 //! X is irregular characterized codes, so it keeps its knots and buys a
 //! smaller local bound with a compile-time bucket index. Y is an exact
 //! arithmetic progression, so Uniform drops its knot array. Changing these
-//! strategies cannot change a value or an error. See
-//! `docs/choosing-a-strategy.md` for the nested-index tuning that selected
-//! `B = 8`.
+//! strategies cannot change a value or an error. The nested-index tuning that
+//! selected `B = 8` is in the strategy guide (not packaged):
+//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md>.
 //!
 //! Host `main` is an assertion harness. Declarations are `static` and
 //! `core`-compatible. Comparison counts are operation structure, not cycles.

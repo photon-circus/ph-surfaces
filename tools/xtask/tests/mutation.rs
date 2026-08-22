@@ -21,7 +21,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use xtask::checks::{line_endings, package, ratchets};
+use xtask::checks::{history, line_endings, package, ratchets};
 use xtask::runner::{Check, Ctx, Outcome, Profile};
 
 fn repo_root() -> PathBuf {
@@ -95,7 +95,12 @@ fn assert_fires(case: &str, name: &str, outcome: Outcome) {
 fn rewrite(path: &Path, edit: impl Fn(&str) -> String) {
     let before = fs::read_to_string(path).expect("could not read a file to mutate");
     let after = edit(&before);
-    assert_ne!(before, after, "the mutation changed nothing: {}", path.display());
+    assert_ne!(
+        before,
+        after,
+        "the mutation changed nothing: {}",
+        path.display()
+    );
     fs::write(path, after).expect("could not write a mutated file");
 }
 
@@ -103,10 +108,7 @@ fn rewrite(path: &Path, edit: impl Fn(&str) -> String) {
 fn conditional_no_std_is_rejected() {
     let root = tracked_copy("no_std-conditional");
     rewrite(&root.join("src/lib.rs"), |text| {
-        text.replace(
-            "#![no_std]",
-            "#![cfg_attr(not(feature = \"std\"), no_std)]",
-        )
+        text.replace("#![no_std]", "#![cfg_attr(not(feature = \"std\"), no_std)]")
     });
     assert_fires(
         "no_std-conditional",
@@ -172,6 +174,58 @@ fn example_host_paths_are_rejected() {
 }
 
 #[test]
+fn wide_arithmetic_outside_the_kernel_is_rejected() {
+    let root = tracked_copy("wide-int");
+    // Inject into the runtime region of `evaluate`, not the file tail: the
+    // scanner deliberately exempts each file's `#[cfg(test)]` tail, so an
+    // appended line would not prove the guard.
+    rewrite(&root.join("src/evaluate.rs"), |text| {
+        text.replacen(
+            "let x_cell = self.locate_x(x)?;",
+            "let _wide: i64 = 0;\n        let x_cell = self.locate_x(x)?;",
+            1,
+        )
+    });
+    assert_fires(
+        "wide-int",
+        "integer only",
+        ratchets::integer_only(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_128_bit_integer_in_runtime_code_is_rejected() {
+    let root = tracked_copy("wide-int-128");
+    // The kernel itself may widen to 64 bits, never to 128; prove the ban
+    // holds even inside `src/interp.rs`.
+    rewrite(&root.join("src/interp.rs"), |text| {
+        text.replacen(
+            "let span = i64::from(x1) - i64::from(x0);",
+            "let _widest: i128 = 0;\n    let span = i64::from(x1) - i64::from(x0);",
+            1,
+        )
+    });
+    assert_fires(
+        "wide-int-128",
+        "integer only",
+        ratchets::integer_only(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn runtime_code_after_a_test_item_is_rejected() {
+    let root = tracked_copy("runtime-after-test");
+    rewrite(&root.join("src/evaluate.rs"), |text| {
+        format!("{text}\npub fn hidden_wide_integer() -> i64 {{ 0 }}\n")
+    });
+    assert_fires(
+        "runtime-after-test",
+        "integer only",
+        ratchets::integer_only(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
 fn a_ph_curves_dependency_is_rejected() {
     let root = tracked_copy("ph-curves");
     rewrite(&root.join("Cargo.toml"), |text| {
@@ -187,8 +241,11 @@ fn a_ph_curves_dependency_is_rejected() {
 #[test]
 fn a_manifest_floor_change_is_rejected() {
     let root = tracked_copy("manifest-version");
+    // `package::PACKAGE_VERSION` is the gate's single version literal; using
+    // it here keeps a release bump a one-place edit.
+    let current = format!("version = \"{}\"", package::PACKAGE_VERSION);
     rewrite(&root.join("Cargo.toml"), |text| {
-        text.replace("version = \"0.1.0-incubating.1\"", "version = \"0.2.0\"")
+        text.replace(&current, "version = \"0.0.0-mutated\"")
     });
     assert_fires(
         "manifest-version",
@@ -197,11 +254,9 @@ fn a_manifest_floor_change_is_rejected() {
     );
 }
 
-#[test]
-fn crlf_in_a_tracked_file_is_rejected() {
-    let root = tracked_copy("crlf");
-    // The check reads the tracked list from git, so the copy needs its own
-    // repository -- and being outside `target/` means it cannot see this one.
+/// Turn a tracked-file copy into its own repository with one commit. Being
+/// outside `target/` means it cannot see this checkout's repository.
+fn init_repository(root: &Path) {
     for args in [
         vec!["init", "--quiet"],
         vec!["add", "--all"],
@@ -217,11 +272,19 @@ fn crlf_in_a_tracked_file_is_rejected() {
     ] {
         let status = Command::new("git")
             .args(&args)
-            .current_dir(&root)
+            .current_dir(root)
             .status()
             .expect("git could not run");
         assert!(status.success(), "git {args:?} failed");
     }
+}
+
+#[test]
+fn crlf_in_a_tracked_file_is_rejected() {
+    let root = tracked_copy("crlf");
+    // The check reads the tracked list from git, so the copy needs its own
+    // repository.
+    init_repository(&root);
 
     let path = root.join("README.md");
     let bytes = fs::read(&path).expect("could not read README.md");
@@ -239,6 +302,90 @@ fn crlf_in_a_tracked_file_is_rejected() {
         "line endings",
         line_endings::line_endings(&ctx(&root, Profile::Full)),
     );
+}
+
+#[test]
+fn a_planted_secret_is_rejected() {
+    // Without gitleaks the guard itself reports SKIP, and this case can prove
+    // nothing either way; degrade the same way rather than failing the suite
+    // on machines that do not carry the tool. The strict release run installs
+    // gitleaks, so release evidence still sees this case execute.
+    let have_gitleaks = Command::new("gitleaks")
+        .arg("version")
+        .output()
+        .is_ok_and(|output| output.status.success());
+    if !have_gitleaks {
+        eprintln!("gitleaks not installed; the secret-scan mutation case cannot run here");
+        return;
+    }
+
+    let root = tracked_copy("secret");
+    // A shaped-and-random token, so both the pattern rule and its entropy
+    // requirement are met. It is not a real credential, and it is assembled
+    // at runtime so the token never appears in this repository's own history,
+    // where the real secret scan would find it.
+    let token = format!("ghp_{}{}", "wWPw5k4aXcZcnwHq1FqF", "q7BdkS9AqPqm2eKv");
+    fs::write(root.join("leaked.env"), format!("GITHUB_TOKEN={token}\n"))
+        .expect("could not plant the secret");
+    init_repository(&root);
+
+    assert_fires(
+        "secret",
+        "secret scan",
+        history::secret_scan(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_shallow_repository_cannot_claim_a_full_history_scan() {
+    let source = tracked_copy("shallow-source");
+    init_repository(&source);
+    fs::write(source.join("second-commit.txt"), "second commit\n")
+        .expect("could not add the second commit fixture");
+    let status = Command::new("git")
+        .args(["add", "--all"])
+        .current_dir(&source)
+        .status()
+        .expect("git add could not run");
+    assert!(status.success(), "git add failed");
+    let status = Command::new("git")
+        .args([
+            "-c",
+            "user.email=selftest@example.invalid",
+            "-c",
+            "user.name=selftest",
+            "commit",
+            "--quiet",
+            "--message=second",
+        ])
+        .current_dir(&source)
+        .status()
+        .expect("git commit could not run");
+    assert!(status.success(), "git commit failed");
+
+    let shallow = std::env::temp_dir()
+        .join("ph-surfaces-mutation")
+        .join("shallow-clone");
+    let _ = fs::remove_dir_all(&shallow);
+    let source_url = format!(
+        "file:///{}",
+        source.display().to_string().replace('\\', "/")
+    );
+    let status = Command::new("git")
+        .args(["clone", "--quiet", "--depth=1", &source_url])
+        .arg(&shallow)
+        .status()
+        .expect("git clone could not run");
+    assert!(status.success(), "shallow git clone failed");
+
+    match history::secret_scan(&ctx(&shallow, Profile::Full)) {
+        Outcome::Skip(reason) => assert!(
+            reason.contains("shallow"),
+            "shallow repository skipped for the wrong reason: {reason}"
+        ),
+        Outcome::Pass => panic!("shallow repository passed the full-history secret scan"),
+        Outcome::Fail(reason) => panic!("ordinary profile failed instead of skipping: {reason}"),
+    }
 }
 
 #[test]

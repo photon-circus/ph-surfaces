@@ -3,7 +3,8 @@
 //! Both axes are exact arithmetic progressions, so Uniform stores no knot
 //! arrays: location is one subtraction and one division per axis, not a search.
 //! That is not zero work in cycles; measure the division on the target if
-//! timing matters. See `docs/choosing-a-strategy.md`.
+//! timing matters. See the strategy guide (not packaged):
+//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md>.
 //!
 //! Host `main` is an assertion harness. Declarations are `static` and
 //! `core`-compatible. Payload figures are referenced element bytes, not total

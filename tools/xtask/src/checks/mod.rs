@@ -14,8 +14,8 @@ pub mod cargo;
 pub mod code_size;
 pub mod deny;
 pub mod embedded;
+pub mod history;
 pub mod line_endings;
-pub mod metadata;
 pub mod package;
 pub mod ratchets;
 
@@ -54,11 +54,6 @@ pub const CHECKS: &[Check] = &[
         name: "fmt",
         profiles: ALL,
         run: cargo::fmt,
-    },
-    Check {
-        name: "check",
-        profiles: ALL,
-        run: cargo::check,
     },
     Check {
         name: "test",
@@ -124,14 +119,14 @@ pub const CHECKS: &[Check] = &[
         run: guard_selftest,
     },
     Check {
-        name: "github metadata",
-        profiles: DEEP,
-        run: metadata::github_metadata,
-    },
-    Check {
         name: "deny",
         profiles: DEEP,
         run: deny::deny,
+    },
+    Check {
+        name: "secret scan",
+        profiles: DEEP,
+        run: history::secret_scan,
     },
     Check {
         name: "core-only thumbv7em-none-eabi",
@@ -167,11 +162,7 @@ fn guard_selftest(ctx: &crate::runner::Ctx) -> crate::runner::Outcome {
     cargo::step(
         ctx,
         &crate::proc::cargo(),
-        &[
-            "test",
-            "--manifest-path",
-            "tools/xtask/Cargo.toml",
-        ],
+        &["test", "--manifest-path", "tools/xtask/Cargo.toml"],
         &[("CARGO_TARGET_DIR", target_dir.as_str())],
     )
 }

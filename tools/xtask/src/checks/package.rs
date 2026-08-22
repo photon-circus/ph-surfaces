@@ -54,13 +54,12 @@ pub const PACKAGED_FILES: [&str; 23] = [
 ];
 
 /// Files a consumer has no use for and that must never reach the archive.
-const NON_CONSUMER_PREFIXES: [&str; 10] = [
+const NON_CONSUMER_PREFIXES: [&str; 9] = [
     "AGENTS.md",
     "CHANGELOG.md",
     "clippy.toml",
     "deny.toml",
     "rust-toolchain.toml",
-    "scripts/",
     "tools/",
     "docs/",
     "tests/",
@@ -78,7 +77,10 @@ pub struct Artifact {
 /// without four checks each re-packaging the crate.
 fn artifact(ctx: &Ctx) -> Result<&'static Artifact, String> {
     static BUILT: OnceLock<Result<Artifact, String>> = OnceLock::new();
-    BUILT.get_or_init(|| build_artifact(ctx)).as_ref().map_err(String::clone)
+    BUILT
+        .get_or_init(|| build_artifact(ctx))
+        .as_ref()
+        .map_err(String::clone)
 }
 
 fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
@@ -161,7 +163,9 @@ pub fn package_list(ctx: &Ctx) -> Outcome {
     }
     let listing = match proc::capture(&proc::cargo(), &args, &ctx.root) {
         Ok(output) if output.ok() => output.stdout,
-        Ok(output) => return Outcome::fail(format!("cargo package --list failed.\n{}", output.stderr)),
+        Ok(output) => {
+            return Outcome::fail(format!("cargo package --list failed.\n{}", output.stderr));
+        }
         Err(error) => return Outcome::fail(format!("cargo could not run: {error}")),
     };
 
@@ -310,7 +314,9 @@ pub fn package_digest(ctx: &Ctx) -> Outcome {
 
     let bytes = match fs::read(&artifact.archive) {
         Ok(bytes) => bytes,
-        Err(error) => return Outcome::fail(format!("could not read the packaged archive: {error}")),
+        Err(error) => {
+            return Outcome::fail(format!("could not read the packaged archive: {error}"));
+        }
     };
     let digest = sha256::hex(&bytes);
 
@@ -590,10 +596,8 @@ mod tests {
 
     #[test]
     fn packaged_tree_lists_files_and_ignores_verify_target() {
-        let root = std::env::temp_dir().join(format!(
-            "ph-surfaces-packaged-tree-{}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("ph-surfaces-packaged-tree-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("src")).unwrap();
         fs::create_dir_all(root.join("target/debug")).unwrap();

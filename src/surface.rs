@@ -370,12 +370,23 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, Y: AxisLookup<NY>>
     }
 
     /// Returns the X axis together with its lookup strategy.
-    pub(crate) const fn x(&self) -> &X {
+    ///
+    /// This is the generic route to the axis: through it, code bounded on
+    /// [`AxisLookup`] (or [`KnotArray`](crate::KnotArray) for the stored
+    /// strategies) can read the domain bounds, individual knots, and cost
+    /// constants of any surface's axis without carrying the knot arrays
+    /// separately. The strategy-specific `x_knot` / `x_min` / `x_max`
+    /// accessors remain the constant-context conveniences.
+    #[must_use]
+    pub const fn x(&self) -> &X {
         &self.x
     }
 
     /// Returns the Y axis together with its lookup strategy.
-    pub(crate) const fn y(&self) -> &Y {
+    ///
+    /// The Y counterpart of [`x`](BilinearSurface::x); see there.
+    #[must_use]
+    pub const fn y(&self) -> &Y {
         &self.y
     }
 
@@ -559,20 +570,19 @@ impl<const NX: usize, const NY: usize, const ORIGIN: u16, const STEP: u16, Y: Ax
     /// Panics if `index >= NX`.
     #[must_use]
     pub const fn x_knot(&self, index: usize) -> u16 {
-        assert!(index < NX, "knot index is outside the axis");
-        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+        self.x.knot(index)
     }
 
     /// Returns the first X knot: the inclusive lower bound of the X domain.
     #[must_use]
     pub const fn x_min(&self) -> u16 {
-        ORIGIN
+        self.x.origin()
     }
 
     /// Returns the last X knot: the inclusive upper bound of the X domain.
     #[must_use]
     pub const fn x_max(&self) -> u16 {
-        ((ORIGIN as u32) + ((NX - 1) as u32) * (STEP as u32)) as u16
+        self.x.last()
     }
 }
 
@@ -586,20 +596,19 @@ impl<const NX: usize, const NY: usize, X: AxisLookup<NX>, const ORIGIN: u16, con
     /// Panics if `index >= NY`.
     #[must_use]
     pub const fn y_knot(&self, index: usize) -> u16 {
-        assert!(index < NY, "knot index is outside the axis");
-        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+        self.y.knot(index)
     }
 
     /// Returns the first Y knot: the inclusive lower bound of the Y domain.
     #[must_use]
     pub const fn y_min(&self) -> u16 {
-        ORIGIN
+        self.y.origin()
     }
 
     /// Returns the last Y knot: the inclusive upper bound of the Y domain.
     #[must_use]
     pub const fn y_max(&self) -> u16 {
-        ((ORIGIN as u32) + ((NY - 1) as u32) * (STEP as u32)) as u16
+        self.y.last()
     }
 }
 

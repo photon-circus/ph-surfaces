@@ -127,10 +127,11 @@ pub trait AxisLookup<const N: usize>: sealed::Sealed<N> + Copy {
     /// together with the number of knot comparisons it took.
     ///
     /// The returned count covers only the strategy-specific work and is bounded
-    /// by [`MAX_SEARCH_COMPARISONS`](AxisLookup::MAX_SEARCH_COMPARISONS). It
-    /// exists so tests can tell the strategies apart by their work rather than
-    /// only by their answers. Callers normally discard it and an optimising
-    /// build removes it.
+    /// by [`MAX_SEARCH_COMPARISONS`](AxisLookup::MAX_SEARCH_COMPARISONS). It is
+    /// the observable half of that declared bound: because the count is public,
+    /// a consumer — and this crate's own black-box conformance suite — can
+    /// verify the bound instead of taking it on faith. Callers that only want
+    /// the index discard it, and an optimising build removes the counting.
     ///
     /// # Panics
     ///

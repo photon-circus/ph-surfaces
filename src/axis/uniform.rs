@@ -148,6 +148,43 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> UniformAxis<N, ORIGIN, 
     pub const fn step(&self) -> u16 {
         STEP
     }
+
+    /// The descriptor arithmetic, in its one home: `ORIGIN + index * STEP`.
+    ///
+    /// Private and unchecked so the always-in-range callers (`last`, the
+    /// trait impl) do not carry the public accessor's assert -- an extra
+    /// panic path here is measurable in the emitted-instruction snapshot.
+    ///
+    /// Bounded above by the last knot, which `new` proved representable.
+    const fn nth(index: usize) -> u16 {
+        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+    }
+
+    /// Returns the knot at `index`, computed from the descriptor.
+    ///
+    /// The same value as [`AxisLookup::knot`], available in a constant
+    /// context.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= N`.
+    #[must_use]
+    pub const fn knot(&self, index: usize) -> u16 {
+        assert!(index < N, "knot index is outside the axis");
+
+        Self::nth(index)
+    }
+
+    /// Returns the last knot, `ORIGIN + (N - 1) * STEP`.
+    ///
+    /// The same value as [`AxisLookup::last`], available in a constant
+    /// context. `inline(always)` because the body folds to one constant; an
+    /// outlined copy would be all call overhead.
+    #[must_use]
+    #[inline(always)]
+    pub const fn last(&self) -> u16 {
+        Self::nth(N - 1)
+    }
 }
 
 impl<const N: usize, const ORIGIN: u16, const STEP: u16> sealed::Sealed<N>
@@ -182,18 +219,19 @@ impl<const N: usize, const ORIGIN: u16, const STEP: u16> AxisLookup<N>
         ORIGIN
     }
 
+    // Both delegate to the const inherent methods above, which own the
+    // descriptor arithmetic; inherent methods win resolution, so these calls
+    // are not self-recursive. `inline(always)` keeps the delegation free:
+    // without it the wrappers survive as outlined 8-byte functions in the
+    // measurement objects, which the code-size snapshot counts.
+    #[inline(always)]
     fn last(&self) -> u16 {
-        // `new` proved this sum representable, and `N >= 2` makes `N - 1` sound.
-        // The subtraction happens in `usize` because `N` may be 65_536, which is
-        // the largest count a unit step can describe.
-        ((ORIGIN as u32) + ((N - 1) as u32) * (STEP as u32)) as u16
+        Self::last(self)
     }
 
+    #[inline(always)]
     fn knot(&self, index: usize) -> u16 {
-        assert!(index < N, "knot index is outside the axis");
-
-        // Bounded above by the last knot, which `new` proved representable.
-        ((ORIGIN as u32) + (index as u32) * (STEP as u32)) as u16
+        Self::knot(self, index)
     }
 }
 

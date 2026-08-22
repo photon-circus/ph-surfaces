@@ -7,8 +7,8 @@ description = "Deterministic no-std, no-alloc integer surface mappings for embed
 license = "MIT"
 repository = "https://github.com/photon-circus/ph-surfaces"
 readme = "README.md"
-keywords = ["no-std", "embedded", "interpolation"]
-categories = ["no-std", "embedded", "mathematics"]
+keywords = ["no-std", "no-alloc", "embedded", "interpolation"]
+categories = ["no-std", "no-std::no-alloc", "embedded", "mathematics"]
 publish = false
 
 # Allowlist, not a denylist: anything new stays out of the packaged crate until
@@ -19,6 +19,18 @@ include = [
     "Cargo.toml",
     "LICENSE",
     "/README.md",
+]
+
+# docs.rs builds the default host target plus the two representative
+# bare-metal targets the contract names, so the published docs prove the
+# crate documents (and compiles) on what it claims to serve. This table must
+# stay below every plain `[package]` key: a key placed after it would belong
+# to this table, not to the package.
+[package.metadata.docs.rs]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "thumbv7em-none-eabi",
+    "riscv32imac-unknown-none-elf",
 ]
 
 # Runtime, tests, and build scripts stay free of `ph-curves` and of any other

@@ -1,5 +1,6 @@
-//! The host contract: formatting, the type check, both test profiles, the
-//! Cargo examples, lints, and rustdoc -- all with warnings denied.
+//! The host contract: formatting, both test profiles, the Cargo examples,
+//! lints, and rustdoc -- all with warnings denied. There is no separate
+//! `cargo check` row: `clippy --all-targets -D warnings` subsumes it.
 
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
@@ -30,10 +31,6 @@ fn cargo_step(ctx: &Ctx, args: &[&str]) -> Outcome {
 
 pub fn fmt(ctx: &Ctx) -> Outcome {
     cargo_step(ctx, &["fmt", "--all", "--", "--check"])
-}
-
-pub fn check(ctx: &Ctx) -> Outcome {
-    cargo_step(ctx, &["check", "--locked"])
 }
 
 pub fn test(ctx: &Ctx) -> Outcome {

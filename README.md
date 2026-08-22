@@ -123,10 +123,8 @@ packages; and the mutation tests in `tools/xtask` show the guard fires when a
 ## Contract
 
 This section is the consumer-facing statement of the implemented contract. Each
-item below is implemented and tested by the
-black-box suite in
-`tests/conformance/`, and mapped to its evidence in
-[`docs/v0.1-traceability.md`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md).
+item below is implemented and tested by the black-box suite in
+`tests/conformance/`.
 
 ### Representation
 
@@ -175,6 +173,10 @@ strategies: a firmware that names one combination compiles that one.
 - Every strategy locates the same cell, evaluates the same value, and reports
   the same error. Only stored bytes and search work differ; rounding,
   composition order, boundary semantics, and error variants are unchanged.
+- A surface hands out its axes: `x()` / `y()` return each axis with its
+  strategy, so generic code bounded on `AxisLookup` (or `KnotArray` for the
+  stored strategies) can read domain bounds, knots, and cost constants
+  without carrying the knot arrays separately.
 
 ```rust
 use ph_surfaces::{
@@ -314,6 +316,33 @@ Evaluation is a pure function of the handle and the two coordinates. The
 primitive has no reset, warm-up, cache, clock, I/O, persistence, hardware, or
 lifecycle semantics. The same handle and the same coordinates always produce
 the same result, and evaluating never mutates or allocates anything.
+
+### Panics and cross-target determinism
+
+`evaluate` **cannot panic for any surface that can exist**: every index it
+computes is bounded by the located cell's invariant, its one division is by a
+validated positive span, and its arithmetic cannot overflow (see above). That
+is a structural argument, exercised by the exhaustive conformance sweeps —
+not a claim that the compiled artifact contains no panic branches: the
+compiler keeps the bounds checks it cannot prove dead, and the committed
+per-target emitted-instruction snapshots (`docs/asm-snapshot-*.txt`) record
+exactly what is generated. The panicking paths in the API are confined to the
+`const fn` constructors and to index accessors with documented `# Panics`
+sections (the knot accessors and `AxisLookup::search`). In `static`/`const`
+position those assertions are compile errors; at runtime they fire only on a
+violated caller precondition, never on data.
+
+Because evaluation is integer-only with one fixed rounding rule, a given
+surface and coordinate pair produces the **bit-identical `i32` on every
+supported target** — host, ARM, and RISC-V. There is no floating-point
+rounding mode, target-width, or build-profile dependence to vary the result.
+Floating point never participates, and that is a disclosed policy rather than
+an accident: the crate declares no features, and any future hardware-specific
+fast path (for example an FPU path on Cortex-M4F/M7, where single-precision
+float can be cheaper than 64-bit integer division) would have to arrive as an
+**off-by-default feature gate** that leaves default-build results untouched,
+with its determinism trade-offs documented. It is excluded from v0.1 precisely
+because per-target float rounding would break this guarantee.
 
 ## Examples
 
@@ -594,11 +623,27 @@ cargo xtask code-size
   `ph_eval_*` wrapper, not whole-binary flash
 - Pairings: default Binary×Binary elevation 5×4; Linear×Linear 3×2;
   Uniform×Uniform 2×2; mixed `BucketedAxis<17, 8>` × `UniformAxis<9, 0, 200>`
+- `ph_interp_kernel`: the shared scalar interpolation (`ph_surfaces::interp`),
+  measured from the ph-surfaces rlib. It is non-generic, so it is absent from
+  the per-pairing objects above and is paid once per firmware, not per pairing
 
 Compiler, linker, and `llvm-tools-preview` versions can move these numbers.
-Re-run the script and update the snapshot when they do. The `code size
-snapshot` CI check diffs the output and returns SKIP if either target or
-`llvm-tools-preview` is missing.
+Re-run `cargo xtask code-size --write` and commit the snapshot when they do.
+The `code size snapshot` CI check compares the measured sizes (the `#` header
+is provenance, refreshed by `--write`, so a toolchain bump alone does not
+fail the gate) and returns SKIP if either target or `llvm-tools-preview` is
+missing.
+
+The instruction streams behind those totals are committed alongside the
+sizes: `cargo xtask asm --write` disassembles the same four pairing objects
+plus the interp kernel with `llvm-objdump -d -r --demangle` into
+[`docs/asm-snapshot-thumbv7em-none-eabi.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/asm-snapshot-thumbv7em-none-eabi.txt)
+and
+[`docs/asm-snapshot-riscv32imac-unknown-none-elf.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/asm-snapshot-riscv32imac-unknown-none-elf.txt).
+They are informational, not a gate: review them when a branch on the hot
+path, a new library call (the 64-bit rounding division lowers to
+`__aeabi_ldivmod` on ARM and `__divdi3` on RISC-V), or a
+compiler-retained bounds check matters to your target.
 
 ## Repository classification
 
@@ -631,11 +676,14 @@ authoritative. It gates:
 
 - formatting, debug and release host tests and doctests (including every code
   block in this README), every Cargo example run as an assertion harness,
-  clippy with warnings denied, and rustdoc with warnings denied and
-  `missing_docs` denied on every public item;
+  clippy with warnings denied on the host and on both embedded targets, and
+  rustdoc with warnings denied and `missing_docs` denied on every public
+  item;
 - unconditional `#![no_std]`: no `[features]` table, no `cfg_attr` on the
   attribute, and no feature-gated code anywhere in `src/`;
-- an integer-only, core-only, `unsafe`-free runtime, by grepping code paths;
+- an integer-only, core-only, `unsafe`-free runtime, by grepping code paths —
+  including wide-integer confinement: 64-bit arithmetic only inside the
+  `src/interp.rs` kernel, 128-bit integers only in test oracles;
 - no `ph-curves` in any form — the manifest text (normal, optional,
   target-specific, development, build, path, Git, `[patch]`, `[replace]`),
   `Cargo.lock`, `cargo metadata --all-features`, and `cargo deny` all reject
@@ -655,10 +703,14 @@ authoritative. It gates:
 - a guard self-test (`tools/xtask/tests/mutation.rs`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
-- a code-size snapshot (`cargo xtask code-size`) that records
-  single-pairing compiler-object `.text` totals on both embedded targets and
-  diffs them against `docs/code-size-snapshot.txt`; the check reports `SKIP` if
-  either target or `llvm-tools-preview` is missing;
+- a code-size snapshot (`cargo xtask code-size`) that records single-pairing
+  compiler-object `.text` totals plus the shared interp-kernel size on both
+  embedded targets and compares the measured sizes against
+  `docs/code-size-snapshot.txt` (the header is provenance, not part of the
+  gate); the check reports `SKIP` if either target or `llvm-tools-preview` is
+  missing;
+- a full-history secret scan (`gitleaks git . --redact`), reported `SKIP`
+  where the tool is absent and required in release evidence;
 - representative bare-metal builds on ARM (`thumbv7em-none-eabi`) and RISC-V
   (`riscv32imac-unknown-none-elf`) with the pinned toolchain;
 - the no-allocation proof: nightly `-Z build-std=core` builds of the same two
@@ -683,15 +735,11 @@ above are the suite's `ELEVATION` and `CORRECTION` fixtures and demonstrate
 shape and rounding behaviour only; they claim nothing about any sensor, vendor,
 or measurement accuracy.
 
-[`docs/v0.1-traceability.md`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
-maps every acceptance claim of the v0.1 contract to its test,
-documentation section, or CI gate.
-
 Hosted GitHub Actions run a bounded contributor subset: least privilege, a
 job timeout, cancellation of superseded runs, SHA-pinned actions, and one
-job as the aggregate status. That subset still skips `deny`, the nightly
-core-only proofs, and the GitHub metadata check. Local `cargo xtask ci` is
-the complete gate. A skipped hosted check is not a pass.
+job as the aggregate status. That subset still skips `deny` and the nightly
+core-only proofs. Local `cargo xtask ci` is the complete gate. A skipped
+hosted check is not a pass.
 
 ## Contributing and releases
 

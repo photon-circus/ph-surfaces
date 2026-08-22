@@ -1,0 +1,1355 @@
+# ph-surfaces emitted-instruction snapshot (non-normative)
+# Target: thumbv7em-none-eabi
+# Toolchain: rustc 1.94.0 (4a4ef493e 2026-03-02)
+# Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false
+# Tool: llvm-objdump -d -r --demangle --no-show-raw-insn (single-pairing compiler object); relocation lines name the
+# out-of-object callees behind otherwise-anonymous branch targets
+# This is not a timing, WCET, or branch-freedom guarantee; it is the
+# instruction stream to review when one of those properties matters.
+
+## ph_eval_binary (pairing-binary)
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h0e8f5f1214d15accE:
+
+00000000 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	str	r11, [sp, #-4]!
+       8:      	ldr.w	lr, [r1]
+       c:      	uxth.w	r12, r2
+      10:      	ldrh.w	r1, [lr]
+      14:      	cmp	r12, r1
+      16:      	bhs	0x26 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x26> @ imm = #0xc
+      18:      	cbz	r3, 0x3e <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x3e> @ imm = #0x22
+      1a:      	strh	r1, [r0, #0x8]
+      1c:      	movs	r1, #0x0
+      1e:      	str	r1, [r0, #0x4]
+      20:      	strb	r1, [r0]
+      22:      	movs	r1, #0x1
+      24:      	b	0x80 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x80> @ imm = #0x58
+      26:      	ldrh.w	r1, [lr, #0x6]
+      2a:      	cmp	r12, r1
+      2c:      	bls	0x44 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x44> @ imm = #0x14
+      2e:      	ldr	r2, [r7, #0x8]
+      30:      	cbz	r2, 0x78 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x78> @ imm = #0x44
+      32:      	strh	r1, [r0, #0x8]
+      34:      	movs	r1, #0x2
+      36:      	movs	r2, #0x0
+      38:      	str	r1, [r0, #0x4]
+      3a:      	strb	r2, [r0]
+      3c:      	b	0x80 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x80> @ imm = #0x40
+      3e:      	movs	r1, #0x1
+      40:      	strh	r1, [r0]
+      42:      	b	0x80 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x80> @ imm = #0x3a
+      44:      	movs	r2, #0x4
+      46:      	movs	r3, #0x0
+      48:      	movs	r4, #0x2
+      4a:      	add.w	r1, r3, r2, lsr #1
+      4e:      	cmp	r1, #0x3
+      50:      	bhi	0x88 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x88> @ imm = #0x34
+      52:      	ldrh.w	r6, [lr, r1, lsl #1]
+      56:      	lsrs	r5, r2, #0x1
+      58:      	subs	r2, r2, r5
+      5a:      	cmp	r6, r12
+      5c:      	it	ls
+      5e:      	movls	r3, r1
+      60:      	subs	r4, #0x1
+      62:      	bne	0x4a <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x4a> @ imm = #-0x1c
+      64:      	movs	r1, #0x0
+      66:      	strh.w	r12, [r0, #0x8]
+      6a:      	strb	r1, [r0]
+      6c:      	movs	r1, #0x4
+      6e:      	cmp	r3, #0x2
+      70:      	it	hs
+      72:      	movhs	r3, #0x2
+      74:      	str	r3, [r0, #0x4]
+      76:      	b	0x80 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x80> @ imm = #0x6
+      78:      	movw	r1, #0x101
+      7c:      	strh	r1, [r0]
+      7e:      	movs	r1, #0x2
+      80:      	str	r1, [r0, #0xc]
+      82:      	ldr	r11, [sp], #4
+      86:      	pop	{r4, r5, r6, r7, pc}
+      88:      	movw	r2, #0x0
+			00000088:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.2
+      8c:      	mov	r0, r1
+      8e:      	movt	r2, #0x0
+			0000008e:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.2
+      92:      	movs	r1, #0x4
+      94:      	bl	0x94 <ph_surfaces::lookup::locate::h0e8f5f1214d15acc+0x94> @ imm = #-0x4
+			00000094:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h825f5bbab45d34d3E:
+
+00000000 <ph_surfaces::lookup::locate::h825f5bbab45d34d3>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	str	r11, [sp, #-4]!
+       8:      	ldr.w	lr, [r1]
+       c:      	uxth.w	r12, r2
+      10:      	ldrh.w	r1, [lr]
+      14:      	cmp	r12, r1
+      16:      	bhs	0x26 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x26> @ imm = #0xc
+      18:      	cbz	r3, 0x3e <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x3e> @ imm = #0x22
+      1a:      	strh	r1, [r0, #0x8]
+      1c:      	movs	r1, #0x0
+      1e:      	str	r1, [r0, #0x4]
+      20:      	strb	r1, [r0]
+      22:      	movs	r1, #0x1
+      24:      	b	0x80 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x80> @ imm = #0x58
+      26:      	ldrh.w	r1, [lr, #0x8]
+      2a:      	cmp	r12, r1
+      2c:      	bls	0x44 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x44> @ imm = #0x14
+      2e:      	ldr	r2, [r7, #0x8]
+      30:      	cbz	r2, 0x78 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x78> @ imm = #0x44
+      32:      	strh	r1, [r0, #0x8]
+      34:      	movs	r1, #0x3
+      36:      	str	r1, [r0, #0x4]
+      38:      	movs	r1, #0x0
+      3a:      	strb	r1, [r0]
+      3c:      	b	0x7e <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x7e> @ imm = #0x3e
+      3e:      	movs	r1, #0x1
+      40:      	strh	r1, [r0]
+      42:      	b	0x80 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x80> @ imm = #0x3a
+      44:      	movs	r2, #0x5
+      46:      	movs	r3, #0x0
+      48:      	movs	r4, #0x3
+      4a:      	add.w	r1, r3, r2, lsr #1
+      4e:      	cmp	r1, #0x4
+      50:      	bhi	0x88 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x88> @ imm = #0x34
+      52:      	ldrh.w	r6, [lr, r1, lsl #1]
+      56:      	lsrs	r5, r2, #0x1
+      58:      	subs	r2, r2, r5
+      5a:      	cmp	r6, r12
+      5c:      	it	ls
+      5e:      	movls	r3, r1
+      60:      	subs	r4, #0x1
+      62:      	bne	0x4a <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x4a> @ imm = #-0x1c
+      64:      	movs	r1, #0x0
+      66:      	strh.w	r12, [r0, #0x8]
+      6a:      	strb	r1, [r0]
+      6c:      	movs	r1, #0x5
+      6e:      	cmp	r3, #0x3
+      70:      	it	hs
+      72:      	movhs	r3, #0x3
+      74:      	str	r3, [r0, #0x4]
+      76:      	b	0x80 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x80> @ imm = #0x6
+      78:      	movw	r1, #0x101
+      7c:      	strh	r1, [r0]
+      7e:      	movs	r1, #0x2
+      80:      	str	r1, [r0, #0xc]
+      82:      	ldr	r11, [sp], #4
+      86:      	pop	{r4, r5, r6, r7, pc}
+      88:      	movw	r2, #0x0
+			00000088:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.2
+      8c:      	mov	r0, r1
+      8e:      	movt	r2, #0x0
+			0000008e:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.2
+      92:      	movs	r1, #0x5
+      94:      	bl	0x94 <ph_surfaces::lookup::locate::h825f5bbab45d34d3+0x94> @ imm = #-0x4
+			00000094:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17hbefd415ed4f549f4E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hbefd415ed4f549f4>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	str	r11, [sp, #-4]!
+       8:      	sub	sp, #0x18
+       a:      	mov	r5, r1
+       c:      	mov	r4, r0
+       e:      	ldr	r0, [r5], #4
+      12:      	mov	r6, r2
+      14:      	and	r3, r0, #0x1
+      18:      	ubfx	r1, r0, #0x8, #0x1
+      1c:      	add	r0, sp, #0x8
+      1e:      	str	r1, [sp]
+      20:      	mov	r1, r5
+      22:      	bl	0x22 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hbefd415ed4f549f4+0x22> @ imm = #-0x4
+			00000022:  R_ARM_THM_CALL	ph_surfaces::lookup::locate::h825f5bbab45d34d3
+      26:      	ldrb.w	r0, [sp, #0x8]
+      2a:      	lsls	r0, r0, #0x1f
+      2c:      	beq	0x42 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hbefd415ed4f549f4+0x42> @ imm = #0x12
+      2e:      	ldrb.w	r0, [sp, #0x9]
+      32:      	ldr	r1, [r5]
+      34:      	strh	r0, [r4, #0x2]
+      36:      	strh	r6, [r4, #0x4]
+      38:      	ldrh.w	r0, [r1, r0, lsl #3]
+      3c:      	strh	r0, [r4, #0x6]
+      3e:      	movs	r0, #0x1
+      40:      	b	0x4e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hbefd415ed4f549f4+0x4e> @ imm = #0xa
+      42:      	ldrh.w	r0, [sp, #0x10]
+      46:      	ldr	r1, [sp, #0xc]
+      48:      	strh	r0, [r4, #0x8]
+      4a:      	movs	r0, #0x0
+      4c:      	str	r1, [r4, #0x4]
+      4e:      	strh	r0, [r4]
+      50:      	add	sp, #0x18
+      52:      	ldr	r11, [sp], #4
+      56:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17hb757ef0049ec5a07E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb757ef0049ec5a07>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	str	r11, [sp, #-4]!
+       8:      	sub	sp, #0x18
+       a:      	mov	r5, r1
+       c:      	mov	r4, r0
+       e:      	ldr	r0, [r5], #8
+      12:      	mov	r6, r2
+      14:      	ubfx	r1, r0, #0x18, #0x1
+      18:      	ubfx	r3, r0, #0x10, #0x1
+      1c:      	add	r0, sp, #0x8
+      1e:      	str	r1, [sp]
+      20:      	mov	r1, r5
+      22:      	bl	0x22 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb757ef0049ec5a07+0x22> @ imm = #-0x4
+			00000022:  R_ARM_THM_CALL	ph_surfaces::lookup::locate::h0e8f5f1214d15acc
+      26:      	ldrb.w	r0, [sp, #0x8]
+      2a:      	lsls	r0, r0, #0x1f
+      2c:      	beq	0x4e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb757ef0049ec5a07+0x4e> @ imm = #0x1e
+      2e:      	ldrb.w	r0, [sp, #0x9]
+      32:      	strh	r6, [r4, #0x4]
+      34:      	lsls	r0, r0, #0x1f
+      36:      	mov.w	r0, #0x2
+      3a:      	it	ne
+      3c:      	movne	r0, #0x3
+      3e:      	strh	r0, [r4, #0x2]
+      40:      	ldr	r0, [r5]
+      42:      	it	ne
+      44:      	addne	r0, #0x6
+      46:      	ldrh	r0, [r0]
+      48:      	strh	r0, [r4, #0x6]
+      4a:      	movs	r0, #0x1
+      4c:      	b	0x5a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb757ef0049ec5a07+0x5a> @ imm = #0xa
+      4e:      	ldrh.w	r0, [sp, #0x10]
+      52:      	ldr	r1, [sp, #0xc]
+      54:      	strh	r0, [r4, #0x8]
+      56:      	movs	r0, #0x0
+      58:      	str	r1, [r4, #0x4]
+      5a:      	strh	r0, [r4]
+      5c:      	add	sp, #0x18
+      5e:      	ldr	r11, [sp], #4
+      62:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17h4260953c521350d2E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2>:
+       0:      	push	{r4, r6, r7, lr}
+       2:      	add	r7, sp, #0x8
+       4:      	sub	sp, #0x8
+       6:      	cmp	r1, #0x5
+       8:      	bhs	0x36 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2+0x36> @ imm = #0x2a
+       a:      	mov	r12, r0
+       c:      	adds	r0, r1, #0x1
+       e:      	cmp	r1, #0x4
+      10:      	beq	0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2+0x46> @ imm = #0x32
+      12:      	ldr.w	r4, [r12, #0x4]
+      16:      	ldr.w	lr, [r3, r1, lsl #2]
+      1a:      	ldrh.w	r12, [r4, r0, lsl #1]
+      1e:      	ldrh.w	r1, [r4, r1, lsl #1]
+      22:      	ldr.w	r0, [r3, r0, lsl #2]
+      26:      	mov	r3, lr
+      28:      	str	r0, [sp]
+      2a:      	mov	r0, r2
+      2c:      	mov	r2, r12
+      2e:      	bl	0x2e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2+0x2e> @ imm = #-0x4
+			0000002e:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      32:      	add	sp, #0x8
+      34:      	pop	{r4, r6, r7, pc}
+      36:      	movw	r2, #0x0
+			00000036:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.1
+      3a:      	mov	r0, r1
+      3c:      	movt	r2, #0x0
+			0000003c:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.1
+      40:      	movs	r1, #0x5
+      42:      	bl	0x42 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2+0x42> @ imm = #-0x4
+			00000042:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+      46:      	movw	r2, #0x0
+			00000046:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.1
+      4a:      	movs	r1, #0x5
+      4c:      	movt	r2, #0x0
+			0000004c:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.1
+      50:      	bl	0x50 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2+0x50> @ imm = #-0x4
+			00000050:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17h197c6a95eaf5710eE:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	push.w	{r8, r9, r10, r11}
+       8:      	sub	sp, #0x1c
+       a:      	mov	r4, r0
+       c:      	add	r0, sp, #0x10
+       e:      	mov	r6, r3
+      10:      	mov	r5, r1
+      12:      	bl	0x12 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x12> @ imm = #-0x4
+			00000012:  R_ARM_THM_CALL	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hbefd415ed4f549f4
+      16:      	ldrh.w	r0, [sp, #0x10]
+      1a:      	cmp	r0, #0x1
+      1c:      	beq	0x38 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x38> @ imm = #0x18
+      1e:      	add	r0, sp, #0x10
+      20:      	mov	r1, r5
+      22:      	mov	r2, r6
+      24:      	ldrh.w	r8, [sp, #0x18]
+      28:      	ldr.w	r9, [sp, #0x14]
+      2c:      	bl	0x2c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x2c> @ imm = #-0x4
+			0000002c:  R_ARM_THM_CALL	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb757ef0049ec5a07
+      30:      	ldrh.w	r0, [sp, #0x10]
+      34:      	cmp	r0, #0x1
+      36:      	bne	0x44 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x44> @ imm = #0xa
+      38:      	ldrh.w	r1, [sp, #0x12]
+      3c:      	strh	r1, [r4, #0x2]
+      3e:      	movs	r1, #0x1
+      40:      	ldr	r0, [sp, #0x14]
+      42:      	b	0x96 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x96> @ imm = #0x50
+      44:      	ldr	r6, [sp, #0x14]
+      46:      	cmp	r6, #0x3
+      48:      	bhi	0xa2 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0xa2> @ imm = #0x56
+      4a:      	add.w	r10, r6, #0x1
+      4e:      	beq	0xae <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0xae> @ imm = #0x5c
+      50:      	ldrh.w	r0, [sp, #0x18]
+      54:      	mov	r1, r9
+      56:      	str	r0, [sp, #0xc]
+      58:      	add.w	r0, r6, r6, lsl #2
+      5c:      	ldr.w	r11, [r5, #0xc]
+      60:      	mov	r2, r8
+      62:      	add.w	r3, r11, r0, lsl #2
+      66:      	mov	r0, r5
+      68:      	bl	0x68 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x68> @ imm = #-0x4
+			00000068:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2
+      6c:      	str	r0, [sp, #0x8]
+      6e:      	add.w	r0, r10, r10, lsl #2
+      72:      	mov	r1, r9
+      74:      	mov	r2, r8
+      76:      	add.w	r3, r11, r0, lsl #2
+      7a:      	mov	r0, r5
+      7c:      	bl	0x7c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x7c> @ imm = #-0x4
+			0000007c:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h4260953c521350d2
+      80:      	ldr	r1, [r5, #0x8]
+      82:      	ldrh.w	r2, [r1, r10, lsl #1]
+      86:      	ldrh.w	r1, [r1, r6, lsl #1]
+      8a:      	str	r0, [sp]
+      8c:      	ldrd	r3, r0, [sp, #8]
+      90:      	bl	0x90 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0x90> @ imm = #-0x4
+			00000090:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      94:      	movs	r1, #0x0
+      96:      	strh	r1, [r4]
+      98:      	str	r0, [r4, #0x4]
+      9a:      	add	sp, #0x1c
+      9c:      	pop.w	{r8, r9, r10, r11}
+      a0:      	pop	{r4, r5, r6, r7, pc}
+      a2:      	movw	r2, #0x0
+			000000a2:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.4
+      a6:      	mov	r0, r6
+      a8:      	movt	r2, #0x0
+			000000a8:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.4
+      ac:      	b	0xb8 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0xb8> @ imm = #0x8
+      ae:      	movw	r2, #0x0
+			000000ae:  R_ARM_THM_MOVW_ABS_NC	.Lanon.f8e80c85912bc280f7bef2166f164670.5
+      b2:      	mov	r0, r10
+      b4:      	movt	r2, #0x0
+			000000b4:  R_ARM_THM_MOVT_ABS	.Lanon.f8e80c85912bc280f7bef2166f164670.5
+      b8:      	movs	r1, #0x4
+      ba:      	bl	0xba <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e+0xba> @ imm = #-0x4
+			000000ba:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN21ph_surfaces_code_size14ph_eval_binary17hed6f4d60a6914608E:
+
+00000000 <ph_surfaces_code_size::ph_eval_binary::hed6f4d60a6914608>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	sub	sp, #0x8
+       6:      	mov	r3, r1
+       8:      	movw	r1, #0x0
+			00000008:  R_ARM_THM_MOVW_ABS_NC	ph_surfaces_code_size::BINARY::h190cf403a05aab5f
+       c:      	mov	r2, r0
+       e:      	mov	r0, sp
+      10:      	movt	r1, #0x0
+			00000010:  R_ARM_THM_MOVT_ABS	ph_surfaces_code_size::BINARY::h190cf403a05aab5f
+      14:      	bl	0x14 <ph_surfaces_code_size::ph_eval_binary::hed6f4d60a6914608+0x14> @ imm = #-0x4
+			00000014:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h197c6a95eaf5710e
+      18:      	ldrh.w	r1, [sp]
+      1c:      	ldr	r0, [sp, #0x4]
+      1e:      	cmp	r1, #0x0
+      20:      	it	ne
+      22:      	movne	r0, #0x0
+      24:      	add	sp, #0x8
+      26:      	pop	{r7, pc}
+
+## ph_eval_linear (pairing-linear)
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h1452814f32c4f84dE:
+
+00000000 <ph_surfaces::lookup::locate::h1452814f32c4f84d>:
+       0:      	ldr	r1, [r1]
+       2:      	uxth	r2, r2
+       4:      	ldrh.w	r12, [r1]
+       8:      	cmp	r2, r12
+       a:      	bhs	0x1c <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x1c> @ imm = #0xe
+       c:      	cbz	r3, 0x38 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x38> @ imm = #0x28
+       e:      	movs	r1, #0x0
+      10:      	strh.w	r12, [r0, #0x8]
+      14:      	str	r1, [r0, #0x4]
+      16:      	strb	r1, [r0]
+      18:      	movs	r1, #0x1
+      1a:      	b	0x62 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x62> @ imm = #0x44
+      1c:      	ldrh	r1, [r1, #0x2]
+      1e:      	cmp	r2, r1
+      20:      	bls	0x3e <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x3e> @ imm = #0x1a
+      22:      	push	{r7, lr}
+      24:      	mov	r7, sp
+      26:      	ldr	r2, [r7, #0x8]
+      28:      	pop.w	{r7, lr}
+      2c:      	cbz	r2, 0x5a <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x5a> @ imm = #0x2a
+      2e:      	strh	r1, [r0, #0x8]
+      30:      	movs	r1, #0x0
+      32:      	str	r1, [r0, #0x4]
+      34:      	strb	r1, [r0]
+      36:      	b	0x60 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x60> @ imm = #0x26
+      38:      	movs	r1, #0x1
+      3a:      	strh	r1, [r0]
+      3c:      	b	0x62 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x62> @ imm = #0x22
+      3e:      	movs	r3, #0x0
+      40:      	cmp	r3, #0x1
+      42:      	beq	0x4c <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x4c> @ imm = #0x6
+      44:      	adds	r3, #0x1
+      46:      	cmp	r1, r2
+      48:      	bls	0x40 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x40> @ imm = #-0xc
+      4a:      	b	0x4e <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x4e> @ imm = #0x0
+      4c:      	movs	r3, #0x1
+      4e:      	movs	r1, #0x0
+      50:      	strh	r2, [r0, #0x8]
+      52:      	str	r1, [r0, #0x4]
+      54:      	strb	r1, [r0]
+      56:      	adds	r1, r3, #0x2
+      58:      	b	0x62 <ph_surfaces::lookup::locate::h1452814f32c4f84d+0x62> @ imm = #0x6
+      5a:      	movw	r1, #0x101
+      5e:      	strh	r1, [r0]
+      60:      	movs	r1, #0x2
+      62:      	str	r1, [r0, #0xc]
+      64:      	bx	lr
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hc79be726f5c75186E:
+
+00000000 <ph_surfaces::lookup::locate::hc79be726f5c75186>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	ldr	r1, [r1]
+       6:      	uxth.w	lr, r2
+       a:      	ldrh.w	r12, [r1]
+       e:      	cmp	lr, r12
+      10:      	bhs	0x22 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x22> @ imm = #0xe
+      12:      	cbz	r3, 0x38 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x38> @ imm = #0x22
+      14:      	movs	r1, #0x0
+      16:      	strh.w	r12, [r0, #0x8]
+      1a:      	str	r1, [r0, #0x4]
+      1c:      	strb	r1, [r0]
+      1e:      	movs	r1, #0x1
+      20:      	b	0x74 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x74> @ imm = #0x50
+      22:      	ldrh	r3, [r1, #0x4]
+      24:      	cmp	lr, r3
+      26:      	bls	0x3e <ph_surfaces::lookup::locate::hc79be726f5c75186+0x3e> @ imm = #0x14
+      28:      	ldr	r1, [r7, #0x8]
+      2a:      	cbz	r1, 0x6c <ph_surfaces::lookup::locate::hc79be726f5c75186+0x6c> @ imm = #0x3e
+      2c:      	movs	r1, #0x1
+      2e:      	strh	r3, [r0, #0x8]
+      30:      	str	r1, [r0, #0x4]
+      32:      	movs	r1, #0x0
+      34:      	strb	r1, [r0]
+      36:      	b	0x72 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x72> @ imm = #0x38
+      38:      	movs	r1, #0x1
+      3a:      	strh	r1, [r0]
+      3c:      	b	0x74 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x74> @ imm = #0x34
+      3e:      	add.w	r12, r1, #0x2
+      42:      	movs	r1, #0x0
+      44:      	mov	r3, r1
+      46:      	cmp	r1, #0x2
+      48:      	beq	0x56 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x56> @ imm = #0xa
+      4a:      	ldrh.w	r2, [r12, r3, lsl #1]
+      4e:      	adds	r1, r3, #0x1
+      50:      	cmp	r2, lr
+      52:      	bls	0x44 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x44> @ imm = #-0x12
+      54:      	b	0x58 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x58> @ imm = #0x0
+      56:      	movs	r1, #0x2
+      58:      	adds	r1, #0x2
+      5a:      	movs	r2, #0x0
+      5c:      	strh.w	lr, [r0, #0x8]
+      60:      	cmp	r3, #0x0
+      62:      	strb	r2, [r0]
+      64:      	it	ne
+      66:      	movne	r3, #0x1
+      68:      	str	r3, [r0, #0x4]
+      6a:      	b	0x74 <ph_surfaces::lookup::locate::hc79be726f5c75186+0x74> @ imm = #0x6
+      6c:      	movw	r1, #0x101
+      70:      	strh	r1, [r0]
+      72:      	movs	r1, #0x2
+      74:      	str	r1, [r0, #0xc]
+      76:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17hf2a0237aa772b80cE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	ldrd	r1, r3, [r1]
+       8:      	uxth.w	lr, r2
+       c:      	ldrh.w	r12, [r3]
+      10:      	cmp	lr, r12
+      12:      	bhs	0x1e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x1e> @ imm = #0x8
+      14:      	movs	r2, #0x0
+      16:      	lsls	r1, r1, #0x1f
+      18:      	beq	0x2c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x2c> @ imm = #0x10
+      1a:      	mov	lr, r12
+      1c:      	b	0x58 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x58> @ imm = #0x38
+      1e:      	ldrh.w	r12, [r3, #0x4]
+      22:      	cmp	lr, r12
+      24:      	bls	0x3c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x3c> @ imm = #0x14
+      26:      	movs	r2, #0x1
+      28:      	lsls	r1, r1, #0x17
+      2a:      	bmi	0x1a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x1a> @ imm = #-0x14
+      2c:      	ldrh.w	r1, [r3, r2, lsl #2]
+      30:      	strh.w	lr, [r0, #0x4]
+      34:      	strh	r1, [r0, #0x6]
+      36:      	movs	r1, #0x1
+      38:      	strh	r2, [r0, #0x2]
+      3a:      	b	0x60 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x60> @ imm = #0x22
+      3c:      	add.w	r12, r3, #0x2
+      40:      	movs	r1, #0x0
+      42:      	mov	r2, r1
+      44:      	cmp	r1, #0x2
+      46:      	beq	0x52 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x52> @ imm = #0x8
+      48:      	ldrh.w	r3, [r12, r2, lsl #1]
+      4c:      	adds	r1, r2, #0x1
+      4e:      	cmp	r3, lr
+      50:      	bls	0x42 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c+0x42> @ imm = #-0x12
+      52:      	cmp	r2, #0x0
+      54:      	it	ne
+      56:      	movne	r2, #0x1
+      58:      	strh.w	lr, [r0, #0x8]
+      5c:      	movs	r1, #0x0
+      5e:      	str	r2, [r0, #0x4]
+      60:      	strh	r1, [r0]
+      62:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17hb0304e4dad101955E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	ldr.w	r12, [r1]
+       8:      	uxth	r3, r2
+       a:      	ldr	r1, [r1, #0x8]
+       c:      	ldrh.w	lr, [r1]
+      10:      	cmp	r3, lr
+      12:      	bhs	0x1e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x1e> @ imm = #0x8
+      14:      	lsls.w	r1, r12, #0xf
+      18:      	bmi	0x3e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x3e> @ imm = #0x22
+      1a:      	movs	r3, #0x2
+      1c:      	b	0x32 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x32> @ imm = #0x12
+      1e:      	ldrh.w	lr, [r1, #0x2]
+      22:      	cmp	r3, lr
+      24:      	it	hs
+      26:      	movhs	r3, lr
+      28:      	bls	0x40 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x40> @ imm = #0x14
+      2a:      	ands	r1, r12, #0x1000000
+      2e:      	bne	0x40 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x40> @ imm = #0xe
+      30:      	movs	r3, #0x3
+      32:      	movs	r1, #0x1
+      34:      	strh.w	lr, [r0, #0x6]
+      38:      	strh	r2, [r0, #0x4]
+      3a:      	strh	r3, [r0, #0x2]
+      3c:      	b	0x46 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::hb0304e4dad101955+0x46> @ imm = #0x6
+      3e:      	mov	r3, lr
+      40:      	movs	r1, #0x0
+      42:      	strh	r3, [r0, #0x8]
+      44:      	str	r1, [r0, #0x4]
+      46:      	strh	r1, [r0]
+      48:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17hdcc36e17c43d3b8dE:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d>:
+       0:      	push	{r4, r6, r7, lr}
+       2:      	add	r7, sp, #0x8
+       4:      	sub	sp, #0x8
+       6:      	cmp	r1, #0x3
+       8:      	bhs	0x36 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d+0x36> @ imm = #0x2a
+       a:      	mov	r12, r0
+       c:      	adds	r0, r1, #0x1
+       e:      	cmp	r1, #0x2
+      10:      	beq	0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d+0x46> @ imm = #0x32
+      12:      	ldr.w	r4, [r12, #0x4]
+      16:      	ldr.w	lr, [r3, r1, lsl #2]
+      1a:      	ldrh.w	r12, [r4, r0, lsl #1]
+      1e:      	ldrh.w	r1, [r4, r1, lsl #1]
+      22:      	ldr.w	r0, [r3, r0, lsl #2]
+      26:      	mov	r3, lr
+      28:      	str	r0, [sp]
+      2a:      	mov	r0, r2
+      2c:      	mov	r2, r12
+      2e:      	bl	0x2e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d+0x2e> @ imm = #-0x4
+			0000002e:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      32:      	add	sp, #0x8
+      34:      	pop	{r4, r6, r7, pc}
+      36:      	movw	r2, #0x0
+			00000036:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bca7fbaed355fcffc0328e5b8014e9b.1
+      3a:      	mov	r0, r1
+      3c:      	movt	r2, #0x0
+			0000003c:  R_ARM_THM_MOVT_ABS	.Lanon.3bca7fbaed355fcffc0328e5b8014e9b.1
+      40:      	movs	r1, #0x3
+      42:      	bl	0x42 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d+0x42> @ imm = #-0x4
+			00000042:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+      46:      	movw	r2, #0x0
+			00000046:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bca7fbaed355fcffc0328e5b8014e9b.1
+      4a:      	movs	r1, #0x3
+      4c:      	movt	r2, #0x0
+			0000004c:  R_ARM_THM_MOVT_ABS	.Lanon.3bca7fbaed355fcffc0328e5b8014e9b.1
+      50:      	bl	0x50 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d+0x50> @ imm = #-0x4
+			00000050:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17h6efac4908f41c3ceE:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	push.w	{r8, r9, r10, r11}
+       8:      	sub	sp, #0x14
+       a:      	mov	r4, r0
+       c:      	add	r0, sp, #0x8
+       e:      	mov	r9, r3
+      10:      	mov	r5, r1
+      12:      	bl	0x12 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x12> @ imm = #-0x4
+			00000012:  R_ARM_THM_CALL	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::hf2a0237aa772b80c
+      16:      	ldrh.w	r0, [sp, #0x8]
+      1a:      	cmp	r0, #0x1
+      1c:      	bne	0x26 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x26> @ imm = #0x6
+      1e:      	ldrh.w	r1, [sp, #0xa]
+      22:      	ldr	r0, [sp, #0xc]
+      24:      	b	0x60 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x60> @ imm = #0x38
+      26:      	ldr.w	r11, [r5, #0x8]
+      2a:      	uxth.w	r6, r9
+      2e:      	ldrh.w	r8, [sp, #0x10]
+      32:      	ldr.w	r10, [sp, #0xc]
+      36:      	ldrh.w	r0, [r11]
+      3a:      	ldr	r1, [r5]
+      3c:      	cmp	r6, r0
+      3e:      	bhs	0x48 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x48> @ imm = #0x6
+      40:      	lsls	r1, r1, #0xf
+      42:      	bmi	0x66 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x66> @ imm = #0x20
+      44:      	movs	r1, #0x2
+      46:      	b	0x5c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x5c> @ imm = #0x12
+      48:      	ldrh.w	r0, [r11, #0x2]
+      4c:      	cmp	r6, r0
+      4e:      	it	hs
+      50:      	movhs	r6, r0
+      52:      	bls	0x68 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x68> @ imm = #0x12
+      54:      	ands	r1, r1, #0x1000000
+      58:      	bne	0x68 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x68> @ imm = #0xc
+      5a:      	movs	r1, #0x3
+      5c:      	pkhbt	r0, r9, r0, lsl #16
+      60:      	strh	r1, [r4, #0x2]
+      62:      	movs	r1, #0x1
+      64:      	b	0x9c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x9c> @ imm = #0x34
+      66:      	mov	r6, r0
+      68:      	ldr.w	r9, [r5, #0xc]
+      6c:      	mov	r0, r5
+      6e:      	mov	r1, r10
+      70:      	mov	r2, r8
+      72:      	mov	r3, r9
+      74:      	bl	0x74 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x74> @ imm = #-0x4
+			00000074:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d
+      78:      	add.w	r3, r9, #0xc
+      7c:      	str	r0, [sp, #0x4]
+      7e:      	mov	r0, r5
+      80:      	mov	r1, r10
+      82:      	mov	r2, r8
+      84:      	bl	0x84 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x84> @ imm = #-0x4
+			00000084:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::hdcc36e17c43d3b8d
+      88:      	ldrh.w	r2, [r11, #0x2]
+      8c:      	ldrh.w	r1, [r11]
+      90:      	ldr	r3, [sp, #0x4]
+      92:      	str	r0, [sp]
+      94:      	mov	r0, r6
+      96:      	bl	0x96 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce+0x96> @ imm = #-0x4
+			00000096:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      9a:      	movs	r1, #0x0
+      9c:      	strh	r1, [r4]
+      9e:      	str	r0, [r4, #0x4]
+      a0:      	add	sp, #0x14
+      a2:      	pop.w	{r8, r9, r10, r11}
+      a6:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN21ph_surfaces_code_size14ph_eval_linear17h66fd9d4db6275d1bE:
+
+00000000 <ph_surfaces_code_size::ph_eval_linear::h66fd9d4db6275d1b>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	sub	sp, #0x8
+       6:      	mov	r3, r1
+       8:      	movw	r1, #0x0
+			00000008:  R_ARM_THM_MOVW_ABS_NC	ph_surfaces_code_size::LINEAR::h3c718d3b3bc66cbd
+       c:      	mov	r2, r0
+       e:      	mov	r0, sp
+      10:      	movt	r1, #0x0
+			00000010:  R_ARM_THM_MOVT_ABS	ph_surfaces_code_size::LINEAR::h3c718d3b3bc66cbd
+      14:      	bl	0x14 <ph_surfaces_code_size::ph_eval_linear::h66fd9d4db6275d1b+0x14> @ imm = #-0x4
+			00000014:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::h6efac4908f41c3ce
+      18:      	ldrh.w	r1, [sp]
+      1c:      	ldr	r0, [sp, #0x4]
+      1e:      	cmp	r1, #0x0
+      20:      	it	ne
+      22:      	movne	r0, #0x0
+      24:      	add	sp, #0x8
+      26:      	pop	{r7, pc}
+
+## ph_eval_mixed (pairing-mixed)
+Disassembly of section .text._ZN11ph_surfaces4axis7uniform28UniformAxis$LT$_$C$_$C$_$GT$4knot17hcd2771298b2ea705E:
+
+00000000 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::hcd2771298b2ea705>:
+       0:      	cmp	r1, #0x9
+       2:      	ittt	lo
+       4:      	movlo	r0, #0xc8
+       6:      	mullo	r0, r1, r0
+       8:      	bxlo	lr
+       a:      	push	{r7, lr}
+       c:      	mov	r7, sp
+       e:      	movw	r0, #0x0
+			0000000e:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.4
+      12:      	movw	r2, #0x0
+			00000012:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.6
+      16:      	movt	r0, #0x0
+			00000016:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.4
+      1a:      	movt	r2, #0x0
+			0000001a:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.6
+      1e:      	movs	r1, #0x3d
+      20:      	bl	0x20 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::hcd2771298b2ea705+0x20> @ imm = #-0x4
+			00000020:  R_ARM_THM_CALL	core::panicking::panic_fmt::h706d965bf7a8b9ae
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17h0e734fb104c2a4faE:
+
+00000000 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	push.w	{r8, r9, r10}
+       8:      	ldr	r4, [r1]
+       a:      	uxth.w	r12, r2
+       e:      	ldrh	r6, [r4]
+      10:      	cmp	r12, r6
+      12:      	bhs	0x22 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0x22> @ imm = #0xc
+      14:      	cbz	r3, 0x3a <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0x3a> @ imm = #0x22
+      16:      	movs	r1, #0x0
+      18:      	strh	r6, [r0, #0x8]
+      1a:      	str	r1, [r0, #0x4]
+      1c:      	strb	r1, [r0]
+      1e:      	movs	r1, #0x1
+      20:      	b	0xd0 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xd0> @ imm = #0xac
+      22:      	ldrh	r3, [r4, #0x20]
+      24:      	cmp	r12, r3
+      26:      	bls	0x40 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0x40> @ imm = #0x16
+      28:      	ldr	r1, [r7, #0x8]
+      2a:      	cmp	r1, #0x0
+      2c:      	beq	0xc8 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xc8> @ imm = #0x98
+      2e:      	movs	r1, #0xf
+      30:      	strh	r3, [r0, #0x8]
+      32:      	str	r1, [r0, #0x4]
+      34:      	movs	r1, #0x0
+      36:      	strb	r1, [r0]
+      38:      	b	0xce <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xce> @ imm = #0x92
+      3a:      	movs	r1, #0x1
+      3c:      	strh	r1, [r0]
+      3e:      	b	0xd0 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xd0> @ imm = #0x8e
+      40:      	subs	r3, r3, r6
+      42:      	subs	r6, r2, r6
+      44:      	movs	r5, #0x1
+      46:      	uxth	r6, r6
+      48:      	uxtah	r3, r5, r3
+      4c:      	lsls	r6, r6, #0x3
+      4e:      	udiv	lr, r6, r3
+      52:      	cmp.w	lr, #0x7
+      56:      	bhi	0xea <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xea> @ imm = #0x90
+      58:      	ldr	r3, [r1, #0x4]
+      5a:      	cmp.w	lr, #0x7
+      5e:      	mov.w	r10, #0x10
+      62:      	mov.w	r8, #0x10
+      66:      	ldrh.w	r9, [r3, lr, lsl #1]
+      6a:      	itt	ne
+      6c:      	addne.w	r1, r3, lr, lsl #1
+      70:      	ldrhne.w	r10, [r1, #0x2]
+      74:      	cmp.w	r9, #0x10
+      78:      	it	hi
+      7a:      	movhi	r8, r9
+      7c:      	add.w	r3, r4, r9, lsl #1
+      80:      	cmp	r10, r9
+      82:      	it	ls
+      84:      	movls	r10, r9
+      86:      	sub.w	r5, r8, r9
+      8a:      	sub.w	r6, r10, r9
+      8e:      	adds	r3, #0x2
+      90:      	movs	r4, #0x0
+      92:      	cmp	r6, r4
+      94:      	beq	0xae <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xae> @ imm = #0x16
+      96:      	cmp	r5, r4
+      98:      	beq	0xd8 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xd8> @ imm = #0x3c
+      9a:      	ldrh.w	r1, [r3, r4, lsl #1]
+      9e:      	adds	r4, #0x1
+      a0:      	cmp	r1, r12
+      a2:      	bls	0x92 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0x92> @ imm = #-0x14
+      a4:      	add.w	r1, r9, r4
+      a8:      	sub.w	r10, r1, #0x1
+      ac:      	b	0xb0 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xb0> @ imm = #0x0
+      ae:      	mov	r4, r6
+      b0:      	movs	r1, #0x0
+      b2:      	strh	r2, [r0, #0x8]
+      b4:      	strb	r1, [r0]
+      b6:      	adds	r1, r4, #0x2
+      b8:      	cmp.w	r10, #0xf
+      bc:      	it	hs
+      be:      	movhs.w	r10, #0xf
+      c2:      	str.w	r10, [r0, #0x4]
+      c6:      	b	0xd0 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xd0> @ imm = #0x6
+      c8:      	movw	r1, #0x101
+      cc:      	strh	r1, [r0]
+      ce:      	movs	r1, #0x2
+      d0:      	str	r1, [r0, #0xc]
+      d2:      	pop.w	{r8, r9, r10}
+      d6:      	pop	{r4, r5, r6, r7, pc}
+      d8:      	movw	r2, #0x0
+			000000d8:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.3
+      dc:      	add.w	r0, r8, #0x1
+      e0:      	movt	r2, #0x0
+			000000e0:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.3
+      e4:      	movs	r1, #0x11
+      e6:      	bl	0xe6 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xe6> @ imm = #-0x4
+			000000e6:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+      ea:      	movw	r2, #0x0
+			000000ea:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.2
+      ee:      	mov	r0, lr
+      f0:      	movt	r2, #0x0
+			000000f0:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.2
+      f4:      	movs	r1, #0x8
+      f6:      	bl	0xf6 <ph_surfaces::lookup::locate::h0e734fb104c2a4fa+0xf6> @ imm = #-0x4
+			000000f6:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hecd0e81787a58ee5E:
+
+00000000 <ph_surfaces::lookup::locate::hecd0e81787a58ee5>:
+       0:      	uxth	r1, r2
+       2:      	cmp.w	r1, #0x640
+       6:      	bls	0x24 <ph_surfaces::lookup::locate::hecd0e81787a58ee5+0x24> @ imm = #0x1a
+       8:      	push	{r7, lr}
+       a:      	mov	r7, sp
+       c:      	ldr	r1, [r7, #0x8]
+       e:      	pop.w	{r7, lr}
+      12:      	cbz	r1, 0x40 <ph_surfaces::lookup::locate::hecd0e81787a58ee5+0x40> @ imm = #0x2a
+      14:      	mov.w	r1, #0x640
+      18:      	strh	r1, [r0, #0x8]
+      1a:      	movs	r1, #0x7
+      1c:      	str	r1, [r0, #0x4]
+      1e:      	movs	r1, #0x0
+      20:      	strb	r1, [r0]
+      22:      	b	0x46 <ph_surfaces::lookup::locate::hecd0e81787a58ee5+0x46> @ imm = #0x20
+      24:      	strh	r2, [r0, #0x8]
+      26:      	movs	r2, #0x0
+      28:      	strb	r2, [r0]
+      2a:      	lsrs	r1, r1, #0x3
+      2c:      	movw	r2, #0x147b
+      30:      	movs	r3, #0x7
+      32:      	muls	r1, r2, r1
+      34:      	lsrs	r2, r1, #0x11
+      36:      	cmp	r2, #0x7
+      38:      	it	lo
+      3a:      	lsrlo	r3, r1, #0x11
+      3c:      	str	r3, [r0, #0x4]
+      3e:      	b	0x46 <ph_surfaces::lookup::locate::hecd0e81787a58ee5+0x46> @ imm = #0x4
+      40:      	movw	r1, #0x101
+      44:      	strh	r1, [r0]
+      46:      	movs	r1, #0x2
+      48:      	str	r1, [r0, #0xc]
+      4a:      	bx	lr
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17ha84e50f1bb86b32bE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha84e50f1bb86b32b>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	str	r11, [sp, #-4]!
+       8:      	sub	sp, #0x18
+       a:      	mov	r5, r1
+       c:      	mov	r4, r0
+       e:      	ldr	r0, [r5], #4
+      12:      	mov	r6, r2
+      14:      	and	r3, r0, #0x1
+      18:      	ubfx	r1, r0, #0x8, #0x1
+      1c:      	add	r0, sp, #0x8
+      1e:      	str	r1, [sp]
+      20:      	mov	r1, r5
+      22:      	bl	0x22 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha84e50f1bb86b32b+0x22> @ imm = #-0x4
+			00000022:  R_ARM_THM_CALL	ph_surfaces::lookup::locate::h0e734fb104c2a4fa
+      26:      	ldrb.w	r0, [sp, #0x8]
+      2a:      	lsls	r0, r0, #0x1f
+      2c:      	beq	0x42 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha84e50f1bb86b32b+0x42> @ imm = #0x12
+      2e:      	ldrb.w	r0, [sp, #0x9]
+      32:      	ldr	r1, [r5]
+      34:      	strh	r0, [r4, #0x2]
+      36:      	lsls	r0, r0, #0x5
+      38:      	strh	r6, [r4, #0x4]
+      3a:      	ldrh	r0, [r1, r0]
+      3c:      	strh	r0, [r4, #0x6]
+      3e:      	movs	r0, #0x1
+      40:      	b	0x4e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha84e50f1bb86b32b+0x4e> @ imm = #0xa
+      42:      	ldrh.w	r0, [sp, #0x10]
+      46:      	ldr	r1, [sp, #0xc]
+      48:      	strh	r0, [r4, #0x8]
+      4a:      	movs	r0, #0x0
+      4c:      	str	r1, [r4, #0x4]
+      4e:      	strh	r0, [r4]
+      50:      	add	sp, #0x18
+      52:      	ldr	r11, [sp], #4
+      56:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17h77355f7437ad10e3E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h77355f7437ad10e3>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	uxth	r3, r2
+       6:      	cmp.w	r3, #0x640
+       a:      	bls	0x22 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h77355f7437ad10e3+0x22> @ imm = #0x14
+       c:      	ldrb	r1, [r1, #0x3]
+       e:      	lsls	r1, r1, #0x1f
+      10:      	mov.w	r1, #0x640
+      14:      	bne	0x3a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h77355f7437ad10e3+0x3a> @ imm = #0x22
+      16:      	strh	r1, [r0, #0x6]
+      18:      	movs	r1, #0x3
+      1a:      	strh	r1, [r0, #0x2]
+      1c:      	movs	r1, #0x1
+      1e:      	strh	r2, [r0, #0x4]
+      20:      	b	0x46 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h77355f7437ad10e3+0x46> @ imm = #0x22
+      22:      	lsrs	r1, r3, #0x3
+      24:      	movw	r3, #0x147b
+      28:      	muls	r3, r1, r3
+      2a:      	movs	r1, #0x7
+      2c:      	lsr.w	r12, r3, #0x11
+      30:      	cmp.w	r12, #0x7
+      34:      	it	lo
+      36:      	lsrlo	r1, r3, #0x11
+      38:      	b	0x40 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::h77355f7437ad10e3+0x40> @ imm = #0x4
+      3a:      	movs	r1, #0x7
+      3c:      	mov.w	r2, #0x640
+      40:      	str	r1, [r0, #0x4]
+      42:      	movs	r1, #0x0
+      44:      	strh	r2, [r0, #0x8]
+      46:      	strh	r1, [r0]
+      48:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17h3cab2dffc96616d8E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8>:
+       0:      	push	{r4, r6, r7, lr}
+       2:      	add	r7, sp, #0x8
+       4:      	sub	sp, #0x8
+       6:      	cmp	r1, #0x11
+       8:      	bhs	0x36 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8+0x36> @ imm = #0x2a
+       a:      	mov	r12, r0
+       c:      	adds	r0, r1, #0x1
+       e:      	cmp	r1, #0x10
+      10:      	beq	0x46 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8+0x46> @ imm = #0x32
+      12:      	ldr.w	r4, [r12, #0x4]
+      16:      	ldr.w	lr, [r3, r1, lsl #2]
+      1a:      	ldrh.w	r12, [r4, r0, lsl #1]
+      1e:      	ldrh.w	r1, [r4, r1, lsl #1]
+      22:      	ldr.w	r0, [r3, r0, lsl #2]
+      26:      	mov	r3, lr
+      28:      	str	r0, [sp]
+      2a:      	mov	r0, r2
+      2c:      	mov	r2, r12
+      2e:      	bl	0x2e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8+0x2e> @ imm = #-0x4
+			0000002e:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      32:      	add	sp, #0x8
+      34:      	pop	{r4, r6, r7, pc}
+      36:      	movw	r2, #0x0
+			00000036:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.1
+      3a:      	mov	r0, r1
+      3c:      	movt	r2, #0x0
+			0000003c:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.1
+      40:      	movs	r1, #0x11
+      42:      	bl	0x42 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8+0x42> @ imm = #-0x4
+			00000042:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+      46:      	movw	r2, #0x0
+			00000046:  R_ARM_THM_MOVW_ABS_NC	.Lanon.3bef38b671bbc18942801c0aa765d384.1
+      4a:      	movs	r1, #0x11
+      4c:      	movt	r2, #0x0
+			0000004c:  R_ARM_THM_MOVT_ABS	.Lanon.3bef38b671bbc18942801c0aa765d384.1
+      50:      	bl	0x50 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8+0x50> @ imm = #-0x4
+			00000050:  R_ARM_THM_CALL	core::panicking::panic_bounds_check::hd5dc7d27d8bf1e22
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17hdeec4f77bf154633E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	push.w	{r8, r9, r10, r11}
+       8:      	sub	sp, #0x1c
+       a:      	mov	r4, r0
+       c:      	add	r0, sp, #0x10
+       e:      	mov	r5, r3
+      10:      	mov	r6, r1
+      12:      	bl	0x12 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x12> @ imm = #-0x4
+			00000012:  R_ARM_THM_CALL	ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::ha84e50f1bb86b32b
+      16:      	ldrh.w	r0, [sp, #0x10]
+      1a:      	cmp	r0, #0x1
+      1c:      	bne	0x2a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x2a> @ imm = #0xa
+      1e:      	ldrh.w	r0, [sp, #0x12]
+      22:      	strh	r0, [r4, #0x2]
+      24:      	movs	r0, #0x1
+      26:      	ldr	r5, [sp, #0x14]
+      28:      	b	0xb8 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0xb8> @ imm = #0x8c
+      2a:      	ldrh.w	r8, [sp, #0x18]
+      2e:      	uxth	r0, r5
+      30:      	ldr	r1, [sp, #0x14]
+      32:      	cmp.w	r0, #0x640
+      36:      	bls	0x4a <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x4a> @ imm = #0x10
+      38:      	ldrb	r0, [r6, #0x3]
+      3a:      	lsls	r0, r0, #0x1f
+      3c:      	bne	0x66 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x66> @ imm = #0x26
+      3e:      	movs	r0, #0x3
+      40:      	movt	r5, #0x640
+      44:      	strh	r0, [r4, #0x2]
+      46:      	movs	r0, #0x1
+      48:      	b	0xb8 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0xb8> @ imm = #0x6c
+      4a:      	lsrs	r0, r0, #0x3
+      4c:      	movw	r2, #0x147b
+      50:      	muls	r0, r2, r0
+      52:      	mov.w	r11, #0x7
+      56:      	lsrs	r2, r0, #0x11
+      58:      	cmp	r2, #0x7
+      5a:      	it	lo
+      5c:      	lsrlo.w	r11, r0, #0x11
+      60:      	add.w	r0, r11, #0x1
+      64:      	b	0x70 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x70> @ imm = #0x8
+      66:      	mov.w	r11, #0x7
+      6a:      	mov.w	r5, #0x640
+      6e:      	movs	r0, #0x8
+      70:      	str	r0, [sp, #0xc]
+      72:      	add.w	r0, r11, r11, lsl #4
+      76:      	ldr.w	r9, [r6, #0xc]
+      7a:      	mov	r2, r8
+      7c:      	str	r1, [sp, #0x4]
+      7e:      	add.w	r3, r9, r0, lsl #2
+      82:      	mov	r0, r6
+      84:      	bl	0x84 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x84> @ imm = #-0x4
+			00000084:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8
+      88:      	ldr.w	r10, [sp, #0xc]
+      8c:      	mov	r2, r8
+      8e:      	str	r0, [sp, #0x8]
+      90:      	ldr	r1, [sp, #0x4]
+      92:      	add.w	r0, r10, r10, lsl #4
+      96:      	add.w	r3, r9, r0, lsl #2
+      9a:      	mov	r0, r6
+      9c:      	bl	0x9c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0x9c> @ imm = #-0x4
+			0000009c:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h3cab2dffc96616d8
+      a0:      	str	r0, [sp]
+      a2:      	movs	r0, #0xc8
+      a4:      	mul	r1, r11, r0
+      a8:      	ldr	r3, [sp, #0x8]
+      aa:      	mul	r2, r10, r0
+      ae:      	mov	r0, r5
+      b0:      	bl	0xb0 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633+0xb0> @ imm = #-0x4
+			000000b0:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      b4:      	mov	r5, r0
+      b6:      	movs	r0, #0x0
+      b8:      	strh	r0, [r4]
+      ba:      	str	r5, [r4, #0x4]
+      bc:      	add	sp, #0x1c
+      be:      	pop.w	{r8, r9, r10, r11}
+      c2:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN21ph_surfaces_code_size13ph_eval_mixed17h10278d5ad3375cedE:
+
+00000000 <ph_surfaces_code_size::ph_eval_mixed::h10278d5ad3375ced>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	sub	sp, #0x8
+       6:      	mov	r3, r1
+       8:      	movw	r1, #0x0
+			00000008:  R_ARM_THM_MOVW_ABS_NC	ph_surfaces_code_size::MIXED::hac8413d36f85e9c6
+       c:      	mov	r2, r0
+       e:      	mov	r0, sp
+      10:      	movt	r1, #0x0
+			00000010:  R_ARM_THM_MOVT_ABS	ph_surfaces_code_size::MIXED::hac8413d36f85e9c6
+      14:      	bl	0x14 <ph_surfaces_code_size::ph_eval_mixed::h10278d5ad3375ced+0x14> @ imm = #-0x4
+			00000014:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hdeec4f77bf154633
+      18:      	ldrh.w	r1, [sp]
+      1c:      	ldr	r0, [sp, #0x4]
+      1e:      	cmp	r1, #0x0
+      20:      	it	ne
+      22:      	movne	r0, #0x0
+      24:      	add	sp, #0x8
+      26:      	pop	{r7, pc}
+
+## ph_eval_uniform (pairing-uniform)
+Disassembly of section .text._ZN11ph_surfaces4axis7uniform28UniformAxis$LT$_$C$_$C$_$GT$4knot17hf3741458054a96d8E:
+
+00000000 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::hf3741458054a96d8>:
+       0:      	cmp	r1, #0x2
+       2:      	ittt	lo
+       4:      	addlo.w	r0, r1, r1, lsl #2
+       8:      	lsllo	r0, r0, #0x1
+       a:      	bxlo	lr
+       c:      	push	{r7, lr}
+       e:      	mov	r7, sp
+      10:      	movw	r0, #0x0
+			00000010:  R_ARM_THM_MOVW_ABS_NC	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.0
+      14:      	movw	r2, #0x0
+			00000014:  R_ARM_THM_MOVW_ABS_NC	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.2
+      18:      	movt	r0, #0x0
+			00000018:  R_ARM_THM_MOVT_ABS	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.0
+      1c:      	movt	r2, #0x0
+			0000001c:  R_ARM_THM_MOVT_ABS	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.2
+      20:      	movs	r1, #0x3d
+      22:      	bl	0x22 <ph_surfaces::axis::uniform::UniformAxis$LT$_$C$_$C$_$GT$::knot::hf3741458054a96d8+0x22> @ imm = #-0x4
+			00000022:  R_ARM_THM_CALL	core::panicking::panic_fmt::h706d965bf7a8b9ae
+
+Disassembly of section .text._ZN11ph_surfaces6lookup6locate17hb4e0d7afcaec4c04E:
+
+00000000 <ph_surfaces::lookup::locate::hb4e0d7afcaec4c04>:
+       0:      	uxth	r1, r2
+       2:      	cmp	r1, #0xa
+       4:      	bls	0x18 <ph_surfaces::lookup::locate::hb4e0d7afcaec4c04+0x18> @ imm = #0x10
+       6:      	push	{r7, lr}
+       8:      	mov	r7, sp
+       a:      	ldr	r1, [r7, #0x8]
+       c:      	pop.w	{r7, lr}
+      10:      	cbz	r1, 0x22 <ph_surfaces::lookup::locate::hb4e0d7afcaec4c04+0x22> @ imm = #0xe
+      12:      	movs	r1, #0xa
+      14:      	strh	r1, [r0, #0x8]
+      16:      	b	0x1a <ph_surfaces::lookup::locate::hb4e0d7afcaec4c04+0x1a> @ imm = #0x0
+      18:      	strh	r2, [r0, #0x8]
+      1a:      	movs	r1, #0x0
+      1c:      	str	r1, [r0, #0x4]
+      1e:      	strb	r1, [r0]
+      20:      	b	0x28 <ph_surfaces::lookup::locate::hb4e0d7afcaec4c04+0x28> @ imm = #0x4
+      22:      	movw	r1, #0x101
+      26:      	strh	r1, [r0]
+      28:      	movs	r1, #0x2
+      2a:      	str	r1, [r0, #0xc]
+      2c:      	bx	lr
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_x17heaeeb90d5a631beeE:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::heaeeb90d5a631bee>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	uxth	r3, r2
+       6:      	cmp	r3, #0xb
+       8:      	blo	0x1e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::heaeeb90d5a631bee+0x1e> @ imm = #0x12
+       a:      	ldr	r1, [r1]
+       c:      	ands	r1, r1, #0x100
+      10:      	bne	0x1e <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::heaeeb90d5a631bee+0x1e> @ imm = #0xa
+      12:      	movs	r1, #0xa
+      14:      	strh	r2, [r0, #0x4]
+      16:      	strh	r1, [r0, #0x6]
+      18:      	movs	r1, #0x1
+      1a:      	strh	r1, [r0, #0x2]
+      1c:      	b	0x2a <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_x::heaeeb90d5a631bee+0x2a> @ imm = #0xa
+      1e:      	movs	r1, #0x0
+      20:      	cmp	r3, #0xb
+      22:      	str	r1, [r0, #0x4]
+      24:      	it	hs
+      26:      	movhs	r2, #0xa
+      28:      	strh	r2, [r0, #0x8]
+      2a:      	strh	r1, [r0]
+      2c:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces6lookup76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8locate_y17he805a61262ea7c18E:
+
+00000000 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::he805a61262ea7c18>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	uxth	r3, r2
+       6:      	cmp	r3, #0xb
+       8:      	blo	0x20 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::he805a61262ea7c18+0x20> @ imm = #0x14
+       a:      	ldr	r1, [r1]
+       c:      	ands	r1, r1, #0x1000000
+      10:      	bne	0x20 <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::he805a61262ea7c18+0x20> @ imm = #0xc
+      12:      	movs	r1, #0xa
+      14:      	strh	r2, [r0, #0x4]
+      16:      	strh	r1, [r0, #0x6]
+      18:      	movs	r1, #0x3
+      1a:      	strh	r1, [r0, #0x2]
+      1c:      	movs	r1, #0x1
+      1e:      	b	0x2c <ph_surfaces::lookup::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::locate_y::he805a61262ea7c18+0x2c> @ imm = #0xa
+      20:      	movs	r1, #0x0
+      22:      	cmp	r3, #0xb
+      24:      	str	r1, [r0, #0x4]
+      26:      	it	hs
+      28:      	movhs	r2, #0xa
+      2a:      	strh	r2, [r0, #0x8]
+      2c:      	strh	r1, [r0]
+      2e:      	pop	{r7, pc}
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$15interpolate_row17h72bb99d5b9db9abeE:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	sub	sp, #0x8
+       6:      	cmp	r1, #0x2
+       8:      	bhs	0x20 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe+0x20> @ imm = #0x14
+       a:      	cbnz	r1, 0x20 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe+0x20> @ imm = #0x12
+       c:      	ldrd	r3, r0, [r3]
+      10:      	movs	r1, #0x0
+      12:      	str	r0, [sp]
+      14:      	mov	r0, r2
+      16:      	movs	r2, #0xa
+      18:      	bl	0x18 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe+0x18> @ imm = #-0x4
+			00000018:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      1c:      	add	sp, #0x8
+      1e:      	pop	{r7, pc}
+      20:      	movw	r0, #0x0
+			00000020:  R_ARM_THM_MOVW_ABS_NC	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.0
+      24:      	movw	r2, #0x0
+			00000024:  R_ARM_THM_MOVW_ABS_NC	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.2
+      28:      	movt	r0, #0x0
+			00000028:  R_ARM_THM_MOVT_ABS	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.0
+      2c:      	movt	r2, #0x0
+			0000002c:  R_ARM_THM_MOVT_ABS	.Lanon.a696f9aa69943431a9ca35d9f1b1e443.2
+      30:      	movs	r1, #0x3d
+      32:      	bl	0x32 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe+0x32> @ imm = #-0x4
+			00000032:  R_ARM_THM_CALL	core::panicking::panic_fmt::h706d965bf7a8b9ae
+
+Disassembly of section .text._ZN11ph_surfaces8evaluate76_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$8evaluate17hb14c836cbad43009E:
+
+00000000 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009>:
+       0:      	push	{r4, r5, r6, r7, lr}
+       2:      	add	r7, sp, #0xc
+       4:      	push.w	{r8, r9, r10, r11}
+       8:      	sub	sp, #0x4
+       a:      	mov	r5, r2
+       c:      	ldr	r2, [r1]
+       e:      	mov	r4, r0
+      10:      	uxth	r0, r5
+      12:      	mov	r6, r3
+      14:      	cmp	r0, #0xb
+      16:      	blo	0x2c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x2c> @ imm = #0x12
+      18:      	ands	r3, r2, #0x100
+      1c:      	bne	0x2c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x2c> @ imm = #0xc
+      1e:      	mov.w	r10, #0x1
+      22:      	movt	r5, #0xa
+      26:      	strh.w	r10, [r4, #0x2]
+      2a:      	b	0x8e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x8e> @ imm = #0x60
+      2c:      	uxth.w	r11, r6
+      30:      	cmp.w	r11, #0xb
+      34:      	blo	0x4c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x4c> @ imm = #0x14
+      36:      	ands	r2, r2, #0x1000000
+      3a:      	bne	0x4c <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x4c> @ imm = #0xe
+      3c:      	movs	r0, #0x3
+      3e:      	movt	r6, #0xa
+      42:      	strh	r0, [r4, #0x2]
+      44:      	mov.w	r10, #0x1
+      48:      	mov	r5, r6
+      4a:      	b	0x8e <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x8e> @ imm = #0x40
+      4c:      	movs	r2, #0xa
+      4e:      	cmp	r0, #0xb
+      50:      	it	hs
+      52:      	movhs	r5, r2
+      54:      	ldr.w	r8, [r1, #0x4]
+      58:      	movs	r1, #0x0
+      5a:      	mov	r2, r5
+      5c:      	mov.w	r10, #0x0
+      60:      	mov	r3, r8
+      62:      	bl	0x62 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x62> @ imm = #-0x4
+			00000062:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe
+      66:      	add.w	r3, r8, #0x8
+      6a:      	movs	r1, #0x0
+      6c:      	mov	r2, r5
+      6e:      	mov	r9, r0
+      70:      	bl	0x70 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x70> @ imm = #-0x4
+			00000070:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::interpolate_row::h72bb99d5b9db9abe
+      74:      	str	r0, [sp]
+      76:      	movs	r0, #0xa
+      78:      	cmp.w	r11, #0xb
+      7c:      	it	hs
+      7e:      	movhs	r6, r0
+      80:      	mov	r0, r6
+      82:      	movs	r1, #0x0
+      84:      	movs	r2, #0xa
+      86:      	mov	r3, r9
+      88:      	bl	0x88 <ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009+0x88> @ imm = #-0x4
+			00000088:  R_ARM_THM_CALL	ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f
+      8c:      	mov	r5, r0
+      8e:      	strh.w	r10, [r4]
+      92:      	str	r5, [r4, #0x4]
+      94:      	add	sp, #0x4
+      96:      	pop.w	{r8, r9, r10, r11}
+      9a:      	pop	{r4, r5, r6, r7, pc}
+
+Disassembly of section .text._ZN21ph_surfaces_code_size15ph_eval_uniform17hff5c6b0c91b0e90dE:
+
+00000000 <ph_surfaces_code_size::ph_eval_uniform::hff5c6b0c91b0e90d>:
+       0:      	push	{r7, lr}
+       2:      	mov	r7, sp
+       4:      	sub	sp, #0x8
+       6:      	mov	r3, r1
+       8:      	movw	r1, #0x0
+			00000008:  R_ARM_THM_MOVW_ABS_NC	ph_surfaces_code_size::UNIFORM::hea5e33229883ed9c
+       c:      	mov	r2, r0
+       e:      	mov	r0, sp
+      10:      	movt	r1, #0x0
+			00000010:  R_ARM_THM_MOVT_ABS	ph_surfaces_code_size::UNIFORM::hea5e33229883ed9c
+      14:      	bl	0x14 <ph_surfaces_code_size::ph_eval_uniform::hff5c6b0c91b0e90d+0x14> @ imm = #-0x4
+			00000014:  R_ARM_THM_CALL	ph_surfaces::evaluate::_$LT$impl$u20$ph_surfaces..surface..BilinearSurface$LT$_$C$_$C$X$C$Y$GT$$GT$::evaluate::hb14c836cbad43009
+      18:      	ldrh.w	r1, [sp]
+      1c:      	ldr	r0, [sp, #0x4]
+      1e:      	cmp	r1, #0x0
+      20:      	it	ne
+      22:      	movne	r0, #0x0
+      24:      	add	sp, #0x8
+      26:      	pop	{r7, pc}
+
+## ph_interp_kernel (ph_surfaces::interp, from the rlib)
+Disassembly of section .text._ZN11ph_surfaces6interp19interpolate_segment17hfcc308394420bf5fE:
+
+00000000 <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f>:
+       0:      	push	{r4, r5, r7, lr}
+       2:      	add	r7, sp, #0x8
+       4:      	uxth	r0, r0
+       6:      	ldr	r4, [r7, #0x8]
+       8:      	uxth.w	r12, r1
+       c:      	sub.w	r0, r0, r12
+      10:      	uxth.w	lr, r2
+      14:      	subs.w	r2, lr, r12
+      18:      	sub.w	r5, r2, r0
+      1c:      	smull	r0, r4, r0, r4
+      20:      	and.w	r1, r2, r2, lsr #31
+      24:      	add.w	r1, r1, r2, asr #1
+      28:      	smlal	r0, r4, r5, r3
+      2c:      	mov.w	r3, #0x0
+      30:      	sbc	r3, r3, #0x0
+      34:      	cmp.w	r4, #0xffffffff
+      38:      	ble	0x50 <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x50> @ imm = #0x14
+      3a:      	adds	r0, r0, r1
+      3c:      	adc.w	r1, r4, r1, asr #31
+      40:      	cmp	lr, r12
+      42:      	bne	0x5a <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x5a> @ imm = #0x14
+      44:      	movw	r0, #0x0
+			00000044:  R_ARM_THM_MOVW_ABS_NC	.Lanon.bcff8f3dad02c47b220270fcaeb98c90.2
+      48:      	movt	r0, #0x0
+			00000048:  R_ARM_THM_MOVT_ABS	.Lanon.bcff8f3dad02c47b220270fcaeb98c90.2
+      4c:      	bl	0x4c <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x4c> @ imm = #-0x4
+			0000004c:  R_ARM_THM_CALL	core::panicking::panic_const::panic_const_div_by_zero::h373a36409b3afd4f
+      50:      	subs	r0, r0, r1
+      52:      	sbc.w	r1, r4, r1, asr #31
+      56:      	cmp	lr, r12
+      58:      	beq	0x60 <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x60> @ imm = #0x4
+      5a:      	bl	0x5a <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x5a> @ imm = #-0x4
+			0000005a:  R_ARM_THM_CALL	__aeabi_ldivmod
+      5e:      	pop	{r4, r5, r7, pc}
+      60:      	movw	r0, #0x0
+			00000060:  R_ARM_THM_MOVW_ABS_NC	.Lanon.bcff8f3dad02c47b220270fcaeb98c90.1
+      64:      	movt	r0, #0x0
+			00000064:  R_ARM_THM_MOVT_ABS	.Lanon.bcff8f3dad02c47b220270fcaeb98c90.1
+      68:      	bl	0x68 <ph_surfaces::interp::interpolate_segment::hfcc308394420bf5f+0x68> @ imm = #-0x4
+			00000068:  R_ARM_THM_CALL	core::panicking::panic_const::panic_const_div_by_zero::h373a36409b3afd4f
+

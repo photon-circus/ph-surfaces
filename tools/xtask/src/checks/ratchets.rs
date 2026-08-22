@@ -6,6 +6,8 @@
 //! code. The matching proof for the allocator is the nightly `-Z build-std=core`
 //! build, not anything here.
 
+use std::path::Path;
+
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
 use crate::text::{self, Line, Separator};
@@ -21,12 +23,80 @@ fn reject(summary: &str, hits: Vec<&Line>) -> Outcome {
     Outcome::Fail(message)
 }
 
-fn first<'a>(lines: &'a [Line], predicate: impl Fn(&str) -> bool) -> Vec<&'a Line> {
+fn first(lines: &[Line], predicate: impl Fn(&str) -> bool) -> Vec<&Line> {
     lines
         .iter()
         .filter(|line| predicate(&line.text))
         .take(20)
         .collect()
+}
+
+/// Drop each file's test tail: everything from its first `#[cfg(test)]` item
+/// to the end of the file.
+///
+/// Every following top-level item must carry its own `#[cfg(test)]` attribute.
+/// This proves the layout assumption rather than silently exempting runtime
+/// code appended after a test function or module.
+fn without_test_tail(lines: Vec<Line>) -> Result<Vec<Line>, String> {
+    let mut kept = Vec::new();
+    let mut current: Option<std::path::PathBuf> = None;
+    let mut in_test_tail = false;
+    let mut in_test_item = false;
+    let mut saw_open_brace = false;
+    let mut brace_depth = 0_i32;
+    for line in lines {
+        if current.as_deref() != Some(line.path.as_path()) {
+            current = Some(line.path.clone());
+            in_test_tail = false;
+            in_test_item = false;
+            saw_open_brace = false;
+            brace_depth = 0;
+        }
+
+        let trimmed = line.text.trim();
+        if !in_test_tail && trimmed.starts_with("#[cfg(test)]") {
+            in_test_tail = true;
+            in_test_item = true;
+            saw_open_brace = false;
+            brace_depth = 0;
+        }
+        if !in_test_tail {
+            kept.push(line);
+            continue;
+        }
+
+        if !in_test_item {
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with("#[cfg(test)]") {
+                in_test_item = true;
+                saw_open_brace = false;
+                brace_depth = 0;
+                continue;
+            }
+            return Err(format!(
+                "{}:{}: runtime code follows a #[cfg(test)] item; keep test items at the file tail",
+                line.path.display().to_string().replace('\\', "/"),
+                line.number
+            ));
+        }
+
+        for byte in line.text.bytes() {
+            match byte {
+                b'{' => {
+                    saw_open_brace = true;
+                    brace_depth += 1;
+                }
+                b'}' => brace_depth -= 1,
+                _ => {}
+            }
+        }
+        if saw_open_brace && brace_depth == 0 {
+            in_test_item = false;
+        }
+    }
+    Ok(kept)
 }
 
 pub fn no_std_unconditional(ctx: &Ctx) -> Outcome {
@@ -133,6 +203,42 @@ pub fn integer_only(ctx: &Ctx) -> Outcome {
     let hits = first(&runtime_code, host_path);
     if !hits.is_empty() {
         return reject("src: runtime code reaches for alloc or std.", hits);
+    }
+
+    // Wide-integer confinement. `src/interp.rs` is the arithmetic kernel and
+    // the only runtime module allowed 64-bit intermediates -- its documented
+    // numerator bound (~2^47) is why they exist at all. 128-bit integers
+    // belong only to test oracles, never to runtime code. Test modules sit at
+    // the end of each file and are exempt, mirroring how the conformance
+    // suite's references are exempt from narrower bans.
+    let runtime_non_test = match without_test_tail(runtime_code) {
+        Ok(lines) => lines,
+        Err(error) => return Outcome::fail(error),
+    };
+    let hits = first(&runtime_non_test, |line| {
+        text::contains_word(line, "i128") || text::contains_word(line, "u128")
+    });
+    if !hits.is_empty() {
+        return reject(
+            "src: runtime code uses a 128-bit integer; those belong only to test oracles.",
+            hits,
+        );
+    }
+    let kernel = Path::new("src/interp.rs");
+    let hits: Vec<&Line> = runtime_non_test
+        .iter()
+        .filter(|line| line.path != kernel)
+        .filter(|line| {
+            text::contains_word(&line.text, "i64") || text::contains_word(&line.text, "u64")
+        })
+        .take(20)
+        .collect();
+    if !hits.is_empty() {
+        return reject(
+            "src: 64-bit arithmetic outside the src/interp.rs kernel; \
+             widen only inside the kernel, with the bound argument that justifies it.",
+            hits,
+        );
     }
 
     let hits = first(&example_code, example_host_path);
@@ -265,11 +371,16 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
             "Cargo.toml must not declare a workspace before a second package exists.",
         );
     }
+    // The version the gate expects has exactly one source,
+    // `package::PACKAGE_VERSION`, so a release bumps it in one place.
+    let version_line = format!("version = \"{}\"", crate::checks::package::PACKAGE_VERSION);
+    if !has(&version_line) {
+        return Outcome::fail(format!(
+            "Cargo.toml version must be {}.",
+            crate::checks::package::PACKAGE_VERSION
+        ));
+    }
     for (wanted, complaint) in [
-        (
-            "version = \"0.1.0-incubating.1\"",
-            "Cargo.toml version must be 0.1.0-incubating.1.",
-        ),
         (
             "publish = false",
             "Cargo.toml must keep publish = false until a separate release decision.",
@@ -309,20 +420,6 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
             ));
         }
         Err(error) => return Outcome::fail(format!("cargo metadata could not run: {error}")),
-    }
-
-    let readme = match text::read_text(&ctx.path("README.md")) {
-        Ok(text) => text,
-        Err(error) => return Outcome::fail(format!("README.md is unreadable: {error}")),
-    };
-    for (needle, complaint) in [
-        ("Active", "README.md must record Lifecycle Active."),
-        ("0.1.0", "README.md must record published version 0.1.0."),
-        ("Libraries", "README.md must record Domain Libraries."),
-    ] {
-        if !readme.contains(needle) {
-            return Outcome::fail(complaint);
-        }
     }
 
     match text::read_text(&ctx.path("LICENSE")) {

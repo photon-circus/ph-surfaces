@@ -30,6 +30,13 @@ unit tests in `src/`; do not move them into the suite or duplicate them there.
 `src/interp.rs` owns the only rounding policy in the crate: round to nearest,
 exact half-way values away from zero. Route every interpolated value through
 `div_round_half_away_from_zero` rather than adding a second implementation.
+It is also the crate's arithmetic kernel: the only runtime module allowed
+64-bit intermediates (the documented `~2^47` numerator bound is why they
+exist), and where any future fixed-point scaling arrives as typed helpers in
+code, never as a prose convention spread across modules. 128-bit integers
+belong only to test oracles. The `integer only` check enforces both rules;
+its scanner exempts each file's `#[cfg(test)]` tail, so keep test modules at
+the end of every `src/` file.
 
 `src/axis/` owns the four sealed lookup strategies — `LinearAxis`,
 `BinaryAxis` (the default), `UniformAxis`, `BucketedAxis` — each of which
@@ -155,7 +162,7 @@ hosted run as a local-CI failure.
 
 | Change | Also update |
 | --- | --- |
-| Version or crate `publish` setting | Release process (`RELEASING.md`): `Cargo.lock`, changelog heading date, `PACKAGE_VERSION`, Cargo.toml version/`publish` assertions in `tools/xtask/src/checks/`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged README GitHub URLs from `main` to the release tag. |
+| Version or crate `publish` setting | Release process (`RELEASING.md`): `Cargo.lock`, changelog heading date, `PACKAGE_VERSION` in `tools/xtask/src/checks/package.rs` (the gate's single version literal), the `publish` assertion in `tools/xtask/src/checks/ratchets.rs`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged guide URLs (README, `src/lib.rs`, `examples/*.rs`) from `main` to the release tag. |
 | New packaged file | `include` in `Cargo.toml`, and `PACKAGED_FILES` in `tools/xtask/src/checks/package.rs` |
 | New guard in `tools/xtask` | A row in `CHECKS` (`tools/xtask/src/checks/mod.rs`) and a mutation case in `tools/xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |
@@ -187,11 +194,6 @@ auto-installs from `rust-toolchain.toml` on the first cargo/rustup command run
 inside the repo.
 
 Non-obvious gotchas:
-- The `github metadata` check reports `SKIP` here (and will keep skipping): it
-  needs a public repo plus a token that can read topics/custom properties, which
-  the cloud VM does not have. Per this repo's own rules, `SKIP` is expected and is
-  not a failure for an ordinary developer run. It is deliberately a failure in
-  the `release` profile.
 - `cargo xtask ci --skip-embedded` skips the two top-level ordinary embedded
   `cargo build` checks (`thumbv7em-none-eabi`, `riscv32imac-unknown-none-elf`)
   and the `code size snapshot`, which also needs those targets. It does **not**

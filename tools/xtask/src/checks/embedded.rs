@@ -14,7 +14,14 @@ use crate::runner::{Ctx, Outcome};
 /// separate places.
 pub const TARGETS: [&str; 2] = ["thumbv7em-none-eabi", "riscv32imac-unknown-none-elf"];
 
-/// An ordinary bare-metal build on the pinned toolchain.
+/// An ordinary bare-metal build on the pinned toolchain, then clippy for the
+/// same target with warnings denied.
+///
+/// Clippy is per-target on purpose: host clippy lints host cfg resolution,
+/// and a lint that only fires under a bare-metal cfg would otherwise never be
+/// seen. Only the library builds here -- the Cargo examples are host
+/// assertion harnesses; their fixtures are proven on these targets through
+/// the downstream consumer in `tools/consumer`.
 pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
     if ctx.skip_embedded {
         return Outcome::skip(format!("--skip-embedded; skipping target {target}"));
@@ -28,10 +35,21 @@ pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
         }
         Err(error) => return Outcome::skip(format!("rustup is not available: {error}")),
     }
-    step(
+    match step(
         ctx,
         &proc::cargo(),
         &["build", "--target", target, "--locked"],
+        &[],
+    ) {
+        Outcome::Pass => {}
+        failure => return failure,
+    }
+    step(
+        ctx,
+        &proc::cargo(),
+        &[
+            "clippy", "--target", target, "--locked", "--", "-D", "warnings",
+        ],
         &[],
     )
 }
