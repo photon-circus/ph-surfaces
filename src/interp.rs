@@ -116,9 +116,9 @@ mod tests {
     // path" criterion: a unit test cannot observe the absence of a code path,
     // so that evidence is mechanical rather than behavioural. It is carried by
     // `#![forbid(unsafe_code)]` in the crate root, the `integer only` grep in
-    // `scripts/ci.sh`, the `-Z build-std=core` build in the same script, and
-    // the `deny.toml` ban on the crate name. The tests below carry the
-    // numerical contract instead.
+    // `cargo xtask ci`, the `-Z build-std=core` core-only builds in the same
+    // gate, and the `deny.toml` ban on the crate name. The tests below carry
+    // the numerical contract instead.
 
     /// Independent reference for the same value.
     ///

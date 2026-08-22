@@ -39,6 +39,10 @@
 - `package build` inspects cargo's verification unpack of the archive rather
   than invoking host `tar`, so a machine that carries only the pinned cargo
   can still produce the file-set evidence.
+- Issue #27 close-out: live comments name `cargo xtask ci` rather than the
+  deleted `scripts/ci.sh`, and traceability records the portable gate as
+  implemented with retained fresh-clone evidence. The zero-FAIL release
+  matrix remains #29 after #28.
 
 ### Removed
 

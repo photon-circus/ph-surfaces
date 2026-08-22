@@ -196,12 +196,12 @@ mod tests {
     // point, uses unsafe, or calls `ph-curves`": a unit test cannot observe the
     // absence of a code path. That evidence is mechanical, as it is for
     // `src/interp.rs` — `#![forbid(unsafe_code)]` in the crate root, the
-    // `integer only` grep and the `-Z build-std=core` build in `scripts/ci.sh`,
-    // and the `deny.toml` ban on the crate name. The absence of a scan is
-    // structural: `evaluate` reads exactly the four corner values of one
-    // located cell, and the only search in the crate is the counted binary
-    // lookup whose exact comparison bound `src/lookup.rs` asserts. The tests
-    // below carry the numerical and boundary contract instead.
+    // `integer only` grep and the `-Z build-std=core` core-only builds in
+    // `cargo xtask ci`, and the `deny.toml` ban on the crate name. The absence
+    // of a scan is structural: `evaluate` reads exactly the four corner values
+    // of one located cell, and the only search in the crate is the counted
+    // binary lookup whose exact comparison bound `src/lookup.rs` asserts. The
+    // tests below carry the numerical and boundary contract instead.
 
     // The locked order fixture from the accepted contract.
     static ORDER_AXIS: [u16; 2] = [0, 2];
