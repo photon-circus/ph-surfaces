@@ -316,11 +316,8 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Err(error) => return Outcome::fail(format!("README.md is unreadable: {error}")),
     };
     for (needle, complaint) in [
-        ("Incubating", "README.md must record Lifecycle Incubating."),
-        (
-            "0.1.0-incubating.1",
-            "README.md must record version 0.1.0-incubating.1.",
-        ),
+        ("Active", "README.md must record Lifecycle Active."),
+        ("0.1.0", "README.md must record published version 0.1.0."),
         ("Libraries", "README.md must record Domain Libraries."),
     ] {
         if !readme.contains(needle) {

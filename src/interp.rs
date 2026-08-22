@@ -2,8 +2,8 @@
 //!
 //! This module owns the one signed interpolation primitive the two-dimensional
 //! evaluator needs, and the one rounding policy it applies. Both are crate
-//! private: v0.1 exposes no general scalar-transfer API, and the shared
-//! arithmetic question stays deferred until shipped duplication justifies it.
+//! private: v0.1 exposes no general scalar-transfer API. Shared arithmetic with
+//! another crate is out of scope.
 //!
 //! Everything here is core integer arithmetic. There is no floating point, no
 //! fixed-point layer, no allocator, and no external dependency.

@@ -5,22 +5,20 @@ changing code.
 
 ## What this crate is for
 
-`ph-surfaces` will give firmware deterministic, allocation-free two-dimensional
+`ph-surfaces` gives firmware deterministic, allocation-free two-dimensional
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have.
 
-This repository contains the accepted binary-lookup baseline through issues
-#2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18,
-cross-strategy conformance and cost evidence from #19, the completed
-documentation/package-readiness gate #9, the embedded usage guides,
-strategy cookbook, and runnable firmware examples of #22, and the portable
-strict release gate of #27. Publishing, tagging, and a stable 1.0 promise are
-separate maintainer decisions; `publish = false` stays until then.
+Human-facing docs describe a public Active crate published at `0.1.0`. Version,
+`publish`, changelog close-out, GitHub visibility, and the crates.io upload
+belong to the release process in `RELEASING.md`; do not perform those actions
+in an implementation change.
 
 `README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example
 that stops compiling fails `cargo test`. Keep README code blocks complete and
-runnable, or tag a non-Rust block with its language (`sh`, `text`).
+runnable, or tag a non-Rust block with its language (`sh`, `text`). Unpackaged
+guides are linked from the README with GitHub URLs, not relative `docs/` paths.
 
 `tests/conformance/` is black-box evidence for the public contract. It goes
 through `ph_surfaces::*` only and must never import a private module, add a
@@ -58,8 +56,9 @@ or arithmetic that bypasses `interp.rs`.
 
 Do not add `ph-curves` as a direct, transitive, optional, target-specific,
 development, build, path, or Git dependency. v0.1 interpolation is a private
-helper in this crate (issue #3). Shared arithmetic is a later decision after
-shipped duplication exists. `deny.toml` bans the crate name; the `no ph-curves` check greps the manifest
+helper in this crate. Shared arithmetic is a later decision after shipped
+duplication exists. `deny.toml` bans the crate name; the `no ph-curves` check
+greps the manifest
 text outside comments, `Cargo.lock`, and `cargo metadata --all-features`, and
 the mutation tests in `tools/xtask/tests/mutation.rs` prove that guard fires.
 
@@ -146,16 +145,17 @@ copies of the tracked tree and requires the intended guard to fail. Every check
 that needs an optional tool or target reports `SKIP`, with the reason, rather
 than passing.
 
-Hosted GitHub Actions are a known gap until this repository is public:
-private workflow runs fail before any step starts. Do not re-enable
-`pull_request` / `push` triggers to "fix" a red check. Do not treat a missing
-or failed hosted run as a local-CI failure.
+Hosted GitHub Actions run a bounded contributor subset. Local `cargo xtask ci`
+remains the complete gate. Do not enable `pull_request` / `push` triggers while
+the repository is still private: those runs fail before any step starts, and a
+red hosted check is not a local-CI failure. Do not treat a missing or failed
+hosted run as a local-CI failure.
 
 ## Coupled edits
 
 | Change | Also update |
 | --- | --- |
-| Version or crate `publish` setting | `Cargo.lock`, `README.md` and `src/lib.rs` status, this file's status text, `CHANGELOG.md`, `docs/v0.1-traceability.md`, every hardcoded version/tag/dependency/yank example in `RELEASING.md`, and the package constants plus manifest assertions in `tools/xtask/src/checks/` |
+| Version or crate `publish` setting | Release process (`RELEASING.md`): `Cargo.lock`, changelog heading date, `PACKAGE_VERSION`, Cargo.toml version/`publish` assertions in `tools/xtask/src/checks/`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged README GitHub URLs from `main` to the release tag. |
 | New packaged file | `include` in `Cargo.toml`, and `PACKAGED_FILES` in `tools/xtask/src/checks/package.rs` |
 | New guard in `tools/xtask` | A row in `CHECKS` (`tools/xtask/src/checks/mod.rs`) and a mutation case in `tools/xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |

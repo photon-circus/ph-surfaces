@@ -8,8 +8,7 @@ floating point, allocation, or a dependency on `ph-curves`.
 
 By participating, you agree to follow the repository's
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md). Never put vulnerability details in
-a public issue; follow the organization
-[security policy](https://github.com/photon-circus/.github/security/policy).
+a public issue; follow [`SECURITY.md`](SECURITY.md).
 
 ## Before opening a change
 
@@ -21,8 +20,10 @@ edit table. Search the existing issues before opening a new one.
 - Public API changes, new lookup strategies, dependencies, features, or
   changes to rounding/boundary semantics need an issue with an accepted
   contract and evidence plan first.
-- Keep release publication, lifecycle changes, and GitHub settings out of an
-  implementation pull request unless its issue explicitly includes them.
+- Keep tagging, crates.io upload, yank, GitHub Release, and GitHub settings
+  out of an implementation pull request unless its issue explicitly includes
+  them. Version, `publish`, and changelog close-out belong to the release
+  process in [`RELEASING.md`](RELEASING.md).
 
 A useful issue or pull request states the affected commit/version, the smallest
 reproduction, expected and observed behavior, target/toolchain, and whether the
@@ -95,6 +96,7 @@ Keep a pull request independently reviewable. Its description should include:
 - confirmation that no release or repository-setting mutation is included
   unless explicitly in scope.
 
-Do not commit generated `target/` content or credentials. Maintainers may ask
-for the complete release matrix even when the hosted `ci` check intentionally
-runs a smaller contributor-facing subset.
+Do not commit generated `target/` content or credentials. Hosted GitHub
+Actions run a bounded contributor subset of the local gate. Maintainers may
+ask for the complete `cargo xtask ci` matrix, including every skip, even when
+the hosted `ci` check is green.

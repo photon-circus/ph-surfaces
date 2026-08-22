@@ -2,25 +2,21 @@
 
 Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 
-[![Lifecycle: Incubating](https://img.shields.io/badge/lifecycle-incubating-orange.svg)](https://github.com/photon-circus/.github/blob/main/REPOSITORY_STANDARDS.md#31-lifecycle-values)
-[![MSRV](https://img.shields.io/badge/MSRV-1.94.0-blue.svg)](Cargo.toml)
+[![ph-surfaces on crates.io](https://img.shields.io/crates/v/ph-surfaces.svg?label=ph-surfaces)](https://crates.io/crates/ph-surfaces)
+[![ph-surfaces API documentation](https://docs.rs/ph-surfaces/badge.svg)](https://docs.rs/ph-surfaces)
+[![CI](https://github.com/photon-circus/ph-surfaces/actions/workflows/ci.yml/badge.svg)](https://github.com/photon-circus/ph-surfaces/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Lifecycle:** Incubating — the responsibility is bounded and intended to
-> become supported. Compatibility follows the documented version and release
-> policy, not lifecycle alone.
-> **Distribution:** Unpublished. `publish = false`. Version `0.1.0-incubating.1`.
+> **Status:** Active. `ph-surfaces` is published at version `0.1.0`.
+> The API is intentionally narrow: one static bilinear surface, four
+> compile-time lookup strategies, and an explicit Error/Clamp boundary
+> policy. There is no 1.0 compatibility promise.
 > **Domain:** Libraries.
 
-This repository is a private Incubating Libraries project. It currently exposes
-the validated surface representation, its deterministic X-then-Y evaluator, its
-boundary and error vocabulary, the four compile-time per-axis lookup
-strategies, and the const cost API. Cross-strategy conformance, the selection
-matrix, and a labelled code-size snapshot (#19) have landed. The final
-documentation/package gate (#9) is closed, and the embedded usage guides,
-strategy cookbook, and runnable firmware examples (#22) have landed. There is
-no crates.io publication and no docs.rs page. Publishing, tagging, and a
-stable 1.0 promise remain separate maintainer decisions.
+```toml
+[dependencies]
+ph-surfaces = "0.1"
+```
 
 ## What this is
 
@@ -72,7 +68,7 @@ packaged crate, so the README cannot drift from the API it describes.
 Task-oriented firmware guidance lives next to this README, not inside the
 normative contract below.
 
-1. **[Usage guide](docs/usage-guide.md)** — lay out axes as `values[y][x]`,
+1. **[Usage guide](https://github.com/photon-circus/ph-surfaces/blob/main/docs/usage-guide.md)** — lay out axes as `values[y][x]`,
    declare a static Binary surface, name all four boundary sides, and place
    payload / handle / work figures in the right budget.
 2. **One evaluation.** The query `(125, 20)` above sits in the cell
@@ -80,7 +76,7 @@ normative contract below.
    rounds to nearest with ties away from zero, then Y interpolates those two
    already-rounded results: `25`, then `75`, then `50`. An X-side `Error`
    short-circuits before Y. The arithmetic is walked in
-   **[the interpolation walkthrough](docs/interpolation-walkthrough.md)**.
+   **[the interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/main/docs/interpolation-walkthrough.md)**.
 3. **Choose a strategy** independently on each axis. Changing a strategy cannot
    change a value, an error, rounding, order, or boundary behaviour.
 
@@ -92,7 +88,7 @@ normative contract below.
    | Irregular axis needs a smaller proven local bound | `BucketedAxis` | `max_local_comparisons` improves enough to justify `2*B` index bytes |
 
    The cookbook, including Bucketed index tuning, is
-   **[choosing a strategy](docs/choosing-a-strategy.md)**.
+   **[choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md)**.
 4. **Runnable examples** (host `main` is an assertion harness; the tables are
    `static` and `core`-only):
    [`firmware_quickstart`](examples/firmware_quickstart.rs),
@@ -130,7 +126,7 @@ This section is the consumer-facing statement of the implemented contract. Each
 item below is implemented and tested by the
 black-box suite in
 `tests/conformance/`, and mapped to its evidence in
-[`docs/v0.1-traceability.md`](docs/v0.1-traceability.md).
+[`docs/v0.1-traceability.md`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md).
 
 ### Representation
 
@@ -412,16 +408,13 @@ taking a dependency on `ph-curves` or pulling in host tooling.
 
 ## What state it is in
 
-Incubating and unpublished. The binary-lookup baseline, its conformance suite,
-mechanical dependency and embedded proofs, examples, package checks, the
-compile-time per-axis Linear, Binary, Uniform, and Bucketed strategies (#18),
-cross-strategy conformance with a const cost API, selection matrix, and
-labelled code-size snapshot (#19), the documentation and package-readiness
-gate (#9), and the embedded usage guides, strategy cookbook, and runnable
-firmware examples (#22) are implemented. The
-[traceability checklist](docs/v0.1-traceability.md) records the evidence.
-Publishing, tagging, and stable 1.0 compatibility remain separate maintainer
-decisions; `publish = false` stays until then.
+Active. Version `0.1.0` is published on
+[crates.io](https://crates.io/crates/ph-surfaces); API documentation is on
+[docs.rs](https://docs.rs/ph-surfaces). Compatibility follows semantic
+versioning for a pre-1.0 crate: a breaking change increments the minor
+version. There is no 1.0 compatibility promise. The
+[traceability checklist](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
+maps each contract claim to its tests and gates.
 
 ## Responsibility
 
@@ -461,8 +454,7 @@ v0.1 explicitly does not include:
 - No `[dependencies]`, `[dev-dependencies]`, or `[build-dependencies]`, and
   none of those tables may name `ph-curves` later either
 - MSRV and toolchain pin: Rust 1.94.0, edition 2024
-- Version `0.1.0-incubating.1` with `publish = false` until a separate release
-  decision
+- Published version `0.1.0`; no 1.0 compatibility promise
 
 ## Resource accounting and cost
 
@@ -587,7 +579,7 @@ unclaimed.
 A reproducible recipe records compiler-object `.text` totals for four named,
 single-pairing consumers. It is not a guarantee, not total flash, and not
 WCET. The committed snapshot is
-[`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
+[`docs/code-size-snapshot.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/code-size-snapshot.txt).
 
 ```sh
 cargo xtask code-size
@@ -610,12 +602,11 @@ snapshot` CI check diffs the output and returns SKIP if either target or
 
 ## Repository classification
 
-These GitHub fields must agree with the manifest and this README. The bootstrap
-token cannot write them; set them on the repository if they are empty.
+These GitHub fields must agree with the manifest and this README.
 
 | Field | Value |
 | --- | --- |
-| Custom property `Lifecycle` | `Incubating` |
+| Custom property `Lifecycle` | `Active` |
 | Custom property `Domain` | `Libraries` |
 | Topics | `rust`, `embedded`, `no-std`, `no-alloc`, `interpolation` |
 
@@ -649,8 +640,8 @@ authoritative. It gates:
   target-specific, development, build, path, Git, `[patch]`, `[replace]`),
   `Cargo.lock`, `cargo metadata --all-features`, and `cargo deny` all reject
   the name;
-- the manifest floor (version, `publish = false`, licence, edition, MSRV,
-  empty dependency tables);
+- the manifest floor (version, licence, edition, MSRV, empty dependency
+  tables);
 - the package: the exact packaged file set (no agent notes, changelog, CI,
   deny, toolchain, script, or `docs/` material), a `cargo package` build of
   the artifact, the artifact's own rustdoc, doctests — README blocks
@@ -692,16 +683,15 @@ above are the suite's `ELEVATION` and `CORRECTION` fixtures and demonstrate
 shape and rounding behaviour only; they claim nothing about any sensor, vendor,
 or measurement accuracy.
 
-[`docs/v0.1-traceability.md`](docs/v0.1-traceability.md) maps every
-acceptance claim of the v0.1 umbrella to its implementation issue, test,
+[`docs/v0.1-traceability.md`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
+maps every acceptance claim of the v0.1 contract to its test,
 documentation section, or CI gate.
 
-Hosted GitHub Actions are a **known gap until this repository is public**:
-private runs fail before any step starts, so `pull_request` / `push` triggers
-are not enabled. The workflow file remains for a manual `workflow_dispatch`
-after the repository is public; it is a bounded subset (least privilege, a job
-timeout, cancellation, SHA-pinned actions, one job as the aggregate status) and
-still skips deny, nightly core-only, and GitHub metadata.
+Hosted GitHub Actions run a bounded contributor subset: least privilege, a
+job timeout, cancellation of superseded runs, SHA-pinned actions, and one
+job as the aggregate status. That subset still skips `deny`, the nightly
+core-only proofs, and the GitHub metadata check. Local `cargo xtask ci` is
+the complete gate. A skipped hosted check is not a pass.
 
 ## Contributing and releases
 
@@ -709,10 +699,11 @@ Contributions are welcome under the repository-specific
 [`CONTRIBUTING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CONTRIBUTING.md)
 and
 [`CODE_OF_CONDUCT.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CODE_OF_CONDUCT.md).
-Never put vulnerability details in a public issue; follow the organization
-[security policy](https://github.com/photon-circus/.github/security/policy).
+Never put vulnerability details in a public issue; follow
+[`SECURITY.md`](https://github.com/photon-circus/ph-surfaces/blob/main/SECURITY.md).
 
-Durable publication is a separate maintainer action governed by
+Releases follow
 [`RELEASING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/RELEASING.md).
-A pull request approval does not by itself authorize a visibility change, tag,
-crates.io upload, yank, or GitHub Release.
+A pull request approval does not by itself authorize a tag, crates.io
+upload, yank, or GitHub Release. The changelog is
+[`CHANGELOG.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CHANGELOG.md).
