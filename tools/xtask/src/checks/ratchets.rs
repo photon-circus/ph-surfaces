@@ -31,30 +31,72 @@ fn first(lines: &[Line], predicate: impl Fn(&str) -> bool) -> Vec<&Line> {
         .collect()
 }
 
-/// Drop each file's test tail: everything from its first `#[cfg(test)]` line
+/// Drop each file's test tail: everything from its first `#[cfg(test)]` item
 /// to the end of the file.
 ///
-/// In this crate test code sits at the end of every `src/` file, so a single
-/// truncation point per file is exact. The wide-integer confinement below
-/// depends on that layout: a `#[cfg(test)]` item above runtime code would
-/// silently exempt the rest of the file, so keep test modules last.
-fn without_test_tail(lines: Vec<Line>) -> Vec<Line> {
+/// Every following top-level item must carry its own `#[cfg(test)]` attribute.
+/// This proves the layout assumption rather than silently exempting runtime
+/// code appended after a test function or module.
+fn without_test_tail(lines: Vec<Line>) -> Result<Vec<Line>, String> {
     let mut kept = Vec::new();
     let mut current: Option<std::path::PathBuf> = None;
     let mut in_test_tail = false;
+    let mut in_test_item = false;
+    let mut saw_open_brace = false;
+    let mut brace_depth = 0_i32;
     for line in lines {
         if current.as_deref() != Some(line.path.as_path()) {
             current = Some(line.path.clone());
             in_test_tail = false;
+            in_test_item = false;
+            saw_open_brace = false;
+            brace_depth = 0;
         }
-        if line.text.trim_start().starts_with("#[cfg(test)]") {
+
+        let trimmed = line.text.trim();
+        if !in_test_tail && trimmed.starts_with("#[cfg(test)]") {
             in_test_tail = true;
+            in_test_item = true;
+            saw_open_brace = false;
+            brace_depth = 0;
         }
         if !in_test_tail {
             kept.push(line);
+            continue;
+        }
+
+        if !in_test_item {
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed.starts_with("#[cfg(test)]") {
+                in_test_item = true;
+                saw_open_brace = false;
+                brace_depth = 0;
+                continue;
+            }
+            return Err(format!(
+                "{}:{}: runtime code follows a #[cfg(test)] item; keep test items at the file tail",
+                line.path.display().to_string().replace('\\', "/"),
+                line.number
+            ));
+        }
+
+        for byte in line.text.bytes() {
+            match byte {
+                b'{' => {
+                    saw_open_brace = true;
+                    brace_depth += 1;
+                }
+                b'}' => brace_depth -= 1,
+                _ => {}
+            }
+        }
+        if saw_open_brace && brace_depth == 0 {
+            in_test_item = false;
         }
     }
-    kept
+    Ok(kept)
 }
 
 pub fn no_std_unconditional(ctx: &Ctx) -> Outcome {
@@ -169,7 +211,10 @@ pub fn integer_only(ctx: &Ctx) -> Outcome {
     // belong only to test oracles, never to runtime code. Test modules sit at
     // the end of each file and are exempt, mirroring how the conformance
     // suite's references are exempt from narrower bans.
-    let runtime_non_test = without_test_tail(runtime_code);
+    let runtime_non_test = match without_test_tail(runtime_code) {
+        Ok(lines) => lines,
+        Err(error) => return Outcome::fail(error),
+    };
     let hits = first(&runtime_non_test, |line| {
         text::contains_word(line, "i128") || text::contains_word(line, "u128")
     });

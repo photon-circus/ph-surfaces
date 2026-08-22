@@ -213,6 +213,19 @@ fn a_128_bit_integer_in_runtime_code_is_rejected() {
 }
 
 #[test]
+fn runtime_code_after_a_test_item_is_rejected() {
+    let root = tracked_copy("runtime-after-test");
+    rewrite(&root.join("src/evaluate.rs"), |text| {
+        format!("{text}\npub fn hidden_wide_integer() -> i64 {{ 0 }}\n")
+    });
+    assert_fires(
+        "runtime-after-test",
+        "integer only",
+        ratchets::integer_only(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
 fn a_ph_curves_dependency_is_rejected() {
     let root = tracked_copy("ph-curves");
     rewrite(&root.join("Cargo.toml"), |text| {
@@ -321,6 +334,58 @@ fn a_planted_secret_is_rejected() {
         "secret scan",
         history::secret_scan(&ctx(&root, Profile::Full)),
     );
+}
+
+#[test]
+fn a_shallow_repository_cannot_claim_a_full_history_scan() {
+    let source = tracked_copy("shallow-source");
+    init_repository(&source);
+    fs::write(source.join("second-commit.txt"), "second commit\n")
+        .expect("could not add the second commit fixture");
+    let status = Command::new("git")
+        .args(["add", "--all"])
+        .current_dir(&source)
+        .status()
+        .expect("git add could not run");
+    assert!(status.success(), "git add failed");
+    let status = Command::new("git")
+        .args([
+            "-c",
+            "user.email=selftest@example.invalid",
+            "-c",
+            "user.name=selftest",
+            "commit",
+            "--quiet",
+            "--message=second",
+        ])
+        .current_dir(&source)
+        .status()
+        .expect("git commit could not run");
+    assert!(status.success(), "git commit failed");
+
+    let shallow = std::env::temp_dir()
+        .join("ph-surfaces-mutation")
+        .join("shallow-clone");
+    let _ = fs::remove_dir_all(&shallow);
+    let source_url = format!(
+        "file:///{}",
+        source.display().to_string().replace('\\', "/")
+    );
+    let status = Command::new("git")
+        .args(["clone", "--quiet", "--depth=1", &source_url])
+        .arg(&shallow)
+        .status()
+        .expect("git clone could not run");
+    assert!(status.success(), "shallow git clone failed");
+
+    match history::secret_scan(&ctx(&shallow, Profile::Full)) {
+        Outcome::Skip(reason) => assert!(
+            reason.contains("shallow"),
+            "shallow repository skipped for the wrong reason: {reason}"
+        ),
+        Outcome::Pass => panic!("shallow repository passed the full-history secret scan"),
+        Outcome::Fail(reason) => panic!("ordinary profile failed instead of skipping: {reason}"),
+    }
 }
 
 #[test]
