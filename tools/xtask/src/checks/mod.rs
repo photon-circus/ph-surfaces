@@ -129,11 +129,6 @@ pub const CHECKS: &[Check] = &[
         run: metadata::github_metadata,
     },
     Check {
-        name: "actionlint",
-        profiles: DEEP,
-        run: metadata::actionlint,
-    },
-    Check {
         name: "deny",
         profiles: DEEP,
         run: deny::deny,

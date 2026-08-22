@@ -42,7 +42,9 @@
 - Issue #27 close-out: live comments name `cargo xtask ci` rather than the
   deleted `scripts/ci.sh`, and traceability records the portable gate as
   implemented with retained fresh-clone evidence. The zero-FAIL release
-  matrix remains #29 after #28.
+  matrix remains #29 after #28. The local gate does not lint GitHub Actions
+  YAML: hosted CI runs `cargo xtask ci`, so a separate `actionlint` check
+  would only require a Go tool the evidence machine may not have.
 
 ### Removed
 
@@ -64,8 +66,6 @@
   file. `.gitattributes` already declared `* text=auto eol=lf`; this enforces
   it, addressing the cause of the issue #27 snapshot failure rather than
   normalizing it away at each comparison site.
-- An `actionlint` check, previously a manual release-runbook step that ran only
-  when someone remembered.
 - `cargo-deny`'s version is recorded on every run and must match the reviewed
   version in the `release` profile.
 

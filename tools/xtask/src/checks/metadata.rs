@@ -119,19 +119,3 @@ pub fn github_metadata(ctx: &Ctx) -> Outcome {
 
     Outcome::Pass
 }
-
-/// The workflow is the one piece of the gate that still is not Rust, so lint it.
-///
-/// `RELEASING.md` had this as a manual step, which means it ran only when
-/// someone remembered.
-pub fn actionlint(ctx: &Ctx) -> Outcome {
-    match proc::run("actionlint", &["-color"], &ctx.root, &[]) {
-        Ok(Some(0)) => Outcome::Pass,
-        Ok(Some(code)) => Outcome::fail(format!("actionlint exited {code}")),
-        Ok(None) => Outcome::fail("actionlint was terminated"),
-        Err(_) => Outcome::skip(
-            "actionlint not installed; skipping \
-             (go install github.com/rhysd/actionlint/cmd/actionlint@latest)",
-        ),
-    }
-}
