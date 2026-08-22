@@ -209,38 +209,32 @@ pub fn package_list(ctx: &Ctx) -> Outcome {
     Outcome::Pass
 }
 
-/// The archive itself, not `--list`: the file set must match exactly.
+/// Cargo's verification unpack of the archive, not `--list`: the file set must
+/// match exactly. Walking that tree keeps the check free of host `tar`.
 pub fn package_build(ctx: &Ctx) -> Outcome {
     let artifact = match artifact(ctx) {
         Ok(artifact) => artifact,
         Err(message) => return Outcome::Fail(message),
     };
 
-    let prefix = format!("{PACKAGE_NAME}-{PACKAGE_VERSION}/");
-    let listing = match proc::capture(
-        "tar",
-        &["tzf", &artifact.archive.display().to_string()],
-        &ctx.root,
-    ) {
-        Ok(output) if output.ok() => output.stdout,
-        Ok(_) => return Outcome::fail("packaged archive is not a valid gzip-compressed tar file."),
-        Err(error) => return Outcome::skip(format!("tar is not available: {error}")),
+    let mut actual = match packaged_tree(&artifact.unpacked) {
+        Ok(files) => files,
+        Err(message) => return Outcome::Fail(message),
     };
-
-    let mut actual: Vec<String> = listing
-        .lines()
-        .map(|line| line.trim().replace('\\', "/"))
-        .filter(|line| !line.is_empty() && !line.ends_with('/'))
-        .map(|line| line.strip_prefix(&prefix).unwrap_or(&line).to_string())
-        .collect();
     actual.sort();
 
     let mut expected: Vec<String> = PACKAGED_FILES.iter().map(|file| file.to_string()).collect();
     expected.sort();
 
     if actual != expected {
-        let missing: Vec<&String> = expected.iter().filter(|file| !actual.contains(file)).collect();
-        let unexpected: Vec<&String> = actual.iter().filter(|file| !expected.contains(file)).collect();
+        let missing: Vec<&String> = expected
+            .iter()
+            .filter(|file| !actual.contains(file))
+            .collect();
+        let unexpected: Vec<&String> = actual
+            .iter()
+            .filter(|file| !expected.contains(file))
+            .collect();
         let mut message = String::new();
         for file in missing {
             message.push_str(&format!("- {file}\n"));
@@ -248,7 +242,8 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
         for file in unexpected {
             message.push_str(&format!("+ {file}\n"));
         }
-        message.push_str("packaged file set differs from the expected list (- expected, + actual).");
+        message
+            .push_str("packaged file set differs from the expected list (- expected, + actual).");
         return Outcome::Fail(message);
     }
 
@@ -257,6 +252,52 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
         println!("{file}");
     }
     Outcome::Pass
+}
+
+/// Files in cargo's verification unpack, excluding the `target/` directory the
+/// verify build may leave behind. That directory is not part of the crate.
+fn packaged_tree(root: &Path) -> Result<Vec<String>, String> {
+    let mut files = Vec::new();
+    collect_packaged_files(root, root, &mut files)?;
+    Ok(files)
+}
+
+fn collect_packaged_files(
+    root: &Path,
+    current: &Path,
+    files: &mut Vec<String>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(current)
+        .map_err(|error| format!("could not read {}: {error}", current.display()))?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!(
+                "could not read an entry under {}: {error}",
+                current.display()
+            )
+        })?;
+        let path = entry.path();
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| format!("{} is not under {}", path.display(), root.display()))?;
+        let relative = relative.to_string_lossy().replace('\\', "/");
+        if relative == "target" || relative.starts_with("target/") {
+            continue;
+        }
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("could not stat {}: {error}", path.display()))?;
+        if file_type.is_dir() {
+            collect_packaged_files(root, &path, files)?;
+        } else if file_type.is_file() {
+            files.push(relative);
+        } else {
+            return Err(format!(
+                "packaged crate contains a non-file entry at {relative}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// The archive digest, computed here rather than by whichever hashing utility a
@@ -540,4 +581,30 @@ fn copy_consumer(ctx: &Ctx, destination: &Path, unpacked: &Path) -> Result<(), S
         .map_err(|error| format!("could not write the consumer source: {error}"))?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+
+    #[test]
+    fn packaged_tree_lists_files_and_ignores_verify_target() {
+        let root = std::env::temp_dir().join(format!(
+            "ph-surfaces-packaged-tree-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("target/debug")).unwrap();
+        File::create(root.join("Cargo.toml")).unwrap();
+        File::create(root.join("src/lib.rs")).unwrap();
+        File::create(root.join("target/debug/dummy")).unwrap();
+
+        let mut files = packaged_tree(&root).unwrap();
+        files.sort();
+        assert_eq!(files, ["Cargo.toml", "src/lib.rs"]);
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }

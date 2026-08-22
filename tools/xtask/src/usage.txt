@@ -7,9 +7,10 @@ USAGE
 OPTIONS
   --profile <dev|full|release>  which checks to run (default: full)
   --only <name>                 run one named check; repeatable
+                                (incompatible with --profile release)
   --nightly <toolchain>         toolchain for the core-only proofs
-                                (default: nightly; required to be dated
-                                in the release profile)
+                                (default: nightly; must be
+                                nightly-YYYY-MM-DD in the release profile)
   --skip-embedded               skip checks that need a bare-metal target
   --fail-fast                   stop at the first failure
   --root <dir>                  operate on a checkout other than the cwd

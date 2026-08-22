@@ -30,6 +30,60 @@ impl Profile {
     }
 }
 
+/// A reviewed dated nightly: exactly `nightly-YYYY-MM-DD`.
+///
+/// The moving alias `nightly`, another channel, a host-qualified triple, and a
+/// custom rustup alias are all rejected. Release evidence must name a toolchain
+/// that cannot move underneath a later re-run.
+pub fn is_dated_nightly(name: &str) -> bool {
+    let Some(date) = name.strip_prefix("nightly-") else {
+        return false;
+    };
+    let mut parts = date.split('-');
+    let (Some(year), Some(month), Some(day), None) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    year.len() == 4
+        && month.len() == 2
+        && day.len() == 2
+        && year.bytes().all(|b| b.is_ascii_digit())
+        && month
+            .parse::<u8>()
+            .ok()
+            .is_some_and(|value| (1..=12).contains(&value))
+        && day
+            .parse::<u8>()
+            .ok()
+            .is_some_and(|value| (1..=31).contains(&value))
+}
+
+/// Release evidence must be a complete matrix against a reviewed dated nightly.
+///
+/// `--only` can otherwise exit 0 after running a subset, which would present a
+/// partial run as release evidence. Any `--nightly` value other than
+/// `nightly-YYYY-MM-DD` is the same class of hole: a moving alias or a
+/// different installed toolchain can still produce a green log.
+pub fn validate_release(profile: Profile, only: &[String], nightly: &str) -> Result<(), String> {
+    if profile != Profile::Release {
+        return Ok(());
+    }
+    if !only.is_empty() {
+        return Err(
+            "the release profile cannot combine with --only; a partial run is not release evidence"
+                .to_string(),
+        );
+    }
+    if !is_dated_nightly(nightly) {
+        return Err(
+            "the release profile requires --nightly nightly-YYYY-MM-DD, not the moving alias"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 impl fmt::Display for Profile {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
@@ -220,4 +274,52 @@ pub fn find_root(start: &Path) -> Option<PathBuf> {
         cursor = directory.parent();
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dated_nightly_is_exactly_nightly_yyyy_mm_dd() {
+        assert!(is_dated_nightly("nightly-2026-08-08"));
+        assert!(is_dated_nightly("nightly-2020-01-31"));
+        assert!(!is_dated_nightly("nightly"));
+        assert!(!is_dated_nightly("stable"));
+        assert!(!is_dated_nightly("beta"));
+        assert!(!is_dated_nightly("nightly-YYYY-MM-DD"));
+        assert!(!is_dated_nightly("nightly-2026-8-8"));
+        assert!(!is_dated_nightly(
+            "nightly-2026-08-08-x86_64-unknown-linux-gnu"
+        ));
+        assert!(!is_dated_nightly("nightly-2026-13-01"));
+        assert!(!is_dated_nightly("nightly-2026-00-01"));
+        assert!(!is_dated_nightly("nightly-2026-01-00"));
+        assert!(!is_dated_nightly("nightly-2026-01-32"));
+        assert!(!is_dated_nightly("+nightly-2026-08-08"));
+        assert!(!is_dated_nightly(""));
+    }
+
+    #[test]
+    fn release_rejects_partial_selection_and_undated_toolchains() {
+        let dated = "nightly-2026-08-08";
+        assert!(validate_release(Profile::Release, &[], dated).is_ok());
+        assert!(
+            validate_release(Profile::Release, &["fmt".into()], dated)
+                .unwrap_err()
+                .contains("--only")
+        );
+        assert!(validate_release(Profile::Release, &[], "nightly").is_err());
+        assert!(validate_release(Profile::Release, &[], "stable").is_err());
+        assert!(
+            validate_release(
+                Profile::Release,
+                &[],
+                "nightly-2026-08-08-x86_64-unknown-linux-gnu"
+            )
+            .is_err()
+        );
+        assert!(validate_release(Profile::Full, &["fmt".into()], "nightly").is_ok());
+        assert!(validate_release(Profile::Dev, &[], "nightly").is_ok());
+    }
 }

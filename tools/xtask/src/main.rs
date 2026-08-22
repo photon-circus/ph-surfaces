@@ -8,7 +8,7 @@
 //! Usage:
 //!   cargo xtask ci                                  full matrix
 //!   cargo xtask ci --profile dev                    fast inner loop
-//!   cargo xtask ci --profile release                release evidence; no SKIPs
+//!   cargo xtask ci --profile release                release evidence; no SKIPs, no --only
 //!   cargo xtask ci --only 'no ph-curves'            one named check
 //!   cargo xtask ci --nightly nightly-YYYY-MM-DD     exact core-only toolchain
 //!   cargo xtask ci --skip-embedded                  skip target-dependent checks
@@ -124,15 +124,7 @@ fn run_ci(args: &[String]) -> Result<u8, String> {
         }
     }
 
-    // Release evidence must name the reviewed dated nightly, so that the
-    // recorded rustc and cargo versions describe a toolchain that cannot move
-    // underneath a later re-run.
-    if profile == Profile::Release && nightly == "nightly" {
-        return Err(
-            "the release profile requires --nightly nightly-YYYY-MM-DD, not the moving alias"
-                .to_string(),
-        );
-    }
+    runner::validate_release(profile, &only, &nightly)?;
 
     let root = match root {
         Some(given) => given,

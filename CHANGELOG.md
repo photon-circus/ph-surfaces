@@ -33,6 +33,12 @@
 - The archive SHA-256 is computed by the gate rather than by whichever of
   `sha256sum`, `shasum`, or `openssl` a machine happens to carry, so release
   evidence no longer depends on the host's utilities.
+- The `release` profile rejects `--only` (a partial run is not release
+  evidence) and requires `--nightly` to be exactly `nightly-YYYY-MM-DD`, not
+  the moving alias or another installed toolchain name.
+- `package build` inspects cargo's verification unpack of the archive rather
+  than invoking host `tar`, so a machine that carries only the pinned cargo
+  can still produce the file-set evidence.
 
 ### Removed
 
