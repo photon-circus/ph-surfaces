@@ -114,11 +114,11 @@ independent integer reference. That is a v0.1 decision, not an accident: shared
 arithmetic can be reconsidered only after shipped duplication provides evidence
 for a neutral common crate, in a separate post-v0.1 proposal.
 
-The gate proves the absence rather than asserting it. `scripts/ci.sh` rejects
+The gate proves the absence rather than asserting it. `cargo xtask ci` rejects
 the name in the manifest text (every dependency kind, `[patch]`, `[replace]`),
 in `Cargo.lock`, and in `cargo metadata --all-features`; `deny.toml` bans it as
 a fourth layer; the downstream consumer's fresh lockfile may name only two
-packages; and `scripts/guard-selftest.sh` shows the guard fires when a
+packages; and the mutation tests in `tools/xtask` show the guard fires when a
 `ph-curves` dependency is injected into a copy of the tree.
 
 ## Contract
@@ -587,7 +587,7 @@ WCET. The committed snapshot is
 [`docs/code-size-snapshot.txt`](docs/code-size-snapshot.txt).
 
 ```sh
-./scripts/measure-code-size.sh
+cargo xtask code-size
 ```
 
 - Toolchain: pinned 1.94.0 from `rust-toolchain.toml`, not nightly
@@ -621,18 +621,18 @@ token cannot write them; set them on the repository if they are empty.
 The canonical entry point is local:
 
 ```sh
-./scripts/ci.sh
+cargo xtask ci
 ```
 
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
 not a passed check. Release evidence sets an exact nightly and forbids skips:
 
 ```sh
-NIGHTLY_TOOLCHAIN=nightly-2026-08-08 REQUIRE_NO_SKIPS=1 ./scripts/ci.sh
+cargo xtask ci --profile release --nightly nightly-2026-08-08
 ```
 
 Strict mode also requires a clean Git worktree, validates the package's VCS
-commit, and prints a verified archive SHA-256. Local `./scripts/ci.sh` is
+commit, and prints a verified archive SHA-256. Local `cargo xtask ci` is
 authoritative. It gates:
 
 - formatting, debug and release host tests and doctests (including every code
@@ -658,10 +658,10 @@ authoritative. It gates:
   package on the host, and is built for both embedded targets — ordinarily and
   against a core-only sysroot, which is what proves the pairings themselves are
   allocation-free;
-- a guard self-test (`scripts/guard-selftest.sh`) that mutates a copy of the
+- a guard self-test (`tools/xtask/tests/mutation.rs`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
-- a code-size snapshot (`scripts/measure-code-size.sh`) that records
+- a code-size snapshot (`cargo xtask code-size`) that records
   single-pairing compiler-object `.text` totals on both embedded targets and
   diffs them against `docs/code-size-snapshot.txt`; the check reports `SKIP` if
   either target or `llvm-tools-preview` is missing;

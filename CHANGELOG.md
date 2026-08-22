@@ -2,7 +2,61 @@
 
 ## Unreleased
 
+### Changed
+
+- The verification gate is now `tools/xtask`, a zero-dependency Rust crate in
+  its own workspace, replacing the 1048-line `scripts/ci.sh`, the 275-line
+  `scripts/measure-code-size.sh`, and the 188-line `scripts/guard-selftest.sh`.
+  It runs natively on Windows and Linux with nothing but the pinned cargo the
+  crate already requires: no shell, no PowerShell twin, no container. Entry
+  points are `cargo xtask ci`, `cargo xtask code-size [--write]`, and
+  `cargo xtask list`. Check names and the `  PASS/FAIL/SKIP  ` summary format
+  are unchanged, so archived release evidence stays comparable.
+- The environment-variable interface is replaced by flags: `--profile
+  {dev,full,release}` (`release` is the old `REQUIRE_NO_SKIPS=1`), `--only`,
+  `--nightly`, `--skip-embedded`, and `--fail-fast`. The new `dev` profile is a
+  fast inner loop.
+- `check_package_build` is split into `package list`, `package build`,
+  `package provenance`, `package digest`, and `package consumer`. A missing
+  bare-metal target no longer discards the packaging, digest, and doctest
+  evidence that already succeeded by reporting the whole thing as SKIP.
+- The downstream `#![no_std]` consumer and the code-size measurement crate are
+  real checked-in source at `tools/consumer` and `tools/code-size`, rather than
+  415 lines of Rust held in shell heredocs. Both are now formatted and linted.
+- The guard self-test is `tools/xtask/tests/mutation.rs`, run under `cargo
+  test`. It calls each check with an explicit context instead of re-entering the
+  gate as a subprocess, which fixes two defects in the shell harness: the parent
+  environment leaked into every mutation run, so a `REQUIRE_NO_SKIPS=1` parent
+  could make a guard appear to fire when a SKIP was merely escalated; and the
+  harness hardcoded the `nightly` alias, silently skipping half the `alloc` case
+  under dated-nightly release evidence.
+- The archive SHA-256 is computed by the gate rather than by whichever of
+  `sha256sum`, `shasum`, or `openssl` a machine happens to carry, so release
+  evidence no longer depends on the host's utilities.
+- The `release` profile rejects `--only` (a partial run is not release
+  evidence) and requires `--nightly` to be exactly `nightly-YYYY-MM-DD`, not
+  the moving alias or another installed toolchain name.
+- `package build` inspects cargo's verification unpack of the archive rather
+  than invoking host `tar`, so a machine that carries only the pinned cargo
+  can still produce the file-set evidence.
+
+### Removed
+
+- `scripts/ci.sh`, `scripts/guard-selftest.sh`, and `scripts/measure-code-size.sh`.
+  With them goes the ShellCheck prerequisite and the Git Bash requirement on
+  Windows.
+
 ### Added
+
+- A `line endings` check that fails on a carriage return in any tracked text
+  file. `.gitattributes` already declared `* text=auto eol=lf`; this enforces
+  it, addressing the cause of the issue #27 snapshot failure rather than
+  normalizing it away at each comparison site.
+- An `actionlint` check, previously a manual release-runbook step that ran only
+  when someone remembered.
+- `cargo-deny`'s version is recorded on every run and must match the reviewed
+  version in the `release` profile.
+
 
 - Independent core-only `ph-surfaces` crate and repository floor at
   `0.1.0-incubating.1` (`publish = false`).
@@ -11,7 +65,7 @@
   exact half-way values away from zero. One local division helper is the sole
   implementation of that rounding policy. The helper is crate private and does
   not change the public API.
-- An `integer only` check in `scripts/ci.sh` that fails if runtime code
+- An `integer only` check in the gate that fails if runtime code
   acquires a floating-point, allocator, `std`, or `ph-curves` path, and that
   asserts the crate-level `#![forbid(unsafe_code)]` is still in place.
 - Public static representation `BilinearSurface<NX, NY>`, referencing
@@ -53,7 +107,7 @@
   search probes, and rejected coordinates return before interpolation or grid
   access, with an X rejection also skipping Y lookup. Evaluation never
   extrapolates or overflows for any surface this crate can define.
-- Mechanical proofs of the runtime contract in `scripts/ci.sh`. Bare-metal
+- Mechanical proofs of the runtime contract in the gate. Bare-metal
   targets are now built rather than checked, on ARM (`thumbv7em-none-eabi`)
   and RISC-V (`riscv32imac-unknown-none-elf`), and both are also built with a
   nightly `-Z build-std=core` core-only sysroot as the no-allocation proof. The
@@ -64,8 +118,8 @@
   on `no_std`, and any feature-gated code in `src/`. A `package build` check
   builds the `.crate`, asserts its exact file set, and compiles a minimal
   downstream `#![no_std]` consumer against the unpacked artifact on the host
-  and on both embedded targets. `CI_ONLY=<name>` runs a single check.
-- `scripts/guard-selftest.sh` (run by `scripts/ci.sh` as `guards fire on
+  and on both embedded targets. `--only <name>` runs a single check.
+- `tools/xtask/tests/mutation.rs` (run by the gate as `guards fire on
   mutation`): copies the tracked tree, applies a feature-conditional `no_std`,
   an allocator path, and a `ph-curves` dependency, and requires the matching
   guard — including the core-only build — to fail on the copy.
@@ -104,7 +158,7 @@
   Y-first precedence, extrapolation) are asserted to disagree with the
   accepted results on named points, and each mutation applied to `src/` fails
   the suite.
-- The `integer only` check in `scripts/ci.sh` now also greps `tests/` for
+- The `integer only` check now also scans `tests/` for
   floating-point types and literals and for `ph-curves`, so the conformance
   suite cannot acquire a float or `ph-curves` oracle.
 - Consolidated documentation for the implemented binary-lookup baseline in
@@ -201,7 +255,7 @@
   binary `ELEVATION` 5×4, tiny Linear×Linear 3×2, and a mixed
   Bucketed×Uniform 17×9 example whose index reduces the documented search
   bound) in the README and crate rustdoc, wired through the new constants.
-- `scripts/measure-code-size.sh` (not packaged) records compiler-object
+- `cargo xtask code-size` (not packaged) records compiler-object
   `.text` totals for four named single-pairing consumers on ARM and RISC-V
   with the pinned 1.94.0 toolchain. It identifies normally mangled safe Rust
   symbols with `llvm-nm --demangle`; no exported unsafe attributes are
@@ -217,9 +271,9 @@
 ### Changed
 
 - The canonical gate now includes release-profile tests and accepts a dated
-  `NIGHTLY_TOOLCHAIN` override. `REQUIRE_NO_SKIPS=1` converts every skip to a
+  `--nightly` override. The `release` profile converts every skip to a
   failure, requires clean package provenance matching `HEAD`, and prints a
-  twice-verified archive SHA-256. `SKIP_EMBEDDED=1` no longer suppresses either
+  twice-verified archive SHA-256. `--skip-embedded` no longer suppresses either
   core-only proof.
 - Removed Cargo's deprecated `authors` field so a future package does not copy
   a personal email into registry metadata. Historical Git identities are a
@@ -240,7 +294,7 @@
   after its existing boundary checks, preserving exactly two endpoint
   comparisons plus each strategy's declared probe bound.
 - Added a repository LF policy and a transition-safe code-size snapshot
-  comparison so the documented Git Bash gate is portable across Windows
+  comparison so the gate is portable across Windows
   `core.autocrlf` settings.
 - Clean package verification now removes only the exact generated destination
   archive before rebuilding and checks the archive-list command directly, so
@@ -254,5 +308,5 @@
 ### Known issues
 
 - Hosted GitHub Actions fail while the repository is private (no usable
-  hosted runner before steps run). Verification is local `./scripts/ci.sh`
+  hosted runner before steps run). Verification is local `cargo xtask ci`
   until the repository is public.

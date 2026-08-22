@@ -1,0 +1,29 @@
+# Its own workspace root, so the repository manifest never gains a
+# `[workspace]` table. Extracted from the heredoc in the retired
+# scripts/measure-code-size.sh so this code can be formatted and linted.
+[workspace]
+
+[package]
+name = "ph-surfaces-code-size"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+ph-surfaces = { path = "../.." }
+
+[features]
+pairing-binary = []
+pairing-linear = []
+pairing-mixed = []
+pairing-uniform = []
+
+[profile.release]
+opt-level = "s"
+lto = false
+codegen-units = 1
+panic = "abort"
+debug = false

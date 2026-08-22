@@ -33,7 +33,6 @@ evidence came from tests, code review, simulation, or hardware.
 The repository pins its supported Rust toolchain in `rust-toolchain.toml`.
 The complete local gate additionally needs:
 
-- Git Bash or another POSIX-compatible shell;
 - `cargo-deny`;
 - `thumbv7em-none-eabi` and `riscv32imac-unknown-none-elf`;
 - a nightly toolchain with `rust-src` for ordinary development, and a dated
@@ -46,7 +45,7 @@ Start with focused tests while developing. Before requesting review, run the
 ordinary canonical gate:
 
 ```sh
-./scripts/ci.sh
+cargo xtask ci
 ```
 
 For a Rust behavior change, also run the release profile explicitly:
@@ -60,7 +59,7 @@ describe it as a pass. Release-candidate pull requests must additionally use a
 reviewed dated nightly and provide a clean zero-skip evidence run:
 
 ```sh
-NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD REQUIRE_NO_SKIPS=1 ./scripts/ci.sh
+cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD
 ```
 
 ## Tests and evidence
@@ -71,8 +70,8 @@ NIGHTLY_TOOLCHAIN=nightly-YYYY-MM-DD REQUIRE_NO_SKIPS=1 ./scripts/ci.sh
 - Keep every Rust README block runnable; the README is included in doctests.
 - Preserve all sixteen lookup-strategy pairings and both ordinary and
   core-only embedded target builds.
-- Add a guard mutation case whenever a new source or manifest invariant is
-  added to `scripts/ci.sh`.
+- Add a guard mutation case in `tools/xtask/tests/mutation.rs` whenever a new
+  source or manifest invariant is added to `tools/xtask`.
 - Do not introduce float, allocator, host-I/O, or `ph-curves` test or example
   paths to make expected values easier to calculate.
 
