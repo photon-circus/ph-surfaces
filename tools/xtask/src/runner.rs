@@ -10,6 +10,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anstyle::{AnsiColor, Effects, Style};
 use serde::Deserialize;
 use time::Date;
 use time::macros::format_description;
@@ -135,22 +136,86 @@ impl CheckSpec {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Verdict {
+    Pass,
+    Skip,
+    Fail,
+}
+
+impl Verdict {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Pass => "PASS",
+            Self::Skip => "SKIP",
+            Self::Fail => "FAIL",
+        }
+    }
+
+    fn style(self) -> Style {
+        let color = match self {
+            Self::Pass => AnsiColor::Green,
+            Self::Skip => AnsiColor::Yellow,
+            Self::Fail => AnsiColor::Red,
+        };
+        Style::new()
+            .fg_color(Some(color.into()))
+            .effects(Effects::BOLD)
+    }
+}
+
+struct ReportLine {
+    verdict: Verdict,
+    name: String,
+    note: Option<String>,
+}
+
+impl ReportLine {
+    #[cfg(test)]
+    fn plain(&self) -> String {
+        match &self.note {
+            Some(note) => format!("  {}  {} — {note}", self.verdict.label(), self.name),
+            None => format!("  {}  {}", self.verdict.label(), self.name),
+        }
+    }
+}
+
 #[derive(Default)]
 struct Report {
-    lines: Vec<String>,
+    lines: Vec<ReportLine>,
     failed: usize,
     skipped: usize,
 }
 
 impl Report {
-    fn record(&mut self, verdict: &str, name: &str, note: &str) {
-        self.lines.push(format!("  {verdict}  {name}{note}"));
+    fn record(&mut self, verdict: Verdict, name: &str, note: Option<String>) {
+        self.lines.push(ReportLine {
+            verdict,
+            name: name.to_owned(),
+            note,
+        });
     }
 
     fn print(&self) {
-        println!("\nSummary");
+        let heading = Style::new()
+            .fg_color(Some(AnsiColor::Cyan.into()))
+            .effects(Effects::BOLD);
+        anstream::println!("\n{}Summary{}", heading.render(), heading.render_reset());
         for line in &self.lines {
-            println!("{line}");
+            let style = line.verdict.style();
+            let note = line
+                .note
+                .as_deref()
+                .map(|note| format!(" — {note}"))
+                .unwrap_or_default();
+            anstream::println!(
+                "  {}{}{}  {}{}",
+                style.render(),
+                line.verdict.label(),
+                style.render_reset(),
+                line.name,
+                note
+            );
         }
         if self.skipped > 0 {
             println!(
@@ -162,6 +227,15 @@ impl Report {
             );
         }
     }
+}
+
+fn summary_reason(reason: &str) -> String {
+    reason
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// Run the selected checks and return the process exit code.
@@ -181,15 +255,20 @@ pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) ->
         let _ = io::stdout().flush();
 
         match crate::checks::run_action(ctx, &check.action) {
-            Outcome::Pass => report.record("PASS", &check.name, ""),
+            Outcome::Pass => report.record(Verdict::Pass, &check.name, None),
             Outcome::Skip(reason) => {
+                let reason_summary = summary_reason(&reason);
                 if ctx.strict() {
                     println!("{reason}");
                     eprintln!(
                         "{} cannot be skipped in the {} profile.",
                         check.name, ctx.profile
                     );
-                    report.record("FAIL", &check.name, " (would skip)");
+                    report.record(
+                        Verdict::Fail,
+                        &check.name,
+                        Some(format!("would skip: {reason_summary}")),
+                    );
                     report.failed += 1;
                     if fail_fast {
                         report.print();
@@ -198,12 +277,12 @@ pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) ->
                     continue;
                 }
                 println!("{reason}");
-                report.record("SKIP", &check.name, "");
+                report.record(Verdict::Skip, &check.name, Some(reason_summary));
                 report.skipped += 1;
             }
             Outcome::Fail(reason) => {
                 eprintln!("{reason}");
-                report.record("FAIL", &check.name, "");
+                report.record(Verdict::Fail, &check.name, None);
                 report.failed += 1;
                 if fail_fast {
                     report.print();
@@ -229,10 +308,21 @@ pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) ->
 
 fn finish(report: &Report) -> i32 {
     if report.failed > 0 {
-        println!("\n{} check(s) failed.", report.failed);
+        let style = Verdict::Fail.style();
+        anstream::println!(
+            "\n{}{} check(s) failed.{}",
+            style.render(),
+            report.failed,
+            style.render_reset()
+        );
         return 1;
     }
-    println!("\nAll runnable checks passed.");
+    let style = Verdict::Pass.style();
+    anstream::println!(
+        "\n{}All runnable checks passed.{}",
+        style.render(),
+        style.render_reset()
+    );
     0
 }
 
@@ -307,5 +397,21 @@ mod tests {
         );
         assert!(validate_release(Profile::Full, &["fmt".into()], "nightly").is_ok());
         assert!(validate_release(Profile::Dev, &[], "nightly").is_ok());
+    }
+
+    #[test]
+    fn skip_summary_preserves_the_machine_prefix_and_explains_the_skip() {
+        let line = ReportLine {
+            verdict: Verdict::Skip,
+            name: "embedded build".to_string(),
+            note: Some(summary_reason(
+                "target is not installed\ninstall it with rustup target add",
+            )),
+        };
+
+        assert_eq!(
+            line.plain(),
+            "  SKIP  embedded build — target is not installed; install it with rustup target add"
+        );
     }
 }
