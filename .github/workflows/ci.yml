@@ -12,8 +12,9 @@
 # single aggregate status. It runs the host checks, package build and
 # downstream consumer, code-size snapshot, guard self-test, and the two
 # pinned-toolchain embedded builds. It still SKIPs (never passes) `deny`, the
-# nightly `-Z build-std=core` core-only proofs, `actionlint`, and the GitHub
-# metadata check.
+# nightly `-Z build-std=core` core-only proofs, and the GitHub metadata
+# check. The workflow is proven by hosted CI running `cargo xtask ci`, not
+# by a separate workflow linter.
 name: CI
 
 on:

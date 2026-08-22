@@ -1,6 +1,6 @@
 # cargo-deny policy for ph-surfaces.
 #
-# Run with `./scripts/ci.sh`, or directly:
+# Run with `cargo xtask ci`, or directly:
 #   cargo deny check
 #
 # The runtime graph is empty on purpose. This file is a ratchet: it fails as

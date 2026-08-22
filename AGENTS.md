@@ -12,10 +12,10 @@ nice-to-have.
 This repository contains the accepted binary-lookup baseline through issues
 #2–#8 of umbrella #1, the compile-time per-axis lookup strategies of #18,
 cross-strategy conformance and cost evidence from #19, the completed
-documentation/package-readiness gate #9, and the embedded usage guides,
-strategy cookbook, and runnable firmware examples of #22. Publishing, tagging,
-and a stable 1.0 promise are separate maintainer decisions; `publish = false`
-stays until then.
+documentation/package-readiness gate #9, the embedded usage guides,
+strategy cookbook, and runnable firmware examples of #22, and the portable
+strict release gate of #27. Publishing, tagging, and a stable 1.0 promise are
+separate maintainer decisions; `publish = false` stays until then.
 
 `README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `src/lib.rs` includes it), so a README example

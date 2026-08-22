@@ -19,8 +19,8 @@
 //! behaviour from the rejected one, and so the reader can see which
 //! implementation mistake each test would catch.
 //!
-//! No `ph-curves`, no floating point, no dependency: `scripts/ci.sh` greps
-//! this directory for both.
+//! No `ph-curves`, no floating point, no dependency: the `integer only` and
+//! `no ph-curves` checks in `cargo xtask ci` grep this directory for both.
 
 use ph_surfaces::{BilinearSurface, Boundary, BoundaryPolicy, SurfaceError};
 

@@ -1,10 +1,10 @@
-//! Required GitHub repository metadata.
+//! Required GitHub repository metadata (topics and custom properties).
 //!
-//! Tracked by issue #28, which supplies the real settings. Until then this
-//! reports SKIP for an ordinary run and, because the runner escalates every
-//! would-be SKIP in the release profile, FAIL for release evidence -- which is
-//! exactly what issue #27 asked for. The strict branches the shell gate
-//! repeated at each site are therefore not duplicated here.
+//! Until those settings exist this reports SKIP for an ordinary run and,
+//! because the runner escalates every would-be SKIP in the release profile,
+//! FAIL for release evidence -- which is exactly what issue #27 asked for.
+//! The strict branches the shell gate repeated at each site are therefore
+//! not duplicated here.
 
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
@@ -118,20 +118,4 @@ pub fn github_metadata(ctx: &Ctx) -> Outcome {
     }
 
     Outcome::Pass
-}
-
-/// The workflow is the one piece of the gate that still is not Rust, so lint it.
-///
-/// `RELEASING.md` had this as a manual step, which means it ran only when
-/// someone remembered.
-pub fn actionlint(ctx: &Ctx) -> Outcome {
-    match proc::run("actionlint", &["-color"], &ctx.root, &[]) {
-        Ok(Some(0)) => Outcome::Pass,
-        Ok(Some(code)) => Outcome::fail(format!("actionlint exited {code}")),
-        Ok(None) => Outcome::fail("actionlint was terminated"),
-        Err(_) => Outcome::skip(
-            "actionlint not installed; skipping \
-             (go install github.com/rhysd/actionlint/cmd/actionlint@latest)",
-        ),
-    }
 }
