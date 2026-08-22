@@ -3,10 +3,12 @@
 //! Issue #27 asks for cargo-deny to be pinned or recorded. A policy verdict is
 //! only evidence if the tool that produced it is identified, so the version is
 //! always printed here and logged by the release runbook's tool-version
-//! capture. It is recorded rather than pinned: with an empty dependency graph
-//! the policy has almost nothing to evaluate, and an exact-version requirement
+//! capture. It is recorded rather than pinned: the root runtime package has an
+//! empty dependency graph, so the policy has almost nothing to evaluate, and an exact-version requirement
 //! would fail release evidence on every routine cargo-deny update for zero
-//! added signal. Revisit pinning when `[dependencies]` gains its first entry.
+//! added signal. The xtask host dependencies are isolated in their own workspace
+//! and lockfile. Revisit pinning when the root `[dependencies]` gains its first
+//! entry.
 
 use crate::checks::cargo::step;
 use crate::proc;

@@ -8,8 +8,15 @@
 use std::fmt;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+use serde::Deserialize;
+use time::Date;
+use time::macros::format_description;
+
+use crate::config::{CheckSpec, Config};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deserialize)]
 pub enum Profile {
     /// The fast inner loop: source ratchets and the host contract.
     Dev,
@@ -39,24 +46,7 @@ pub fn is_dated_nightly(name: &str) -> bool {
     let Some(date) = name.strip_prefix("nightly-") else {
         return false;
     };
-    let mut parts = date.split('-');
-    let (Some(year), Some(month), Some(day), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return false;
-    };
-    year.len() == 4
-        && month.len() == 2
-        && day.len() == 2
-        && year.bytes().all(|b| b.is_ascii_digit())
-        && month
-            .parse::<u8>()
-            .ok()
-            .is_some_and(|value| (1..=12).contains(&value))
-        && day
-            .parse::<u8>()
-            .ok()
-            .is_some_and(|value| (1..=31).contains(&value))
+    date.len() == 10 && Date::parse(date, format_description!("[year]-[month]-[day]")).is_ok()
 }
 
 /// Release evidence must be a complete matrix against a reviewed dated nightly.
@@ -122,6 +112,7 @@ pub struct Ctx {
     pub profile: Profile,
     pub nightly: String,
     pub skip_embedded: bool,
+    pub config: Arc<Config>,
 }
 
 impl Ctx {
@@ -135,16 +126,10 @@ impl Ctx {
     }
 }
 
-pub struct Check {
-    pub name: &'static str,
-    pub profiles: &'static [Profile],
-    pub run: fn(&Ctx) -> Outcome,
-}
-
-impl Check {
+impl CheckSpec {
     fn selected(&self, ctx: &Ctx, only: &[String]) -> bool {
         if !only.is_empty() {
-            return only.iter().any(|wanted| wanted == self.name);
+            return only.iter().any(|wanted| wanted == &self.name);
         }
         self.profiles.contains(&ctx.profile)
     }
@@ -183,7 +168,7 @@ impl Report {
 ///
 /// Every check runs even after an earlier failure unless `fail_fast` is set,
 /// so one run reports every problem rather than only the first.
-pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32 {
+pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) -> i32 {
     let mut report = Report::default();
 
     for check in checks {
@@ -195,8 +180,8 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
         // Subprocesses inherit this stdout, so flush before they can interleave.
         let _ = io::stdout().flush();
 
-        match (check.run)(ctx) {
-            Outcome::Pass => report.record("PASS", check.name, ""),
+        match crate::checks::run_action(ctx, &check.action) {
+            Outcome::Pass => report.record("PASS", &check.name, ""),
             Outcome::Skip(reason) => {
                 if ctx.strict() {
                     println!("{reason}");
@@ -204,7 +189,7 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
                         "{} cannot be skipped in the {} profile.",
                         check.name, ctx.profile
                     );
-                    report.record("FAIL", check.name, " (would skip)");
+                    report.record("FAIL", &check.name, " (would skip)");
                     report.failed += 1;
                     if fail_fast {
                         report.print();
@@ -213,12 +198,12 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
                     continue;
                 }
                 println!("{reason}");
-                report.record("SKIP", check.name, "");
+                report.record("SKIP", &check.name, "");
                 report.skipped += 1;
             }
             Outcome::Fail(reason) => {
                 eprintln!("{reason}");
-                report.record("FAIL", check.name, "");
+                report.record("FAIL", &check.name, "");
                 report.failed += 1;
                 if fail_fast {
                     report.print();
@@ -229,7 +214,7 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
     }
 
     if !only.is_empty() {
-        let known: Vec<&str> = checks.iter().map(|check| check.name).collect();
+        let known: Vec<&str> = checks.iter().map(|check| check.name.as_str()).collect();
         for wanted in only {
             if !known.contains(&wanted.as_str()) {
                 eprintln!("no such check: {wanted}");
@@ -253,7 +238,7 @@ fn finish(report: &Report) -> i32 {
 
 /// Print the registry, so `--only` targets can be discovered without reading
 /// the source.
-pub fn list(checks: &[Check]) {
+pub fn list(checks: &[CheckSpec]) {
     for check in checks {
         let profiles: Vec<String> = check
             .profiles
@@ -296,6 +281,7 @@ mod tests {
         assert!(!is_dated_nightly("nightly-2026-00-01"));
         assert!(!is_dated_nightly("nightly-2026-01-00"));
         assert!(!is_dated_nightly("nightly-2026-01-32"));
+        assert!(!is_dated_nightly("nightly-2026-02-31"));
         assert!(!is_dated_nightly("+nightly-2026-08-08"));
         assert!(!is_dated_nightly(""));
     }

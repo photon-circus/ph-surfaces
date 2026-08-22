@@ -441,9 +441,9 @@ Active. Version `0.1.0` is published on
 [crates.io](https://crates.io/crates/ph-surfaces); API documentation is on
 [docs.rs](https://docs.rs/ph-surfaces). Compatibility follows semantic
 versioning for a pre-1.0 crate: a breaking change increments the minor
-version. There is no 1.0 compatibility promise. The
-[traceability checklist](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
-maps each contract claim to its tests and gates.
+version. There is no 1.0 compatibility promise. The maintainer-facing
+[release traceability map](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
+summarizes the implementation, tests, and gates behind the contract.
 
 ## Responsibility
 

@@ -5,15 +5,6 @@
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
 
-/// The five Cargo examples, which double as compiled documentation.
-pub const EXAMPLES: [&str; 5] = [
-    "firmware_quickstart",
-    "uniform_sensor_compensation",
-    "mixed_calibration_map",
-    "fail_safe_boundaries",
-    "firmware_cost_budget",
-];
-
 /// Run a command, inheriting stdio so its output interleaves into the run log
 /// exactly where the shell gate put it.
 pub fn step(ctx: &Ctx, program: &str, args: &[&str], env: &[(&str, &str)]) -> Outcome {
@@ -44,7 +35,7 @@ pub fn release_test(ctx: &Ctx) -> Outcome {
 }
 
 pub fn examples(ctx: &Ctx) -> Outcome {
-    for example in EXAMPLES {
+    for example in &ctx.config.examples {
         match cargo_step(ctx, &["run", "--locked", "--example", example]) {
             Outcome::Pass => continue,
             failure => return failure,

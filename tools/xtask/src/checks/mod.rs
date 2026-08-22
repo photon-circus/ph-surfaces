@@ -1,14 +1,4 @@
-//! The registry.
-//!
-//! Adding a check is one module, one row here, and one mutation case in
-//! `tests/mutation.rs`. Nothing else grows -- which is the whole point of
-//! replacing a single 1048-line script.
-//!
-//! Check names are the ones `scripts/ci.sh` printed. They appear in archived
-//! release evidence and in `--only`, so they are part of the interface.
-//!
-//! Order matters: the cheap ratchets run before anything that compiles, so an
-//! obvious violation is reported in seconds rather than after a full matrix.
+//! Check implementations and the closed dispatch from declarative actions.
 
 pub mod cargo;
 pub mod code_size;
@@ -19,144 +9,43 @@ pub mod line_endings;
 pub mod package;
 pub mod ratchets;
 
-use crate::runner::{Check, Profile};
+use crate::config::Action;
+use crate::runner::{Ctx, Outcome};
 
-const ALL: &[Profile] = &[Profile::Dev, Profile::Full, Profile::Release];
-const DEEP: &[Profile] = &[Profile::Full, Profile::Release];
+pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
+    match action {
+        Action::LineEndings => line_endings::line_endings(ctx),
+        Action::NoStdUnconditional => ratchets::no_std_unconditional(ctx),
+        Action::IntegerOnly => ratchets::integer_only(ctx),
+        Action::NoPhCurves => ratchets::no_ph_curves(ctx),
+        Action::ManifestFloor => ratchets::manifest_floor(ctx),
+        Action::Fmt => cargo::fmt(ctx),
+        Action::Test => cargo::test(ctx),
+        Action::ReleaseTest => cargo::release_test(ctx),
+        Action::Examples => cargo::examples(ctx),
+        Action::Clippy => cargo::clippy(ctx),
+        Action::Doc => cargo::doc(ctx),
+        Action::PackageList => package::package_list(ctx),
+        Action::PackageBuild => package::package_build(ctx),
+        Action::PackageProvenance => package::package_provenance(ctx),
+        Action::PackageDigest => package::package_digest(ctx),
+        Action::PackageConsumer => package::package_consumer(ctx),
+        Action::CodeSizeSnapshot => code_size::code_size_snapshot(ctx),
+        Action::GuardSelftest => guard_selftest(ctx),
+        Action::Deny => deny::deny(ctx),
+        Action::SecretScan => history::secret_scan(ctx),
+        Action::CoreOnly { target } => {
+            let triple = &ctx.config.target(target).expect("validated target").triple;
+            embedded::core_only(ctx, triple)
+        }
+        Action::EmbeddedTarget { target } => {
+            let triple = &ctx.config.target(target).expect("validated target").triple;
+            embedded::embedded_target(ctx, triple)
+        }
+    }
+}
 
-pub const CHECKS: &[Check] = &[
-    Check {
-        name: "line endings",
-        profiles: ALL,
-        run: line_endings::line_endings,
-    },
-    Check {
-        name: "no_std unconditional",
-        profiles: ALL,
-        run: ratchets::no_std_unconditional,
-    },
-    Check {
-        name: "integer only",
-        profiles: ALL,
-        run: ratchets::integer_only,
-    },
-    Check {
-        name: "no ph-curves",
-        profiles: ALL,
-        run: ratchets::no_ph_curves,
-    },
-    Check {
-        name: "manifest floor",
-        profiles: ALL,
-        run: ratchets::manifest_floor,
-    },
-    Check {
-        name: "fmt",
-        profiles: ALL,
-        run: cargo::fmt,
-    },
-    Check {
-        name: "test",
-        profiles: ALL,
-        run: cargo::test,
-    },
-    Check {
-        name: "release test",
-        profiles: DEEP,
-        run: cargo::release_test,
-    },
-    Check {
-        name: "examples",
-        profiles: DEEP,
-        run: cargo::examples,
-    },
-    Check {
-        name: "clippy",
-        profiles: ALL,
-        run: cargo::clippy,
-    },
-    Check {
-        name: "doc",
-        profiles: DEEP,
-        run: cargo::doc,
-    },
-    Check {
-        name: "package list",
-        profiles: DEEP,
-        run: package::package_list,
-    },
-    Check {
-        name: "package build",
-        profiles: DEEP,
-        run: package::package_build,
-    },
-    // Release-only on purpose. An ordinary run packages with `--allow-dirty`,
-    // so there is no provenance to verify; the shell gate reported PASS there,
-    // which claimed a check it had not performed.
-    Check {
-        name: "package provenance",
-        profiles: &[Profile::Release],
-        run: package::package_provenance,
-    },
-    Check {
-        name: "package digest",
-        profiles: DEEP,
-        run: package::package_digest,
-    },
-    Check {
-        name: "package consumer",
-        profiles: DEEP,
-        run: package::package_consumer,
-    },
-    Check {
-        name: "code size snapshot",
-        profiles: DEEP,
-        run: code_size::code_size_snapshot,
-    },
-    Check {
-        name: "guards fire on mutation",
-        profiles: DEEP,
-        run: guard_selftest,
-    },
-    Check {
-        name: "deny",
-        profiles: DEEP,
-        run: deny::deny,
-    },
-    Check {
-        name: "secret scan",
-        profiles: DEEP,
-        run: history::secret_scan,
-    },
-    Check {
-        name: "core-only thumbv7em-none-eabi",
-        profiles: DEEP,
-        run: embedded::core_only_thumbv7em,
-    },
-    Check {
-        name: "core-only riscv32imac-unknown-none-elf",
-        profiles: DEEP,
-        run: embedded::core_only_riscv32imac,
-    },
-    Check {
-        name: "thumbv7em-none-eabi",
-        profiles: DEEP,
-        run: embedded::thumbv7em,
-    },
-    Check {
-        name: "riscv32imac-unknown-none-elf",
-        profiles: DEEP,
-        run: embedded::riscv32imac,
-    },
-];
-
-/// Every guard is shown to fail on a mutated copy of the tree.
-///
-/// A guard that has never been seen to fail is not evidence. These are ordinary
-/// `#[test]`s in `tools/xtask/tests/mutation.rs`, not a bespoke shell harness.
-/// The separate target directory keeps this from relinking the `xtask` binary
-/// that is currently running it.
-fn guard_selftest(ctx: &crate::runner::Ctx) -> crate::runner::Outcome {
+fn guard_selftest(ctx: &Ctx) -> Outcome {
     let target_dir = ctx.path("target/xt/selftest");
     let target_dir = target_dir.display().to_string();
     cargo::step(
