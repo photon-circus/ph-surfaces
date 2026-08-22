@@ -21,8 +21,8 @@ use crate::boundary::BoundaryPolicy;
 ///
 /// The last two type parameters select how each axis locates a coordinate, and
 /// they default to [`BinaryAxis`] — the general-purpose choice, and the only one
-/// [`BilinearSurface::new`] can produce. `BilinearSurface<NX, NY>` therefore
-/// means the binary-knotted surface it has always meant.
+/// [`BilinearSurface::new`] can produce. `BilinearSurface<NX, NY>` is therefore
+/// the binary-knotted surface.
 ///
 /// A firmware that wants a different trade names it in the type and builds the
 /// surface with [`BilinearSurface::from_axes`]: [`LinearAxis`](crate::LinearAxis)

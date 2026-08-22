@@ -8,9 +8,11 @@ Follow Cargo's official
 for registry mechanics; this runbook adds the repository's stricter evidence
 and sequencing rules.
 
-The first intended release is the lifecycle prerelease
-`0.1.0-incubating.1`, tagged `v0.1.0-incubating.1`. Publication does not promote
-the repository from Incubating or make a 1.0 compatibility promise.
+The first intended release is ordinary SemVer `0.1.0`, tagged `v0.1.0`, with
+repository lifecycle **Active**. Human- and agent-facing documentation already
+describes that destination. This runbook is how the crate version, `publish`
+setting, changelog heading, GitHub metadata, tag, and upload catch up. There
+is no 1.0 compatibility promise.
 
 ## Roles
 
@@ -24,7 +26,7 @@ the repository from Incubating or make a 1.0 compatibility promise.
 The release operator and evidence reviewer should be different people whenever
 practical.
 
-## 1. Assemble privately
+## 1. Assemble the release branch
 
 Create `release/<full-semver>` from the intended `main` commit and open a draft
 merge-back pull request. Keep later development out of the release branch.
@@ -33,7 +35,8 @@ Before changing visibility or publishing, require:
 
 - every release-blocking issue closed or explicitly dispositioned;
 - public API and documentation reviewed for the release profile;
-- repository-specific contribution, conduct, and release guidance present;
+- repository-specific contribution, conduct, security, and release guidance
+  present;
 - a completed full-history secret, identity, integrity, and size review;
 - installed GitHub Apps reviewed and restricted;
 - explicit approval for every identity that will become public in Git history.
@@ -45,24 +48,18 @@ evidence from the resulting commit.
 
 For the release commit:
 
-- keep the selected exact prerelease version;
+- set `version = "0.1.0"` in `Cargo.toml`;
 - replace `publish = false` with `publish = ["crates-io"]`;
 - do not restore the deprecated Cargo `authors` field;
 - add `documentation = "https://docs.rs/ph-surfaces"`;
-- add this exact-version dependency example to the README:
-
-  ```toml
-  [dependencies]
-  ph-surfaces = "=0.1.0-incubating.1"
-  ```
-
-- change repository guide links in the packaged README to immutable links under
-  the matching tag, or deliberately package those guides and update the exact
-  file allowlist;
-- move accumulated changelog entries into
-  `## <version> - YYYY-MM-DD`, retaining an `Unreleased` section;
-- update README status, crate docs, traceability, `AGENTS.md`, and manifest/CI
-  assertions together.
+- pin unpackaged README guide links from `blob/main/` to immutable
+  `blob/v0.1.0/` URLs (do not package `docs/`);
+- move accumulated changelog entries into `## 0.1.0 - YYYY-MM-DD` (UTC),
+  retaining an empty `Unreleased` section and a value statement under the
+  release heading;
+- update `PACKAGE_VERSION` and the Cargo.toml version/`publish` assertions in
+  `tools/xtask/src/checks/`, and set `LIFECYCLE` in
+  `tools/xtask/src/checks/metadata.rs` to `Active`.
 
 The changelog release section must state the user value, important constraints,
 known issues, and any breaking change explicitly.
@@ -72,7 +69,7 @@ known issues, and any breaking change explicitly.
 Only after the history/app review passes, make the repository public and set:
 
 ```text
-Lifecycle=Incubating
+Lifecycle=Active
 Domain=Libraries
 topics: rust, embedded, no-std, no-alloc, interpolation
 ```
@@ -80,7 +77,8 @@ topics: rust, embedded, no-std, no-alloc, interpolation
 Enable appropriate dependency, secret, and code-security features. Enable
 bounded `pull_request` and `push`-to-`main` CI, obtain one green aggregate `ci`
 check on the exact release commit, and protect `main` according to the
-organization standard before upload.
+organization standard before upload. Do not enable those triggers while the
+repository is still private.
 
 ## 4. Run the final clean matrix
 
@@ -143,8 +141,8 @@ stops the release.
 Create an annotated tag on the verified commit:
 
 ```sh
-git tag -a v0.1.0-incubating.1 -m "ph-surfaces 0.1.0-incubating.1"
-git rev-parse 'v0.1.0-incubating.1^{}'
+git tag -a v0.1.0 -m "ph-surfaces 0.1.0"
+git rev-parse 'v0.1.0^{}'
 ```
 
 Require the resolved commit to equal the evidence SHA, then push the tag. Never
@@ -183,14 +181,14 @@ Verify the durable crates.io artifact before announcing it:
 3. Reinspect its files and `.cargo_vcs_info.json`.
 4. Wait for docs.rs and verify its build log, public items, version, and links.
 5. Create a fresh downstream crate using the exact registry dependency
-   `ph-surfaces = "=0.1.0-incubating.1"` with no path override.
+   `ph-surfaces = "=0.1.0"` with no path override.
 6. Run host, ARM, RISC-V, and both core-only builds and instantiate all sixteen
    strategy pairings.
 
 Only then create the GitHub Release from the existing tag, use the matching
-changelog section as release notes, and mark it as a prerelease. Merge the
-release branch back promptly, reopen `Unreleased`, and remove the completed
-release branch.
+changelog section as release notes, and do **not** mark it as a prerelease.
+Merge the release branch back promptly, reopen `Unreleased`, and remove the
+completed release branch.
 
 ## Rollback and replacement
 
@@ -205,14 +203,14 @@ tag.
 
 Crates.io versions are permanent records. Do not overwrite, delete, or retarget
 the package or tag. Record the defect, yank the affected version so new
-resolution avoids it, and publish the next prerelease (for this release,
-`0.1.0-incubating.2`) from a new commit, matrix, tag, checksum, and GitHub
-prerelease.
+resolution avoids it, and publish the next version from a new commit, matrix,
+tag, checksum, and GitHub Release. A patch uses `0.1.1`. A pre-1.0 breaking
+change uses `0.2.0`.
 
 The following is the documented operator command and is not a test command:
 
 ```sh
-cargo yank --version 0.1.0-incubating.1 ph-surfaces
+cargo yank --version 0.1.0 ph-surfaces
 ```
 
 Yanking does not delete the artifact and does not break existing lockfiles.

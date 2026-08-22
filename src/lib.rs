@@ -2,20 +2,18 @@
 //!
 //! # Status
 //!
-//! **Lifecycle:** Incubating. **Distribution:** unpublished (`publish = false`),
-//! version `0.1.0-incubating.1`. This crate exposes the validated static
-//! representation [`BilinearSurface`], its evaluator
-//! [`BilinearSurface::evaluate`], the boundary policy vocabulary
+//! **Lifecycle:** Active. **Distribution:** published at version `0.1.0` on
+//! [crates.io](https://crates.io/crates/ph-surfaces), with API documentation on
+//! [docs.rs](https://docs.rs/ph-surfaces). The API is intentionally narrow.
+//! There is no 1.0 compatibility promise.
+//!
+//! This crate provides the validated static representation [`BilinearSurface`],
+//! its evaluator [`BilinearSurface::evaluate`], the boundary policy vocabulary
 //! ([`Boundary`], [`BoundaryPolicy`]), the out-of-domain outcome type
 //! ([`SurfaceError`]), and the four compile-time axis lookup strategies
 //! ([`LinearAxis`], [`BinaryAxis`], [`UniformAxis`], [`BucketedAxis`]) behind
-//! the sealed [`AxisLookup`] and [`KnotArray`] traits. Scalar interpolation
-//! remains private. Cross-strategy conformance, the const cost API, the
-//! selection matrix, and a labelled code-size snapshot (#19) have landed. The
-//! documentation/package gate (#9) is closed. Embedded usage guides, the
-//! strategy cookbook, and runnable firmware examples (#22) have landed.
-//! Publishing, tagging, and a stable 1.0 promise remain separate maintainer
-//! decisions.
+//! the sealed [`AxisLookup`] and [`KnotArray`] traits. Scalar interpolation is
+//! private.
 //!
 //! Firmware-first usage lives in the packaged README ("Start here") and the
 //! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
@@ -24,9 +22,9 @@
 //! under `docs/` (usage, interpolation walkthrough, choosing a strategy);
 //! those files are not part of the crate artifact.
 //!
-//! The accepted v0.1 destination is a static rectilinear `u16 × u16 → i32`
+//! A `BilinearSurface` evaluates a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four
-//! independent Error/Clamp boundary sides, with each axis selecting its lookup
+//! independent Error/Clamp boundary sides. Each axis selects its lookup
 //! strategy at compile time.
 //!
 //! # Evaluation contract
@@ -66,8 +64,8 @@
 //!
 //! **Lookup strategies.** Each axis selects how it locates a coordinate, in the
 //! type, and the two axes select independently. [`BinaryAxis`] is the default,
-//! so `BilinearSurface<NX, NY>` and [`BilinearSurface::new`] mean the
-//! binary-knotted surface they have always meant. [`LinearAxis`] scans a small
+//! so `BilinearSurface<NX, NY>` and [`BilinearSurface::new`] are the
+//! binary-knotted surface. [`LinearAxis`] scans a small
 //! axis, [`UniformAxis`] describes evenly spaced knots by origin, step, and
 //! count instead of storing them, and [`BucketedAxis`] adds a static bucket
 //! index — built at compile time by [`bucket_index`] — that bounds the local
