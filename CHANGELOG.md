@@ -187,9 +187,9 @@
   `SKIP`, not `PASS`, if either target is unavailable. `package list`
   additionally rejects `docs/` and `tests/` from the archive.
 - `docs/v0.1-traceability.md`: an interim traceability checklist for the
-  implemented binary baseline and the remaining #22, #26, and #27 acceptance
-  work. It records #18 and #19 as implemented and #9 as closed. It remains
-  repository material and is not packaged.
+  implemented binary baseline and the remaining #22 and #27 acceptance
+  work (#26 is closed). It records #18 and #19 as implemented and #9 as
+  closed. It remains repository material and is not packaged.
 - Public compile-time per-axis lookup strategies in `src/axis/`: `LinearAxis<N>`
   (stored knots, bounded scan, at most `N - 1` comparisons), `BinaryAxis<N>`
   (stored knots, exactly `ceil(log2(N))` comparisons, and still the default),
