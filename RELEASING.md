@@ -127,7 +127,9 @@ rustup target add --toolchain 1.94.0 \
   rustup target list --toolchain 1.94.0 --installed
 } | tee target/release-tool-versions.log
 cargo xtask ci --profile release --nightly nightly-2026-08-08 2>&1 | tee target/release-ci.log
-! grep -Eq '^  (FAIL|SKIP)  ' target/release-ci.log
+grep -Eq '^Summary[[:space:]]*$' target/release-ci.log
+! awk '/^Summary[[:space:]]*$/ { block = ""; capture = 1 } capture { block = block $0 ORS } END { printf "%s", block }' \
+    target/release-ci.log | grep -Eq '^  (FAIL|SKIP)  '
 cargo test --locked --release
 cargo deny check
 cargo tree --locked --edges all
