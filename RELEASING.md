@@ -92,13 +92,12 @@ gh api repos/photon-circus/ph-surfaces --jq '.topics'
 gh api repos/photon-circus/ph-surfaces/properties/values
 ```
 
-Enable appropriate dependency, secret, and code-security features. Enabling
-hosted CI is a file edit, not only a settings action: add bounded
-`pull_request` and `push`-to-`main` triggers to `.github/workflows/ci.yml`
-(currently `workflow_dispatch` only, by design while private). Obtain one
-green aggregate `ci` check on the exact release commit, and protect `main`
-according to the organization standard before upload. Do not enable those
-triggers while the repository is still private.
+Enable appropriate dependency, secret, and code-security features. The public
+`.github/workflows/ci.yml` must keep bounded `pull_request`, `push`-to-`main`,
+and manual triggers, and must call the canonical `cargo xtask ci` entry point.
+Obtain one green aggregate `ci` check on the exact release commit, and protect
+`main` according to the organization standard before upload. Do not enable the
+automatic triggers while the repository is still private.
 
 ## 4. Run the final clean matrix
 
