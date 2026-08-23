@@ -5,7 +5,7 @@
 //! before Y, so an X error wins when both inputs are invalid, and a clamped X
 //! still lets Y error. Clamp never extrapolates: it evaluates the endpoint
 //! cell. See the interpolation walkthrough (not packaged):
-//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/interpolation-walkthrough.md>.
+//! <https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md>.
 //!
 //! Host `main` is an assertion harness. Declarations are `static` and
 //! `core`-compatible.

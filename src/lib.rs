@@ -20,9 +20,9 @@
 //! `mixed_calibration_map`, `fail_safe_boundaries`, and
 //! `firmware_cost_budget`. The repository also carries task-oriented guides
 //! that are not part of the crate artifact:
-//! [usage](https://github.com/photon-circus/ph-surfaces/blob/main/docs/usage-guide.md),
-//! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/main/docs/interpolation-walkthrough.md),
-//! and [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md).
+//! [usage](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md),
+//! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md),
+//! and [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md).
 //!
 //! A `BilinearSurface` evaluates a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four

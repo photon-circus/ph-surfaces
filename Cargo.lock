@@ -4,4 +4,4 @@ version = 4
 
 [[package]]
 name = "ph-surfaces"
-version = "0.1.0-incubating.1"
+version = "0.1.0"

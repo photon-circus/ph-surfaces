@@ -1,9 +1,9 @@
 //! The check registry protocol and the aggregate report.
 //!
-//! `RELEASING.md` asserts `! grep -Eq '^  (FAIL|SKIP)  ' target/release-ci.log`
-//! against a teed run, so the two-leading-space summary lines below are a
-//! machine-read contract, not cosmetics. Reformatting them silently disarms the
-//! release gate.
+//! `RELEASING.md` extracts the last `Summary` block from a teed run and rejects
+//! `FAIL` or `SKIP` rows there, so the heading and two-leading-space summary
+//! lines below are a machine-read contract, not cosmetics. Reformatting them
+//! silently disarms the release gate.
 
 use std::fmt;
 use std::io::{self, Write};

@@ -92,13 +92,12 @@ gh api repos/photon-circus/ph-surfaces --jq '.topics'
 gh api repos/photon-circus/ph-surfaces/properties/values
 ```
 
-Enable appropriate dependency, secret, and code-security features. Enabling
-hosted CI is a file edit, not only a settings action: add bounded
-`pull_request` and `push`-to-`main` triggers to `.github/workflows/ci.yml`
-(currently `workflow_dispatch` only, by design while private). Obtain one
-green aggregate `ci` check on the exact release commit, and protect `main`
-according to the organization standard before upload. Do not enable those
-triggers while the repository is still private.
+Enable appropriate dependency, secret, and code-security features. The public
+`.github/workflows/ci.yml` must keep bounded `pull_request`, `push`-to-`main`,
+and manual triggers, and must call the canonical `cargo xtask ci` entry point.
+Obtain one green aggregate `ci` check on the exact release commit, and protect
+`main` according to the organization standard before upload. Do not enable the
+automatic triggers while the repository is still private.
 
 ## 4. Run the final clean matrix
 
@@ -127,11 +126,13 @@ rustup target add --toolchain 1.94.0 \
   rustup target list --toolchain 1.94.0 --installed
 } | tee target/release-tool-versions.log
 cargo xtask ci --profile release --nightly nightly-2026-08-08 2>&1 | tee target/release-ci.log
-! grep -Eq '^  (FAIL|SKIP)  ' target/release-ci.log
+grep -Eq '^Summary[[:space:]]*$' target/release-ci.log
+! awk '/^Summary[[:space:]]*$/ { block = ""; capture = 1 } capture { block = block $0 ORS } END { printf "%s", block }' \
+    target/release-ci.log | grep -Eq '^  (FAIL|SKIP)  '
 cargo test --locked --release
 cargo deny check
 cargo tree --locked --edges all
-gitleaks git . --redact
+gitleaks git . --redact --log-opts=--all
 git fsck --full
 git-sizer --verbose
 cargo package --locked

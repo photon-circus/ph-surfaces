@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0 - 2026-08-23
+
 Evaluate a static rectilinear `u16 × u16 → i32` surface on embedded firmware
 with deterministic X-then-Y bilinear interpolation, four independent
 Error/Clamp boundary sides, and a compile-time lookup strategy per axis. The

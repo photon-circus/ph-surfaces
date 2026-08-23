@@ -6,8 +6,8 @@
 //! or linked binary size. `HANDLE_BYTES` is `size_of` on this host and must be
 //! re-read on the firmware target. See the usage guide §10–11 and the
 //! strategy guide (neither is packaged):
-//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/usage-guide.md>,
-//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md>.
+//! <https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md>,
+//! <https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md>.
 //!
 //! Host `main` is an assertion harness. Declarations are `static` and
 //! `core`-compatible.

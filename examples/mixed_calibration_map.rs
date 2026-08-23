@@ -5,7 +5,7 @@
 //! arithmetic progression, so Uniform drops its knot array. Changing these
 //! strategies cannot change a value or an error. The nested-index tuning that
 //! selected `B = 8` is in the strategy guide (not packaged):
-//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md>.
+//! <https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md>.
 //!
 //! Host `main` is an assertion harness. Declarations are `static` and
 //! `core`-compatible. Comparison counts are operation structure, not cycles.

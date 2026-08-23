@@ -2,9 +2,9 @@
     schema_version: 1,
     package: (
         name: "ph-surfaces",
-        version: "0.1.0-incubating.1",
+        version: "0.1.0",
         manifest: (
-            publish: "false",
+            publish: "[\"crates-io\"]",
             license: "MIT",
             edition: "2024",
             rust_version: "1.94.0",

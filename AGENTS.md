@@ -157,10 +157,10 @@ that needs an optional tool or target reports `SKIP`, with the reason, rather
 than passing.
 
 Hosted GitHub Actions run a bounded contributor subset. Local `cargo xtask ci`
-remains the complete gate. Do not enable `pull_request` / `push` triggers while
-the repository is still private: those runs fail before any step starts, and a
-red hosted check is not a local-CI failure. Do not treat a missing or failed
-hosted run as a local-CI failure.
+remains the complete gate. The public workflow runs on pull requests and pushes
+to `main`, calls that same xtask entry point, and exposes one aggregate `ci`
+result for branch protection. A hosted failure must be resolved even though the
+bounded hosted subset is not the complete release evidence.
 
 ## Coupled edits
 

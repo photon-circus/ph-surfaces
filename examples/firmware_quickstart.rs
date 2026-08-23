@@ -4,7 +4,7 @@
 //! index bytes, exact `ceil(log2(N))` probes per axis. This table is tiny, so
 //! Linear would store the same knots; choosing between them is a target-code
 //! question, not a payload one. See the strategy guide (not packaged):
-//! <https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md>.
+//! <https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md>.
 //!
 //! Host `main` is an assertion harness. The declarations are `static` and
 //! `core`-compatible: no heap, no I/O, no cache, no runtime table construction.

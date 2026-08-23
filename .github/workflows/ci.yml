@@ -1,12 +1,3 @@
-# Known gap: GitHub-hosted Actions fail on this private repository before
-# any step runs. Do not restore `pull_request` / `push` triggers until the
-# repository is public. Local `cargo xtask ci` is the verification entry
-# point and remains authoritative.
-#
-# `workflow_dispatch` is kept so the subset job can be turned on by hand
-# after the repo is public, or to confirm the gap. A failed manual run is
-# not a local-CI failure.
-#
 # This is a bounded subset of the local gate: least privilege, a job timeout,
 # cancellation of superseded runs, SHA-pinned actions, and one job as the
 # single aggregate status. It runs the host checks, package build and
@@ -17,6 +8,9 @@
 name: CI
 
 on:
+  pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:

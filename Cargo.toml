@@ -1,15 +1,16 @@
 [package]
 name = "ph-surfaces"
-version = "0.1.0-incubating.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.94.0"
 description = "Deterministic no-std, no-alloc integer surface mappings for embedded Rust"
 license = "MIT"
 repository = "https://github.com/photon-circus/ph-surfaces"
+documentation = "https://docs.rs/ph-surfaces"
 readme = "README.md"
 keywords = ["no-std", "no-alloc", "embedded", "interpolation"]
 categories = ["no-std", "no-std::no-alloc", "embedded", "mathematics"]
-publish = false
+publish = ["crates-io"]
 
 # Allowlist, not a denylist: anything new stays out of the packaged crate until
 # it is added here on purpose. Agent notes, CI, and deny config must not ship.
