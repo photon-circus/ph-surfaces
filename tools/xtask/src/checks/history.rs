@@ -53,5 +53,10 @@ pub fn secret_scan(ctx: &Ctx) -> Outcome {
     };
     println!("tool: gitleaks {version}");
 
-    step(ctx, "gitleaks", &["git", ".", "--redact"], &[])
+    step(
+        ctx,
+        "gitleaks",
+        &["git", ".", "--redact", "--log-opts=--all"],
+        &[],
+    )
 }

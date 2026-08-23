@@ -131,7 +131,7 @@ cargo xtask ci --profile release --nightly nightly-2026-08-08 2>&1 | tee target/
 cargo test --locked --release
 cargo deny check
 cargo tree --locked --edges all
-gitleaks git . --redact
+gitleaks git . --redact --log-opts=--all
 git fsck --full
 git-sizer --verbose
 cargo package --locked

@@ -321,6 +321,23 @@ fn a_planted_secret_is_rejected() {
     }
 
     let root = tracked_copy("secret");
+    init_repository(&root);
+    let initial_branch = Command::new("git")
+        .args(["branch", "--show-current"])
+        .current_dir(&root)
+        .output()
+        .expect("git could not identify the initial branch");
+    assert!(initial_branch.status.success());
+    let initial_branch = String::from_utf8(initial_branch.stdout)
+        .expect("branch name was not UTF-8")
+        .trim()
+        .to_string();
+    let status = Command::new("git")
+        .args(["switch", "--quiet", "--create", "secret-ref"])
+        .current_dir(&root)
+        .status()
+        .expect("git could not create the secret-only ref");
+    assert!(status.success());
     // A shaped-and-random token, so both the pattern rule and its entropy
     // requirement are met. It is not a real credential, and it is assembled
     // at runtime so the token never appears in this repository's own history,
@@ -328,7 +345,35 @@ fn a_planted_secret_is_rejected() {
     let token = format!("ghp_{}{}", "wWPw5k4aXcZcnwHq1FqF", "q7BdkS9AqPqm2eKv");
     fs::write(root.join("leaked.env"), format!("GITHUB_TOKEN={token}\n"))
         .expect("could not plant the secret");
-    init_repository(&root);
+    for args in [
+        vec!["add", "--all"],
+        vec![
+            "-c",
+            "user.email=selftest@example.invalid",
+            "-c",
+            "user.name=selftest",
+            "commit",
+            "--quiet",
+            "--message=secret-only-ref",
+        ],
+    ] {
+        let status = Command::new("git")
+            .args(&args)
+            .current_dir(&root)
+            .status()
+            .expect("git could not commit the secret-only ref");
+        assert!(status.success(), "git {args:?} failed");
+    }
+    let status = Command::new("git")
+        .args(["switch", "--quiet", &initial_branch])
+        .current_dir(&root)
+        .status()
+        .expect("git could not return to the clean branch");
+    assert!(status.success());
+    assert!(
+        !root.join("leaked.env").exists(),
+        "the secret must be reachable only from the non-HEAD ref"
+    );
 
     assert_fires(
         "secret",
