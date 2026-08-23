@@ -4,6 +4,29 @@
 
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct CoverageReport {
+    data: Vec<CoverageData>,
+}
+
+#[derive(Deserialize)]
+struct CoverageData {
+    totals: CoverageTotals,
+}
+
+#[derive(Deserialize)]
+struct CoverageTotals {
+    lines: CoverageMetric,
+    regions: CoverageMetric,
+    functions: CoverageMetric,
+}
+
+#[derive(Deserialize)]
+struct CoverageMetric {
+    percent: f64,
+}
 
 /// Run a command, inheriting stdio so its output interleaves into the run log
 /// exactly where the shell gate put it.
@@ -37,7 +60,7 @@ pub fn release_test(ctx: &Ctx) -> Outcome {
 pub fn examples(ctx: &Ctx) -> Outcome {
     for example in &ctx.config.examples {
         match cargo_step(ctx, &["run", "--locked", "--example", example]) {
-            Outcome::Pass => continue,
+            Outcome::Pass | Outcome::PassWithNote(_) => continue,
             failure => return failure,
         }
     }
@@ -80,8 +103,48 @@ pub fn coverage(ctx: &Ctx) -> Outcome {
     };
     println!("tool: {version}");
 
-    cargo_step(
+    match cargo_step(
         ctx,
         &["llvm-cov", "--locked", "--all-targets", "--summary-only"],
-    )
+    ) {
+        Outcome::Pass => coverage_totals(ctx, &cargo),
+        outcome => outcome,
+    }
+}
+
+fn coverage_totals(ctx: &Ctx, cargo: &str) -> Outcome {
+    let output = match proc::capture(
+        cargo,
+        &["llvm-cov", "report", "--json", "--summary-only"],
+        &ctx.root,
+    ) {
+        Ok(output) if output.ok() => output,
+        Ok(output) => {
+            return Outcome::fail(format!(
+                "coverage tests passed but the summary report failed: {}",
+                output.stderr.trim()
+            ));
+        }
+        Err(error) => {
+            return Outcome::fail(format!(
+                "coverage tests passed but the summary report could not run: {error}"
+            ));
+        }
+    };
+    let report: CoverageReport = match serde_json::from_str(&output.stdout) {
+        Ok(report) => report,
+        Err(error) => {
+            return Outcome::fail(format!(
+                "coverage tests passed but the summary report was invalid: {error}"
+            ));
+        }
+    };
+    let Some(totals) = report.data.first().map(|data| &data.totals) else {
+        return Outcome::fail("coverage tests passed but the summary report had no totals");
+    };
+
+    Outcome::pass_with_note(format!(
+        "lines {:.2}%, regions {:.2}%, functions {:.2}%",
+        totals.lines.percent, totals.regions.percent, totals.functions.percent
+    ))
 }

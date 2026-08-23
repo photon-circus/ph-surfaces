@@ -85,7 +85,9 @@ fn assert_fires(case: &str, name: &str, outcome: Outcome) {
                 "{case}: guard \"{name}\" fired without saying why"
             );
         }
-        Outcome::Pass => panic!("{case}: guard \"{name}\" did NOT fire"),
+        Outcome::Pass | Outcome::PassWithNote(_) => {
+            panic!("{case}: guard \"{name}\" did NOT fire")
+        }
         Outcome::Skip(reason) => {
             panic!("{case}: guard \"{name}\" skipped instead of firing: {reason}")
         }
@@ -382,7 +384,9 @@ fn a_shallow_repository_cannot_claim_a_full_history_scan() {
             reason.contains("shallow"),
             "shallow repository skipped for the wrong reason: {reason}"
         ),
-        Outcome::Pass => panic!("shallow repository passed the full-history secret scan"),
+        Outcome::Pass | Outcome::PassWithNote(_) => {
+            panic!("shallow repository passed the full-history secret scan")
+        }
         Outcome::Fail(reason) => panic!("ordinary profile failed instead of skipping: {reason}"),
     }
 }

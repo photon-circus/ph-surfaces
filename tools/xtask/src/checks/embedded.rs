@@ -37,7 +37,7 @@ pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
         &["build", "--target", target, "--locked"],
         &[],
     ) {
-        Outcome::Pass => {}
+        Outcome::Pass | Outcome::PassWithNote(_) => {}
         failure => return failure,
     }
     step(

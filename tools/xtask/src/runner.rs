@@ -89,11 +89,16 @@ impl fmt::Display for Profile {
 /// the shell gate's bare `return 2` could not.
 pub enum Outcome {
     Pass,
+    PassWithNote(String),
     Skip(String),
     Fail(String),
 }
 
 impl Outcome {
+    pub fn pass_with_note(note: impl Into<String>) -> Self {
+        Self::PassWithNote(note.into())
+    }
+
     pub fn skip(reason: impl Into<String>) -> Self {
         Self::Skip(reason.into())
     }
@@ -261,6 +266,9 @@ pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) ->
 
         match crate::checks::run_action(ctx, &check.action) {
             Outcome::Pass => report.record(Verdict::Pass, &check.name, None),
+            Outcome::PassWithNote(note) => {
+                report.record(Verdict::Pass, &check.name, Some(summary_reason(&note)));
+            }
             Outcome::Skip(reason) => {
                 let reason_summary = summary_reason(&reason);
                 if ctx.strict() {
