@@ -11,8 +11,8 @@ edition = "2024"
 rust-version = "1.94.0"
 publish = false
 
-# The crate under test proves dependency independence. The gate that proves it
-# holds itself to the same standard: no third-party crates, ever.
+# Host tooling is isolated from the dependency-free runtime crate and locked
+# independently in tools/xtask/Cargo.lock.
 [lib]
 name = "xtask"
 path = "src/lib.rs"
@@ -22,3 +22,18 @@ name = "xtask"
 path = "src/main.rs"
 
 [dependencies]
+anstream = "1.0.0"
+anstyle = "1.0.14"
+cargo_metadata = "0.23.1"
+clap = { version = "4.6.6", features = ["derive"] }
+hex = "0.4.3"
+proc-macro2 = "1.0.107"
+ron = "0.12.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+similar = "3.2.0"
+syn = { version = "3.0.3", features = ["full", "visit"] }
+time = { version = "0.3.55", features = ["macros", "parsing"] }
+toml = "1.1.4"
+walkdir = "2.5.0"

@@ -8,8 +8,16 @@
 use std::fmt;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+use anstyle::{AnsiColor, Effects, Style};
+use serde::Deserialize;
+use time::Date;
+use time::macros::format_description;
+
+use crate::config::{CheckSpec, Config, OptIn};
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deserialize)]
 pub enum Profile {
     /// The fast inner loop: source ratchets and the host contract.
     Dev,
@@ -39,24 +47,7 @@ pub fn is_dated_nightly(name: &str) -> bool {
     let Some(date) = name.strip_prefix("nightly-") else {
         return false;
     };
-    let mut parts = date.split('-');
-    let (Some(year), Some(month), Some(day), None) =
-        (parts.next(), parts.next(), parts.next(), parts.next())
-    else {
-        return false;
-    };
-    year.len() == 4
-        && month.len() == 2
-        && day.len() == 2
-        && year.bytes().all(|b| b.is_ascii_digit())
-        && month
-            .parse::<u8>()
-            .ok()
-            .is_some_and(|value| (1..=12).contains(&value))
-        && day
-            .parse::<u8>()
-            .ok()
-            .is_some_and(|value| (1..=31).contains(&value))
+    date.len() == 10 && Date::parse(date, format_description!("[year]-[month]-[day]")).is_ok()
 }
 
 /// Release evidence must be a complete matrix against a reviewed dated nightly.
@@ -98,11 +89,16 @@ impl fmt::Display for Profile {
 /// the shell gate's bare `return 2` could not.
 pub enum Outcome {
     Pass,
+    PassWithNote(String),
     Skip(String),
     Fail(String),
 }
 
 impl Outcome {
+    pub fn pass_with_note(note: impl Into<String>) -> Self {
+        Self::PassWithNote(note.into())
+    }
+
     pub fn skip(reason: impl Into<String>) -> Self {
         Self::Skip(reason.into())
     }
@@ -122,6 +118,8 @@ pub struct Ctx {
     pub profile: Profile,
     pub nightly: String,
     pub skip_embedded: bool,
+    pub coverage: bool,
+    pub config: Arc<Config>,
 }
 
 impl Ctx {
@@ -135,37 +133,99 @@ impl Ctx {
     }
 }
 
-pub struct Check {
-    pub name: &'static str,
-    pub profiles: &'static [Profile],
-    pub run: fn(&Ctx) -> Outcome,
-}
-
-impl Check {
+impl CheckSpec {
     fn selected(&self, ctx: &Ctx, only: &[String]) -> bool {
         if !only.is_empty() {
-            return only.iter().any(|wanted| wanted == self.name);
+            return only.iter().any(|wanted| wanted == &self.name);
         }
         self.profiles.contains(&ctx.profile)
+            && match self.opt_in {
+                None => true,
+                Some(OptIn::Coverage) => ctx.coverage,
+            }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Verdict {
+    Pass,
+    Skip,
+    Fail,
+}
+
+impl Verdict {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Pass => "PASS",
+            Self::Skip => "SKIP",
+            Self::Fail => "FAIL",
+        }
+    }
+
+    fn style(self) -> Style {
+        let color = match self {
+            Self::Pass => AnsiColor::Green,
+            Self::Skip => AnsiColor::Yellow,
+            Self::Fail => AnsiColor::Red,
+        };
+        Style::new()
+            .fg_color(Some(color.into()))
+            .effects(Effects::BOLD)
+    }
+}
+
+struct ReportLine {
+    verdict: Verdict,
+    name: String,
+    note: Option<String>,
+}
+
+impl ReportLine {
+    #[cfg(test)]
+    fn plain(&self) -> String {
+        match &self.note {
+            Some(note) => format!("  {}  {} — {note}", self.verdict.label(), self.name),
+            None => format!("  {}  {}", self.verdict.label(), self.name),
+        }
     }
 }
 
 #[derive(Default)]
 struct Report {
-    lines: Vec<String>,
+    lines: Vec<ReportLine>,
     failed: usize,
     skipped: usize,
 }
 
 impl Report {
-    fn record(&mut self, verdict: &str, name: &str, note: &str) {
-        self.lines.push(format!("  {verdict}  {name}{note}"));
+    fn record(&mut self, verdict: Verdict, name: &str, note: Option<String>) {
+        self.lines.push(ReportLine {
+            verdict,
+            name: name.to_owned(),
+            note,
+        });
     }
 
     fn print(&self) {
-        println!("\nSummary");
+        let heading = Style::new()
+            .fg_color(Some(AnsiColor::Cyan.into()))
+            .effects(Effects::BOLD);
+        anstream::println!("\n{}Summary{}", heading.render(), heading.render_reset());
         for line in &self.lines {
-            println!("{line}");
+            let style = line.verdict.style();
+            let note = line
+                .note
+                .as_deref()
+                .map(|note| format!(" — {note}"))
+                .unwrap_or_default();
+            anstream::println!(
+                "  {}{}{}  {}{}",
+                style.render(),
+                line.verdict.label(),
+                style.render_reset(),
+                line.name,
+                note
+            );
         }
         if self.skipped > 0 {
             println!(
@@ -179,11 +239,20 @@ impl Report {
     }
 }
 
+fn summary_reason(reason: &str) -> String {
+    reason
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 /// Run the selected checks and return the process exit code.
 ///
 /// Every check runs even after an earlier failure unless `fail_fast` is set,
 /// so one run reports every problem rather than only the first.
-pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32 {
+pub fn run(ctx: &Ctx, checks: &[CheckSpec], only: &[String], fail_fast: bool) -> i32 {
     let mut report = Report::default();
 
     for check in checks {
@@ -195,16 +264,24 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
         // Subprocesses inherit this stdout, so flush before they can interleave.
         let _ = io::stdout().flush();
 
-        match (check.run)(ctx) {
-            Outcome::Pass => report.record("PASS", check.name, ""),
+        match crate::checks::run_action(ctx, &check.action) {
+            Outcome::Pass => report.record(Verdict::Pass, &check.name, None),
+            Outcome::PassWithNote(note) => {
+                report.record(Verdict::Pass, &check.name, Some(summary_reason(&note)));
+            }
             Outcome::Skip(reason) => {
+                let reason_summary = summary_reason(&reason);
                 if ctx.strict() {
                     println!("{reason}");
                     eprintln!(
                         "{} cannot be skipped in the {} profile.",
                         check.name, ctx.profile
                     );
-                    report.record("FAIL", check.name, " (would skip)");
+                    report.record(
+                        Verdict::Fail,
+                        &check.name,
+                        Some(format!("would skip: {reason_summary}")),
+                    );
                     report.failed += 1;
                     if fail_fast {
                         report.print();
@@ -213,12 +290,12 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
                     continue;
                 }
                 println!("{reason}");
-                report.record("SKIP", check.name, "");
+                report.record(Verdict::Skip, &check.name, Some(reason_summary));
                 report.skipped += 1;
             }
             Outcome::Fail(reason) => {
                 eprintln!("{reason}");
-                report.record("FAIL", check.name, "");
+                report.record(Verdict::Fail, &check.name, None);
                 report.failed += 1;
                 if fail_fast {
                     report.print();
@@ -229,7 +306,7 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
     }
 
     if !only.is_empty() {
-        let known: Vec<&str> = checks.iter().map(|check| check.name).collect();
+        let known: Vec<&str> = checks.iter().map(|check| check.name.as_str()).collect();
         for wanted in only {
             if !known.contains(&wanted.as_str()) {
                 eprintln!("no such check: {wanted}");
@@ -244,23 +321,38 @@ pub fn run(ctx: &Ctx, checks: &[Check], only: &[String], fail_fast: bool) -> i32
 
 fn finish(report: &Report) -> i32 {
     if report.failed > 0 {
-        println!("\n{} check(s) failed.", report.failed);
+        let style = Verdict::Fail.style();
+        anstream::println!(
+            "\n{}{} check(s) failed.{}",
+            style.render(),
+            report.failed,
+            style.render_reset()
+        );
         return 1;
     }
-    println!("\nAll runnable checks passed.");
+    let style = Verdict::Pass.style();
+    anstream::println!(
+        "\n{}All runnable checks passed.{}",
+        style.render(),
+        style.render_reset()
+    );
     0
 }
 
 /// Print the registry, so `--only` targets can be discovered without reading
 /// the source.
-pub fn list(checks: &[Check]) {
+pub fn list(checks: &[CheckSpec]) {
     for check in checks {
         let profiles: Vec<String> = check
             .profiles
             .iter()
             .map(|profile| profile.to_string())
             .collect();
-        println!("{:<34} {}", check.name, profiles.join(","));
+        let opt_in = match check.opt_in {
+            None => "",
+            Some(OptIn::Coverage) => " [--coverage]",
+        };
+        println!("{:<34} {}{opt_in}", check.name, profiles.join(","));
     }
 }
 
@@ -296,6 +388,7 @@ mod tests {
         assert!(!is_dated_nightly("nightly-2026-00-01"));
         assert!(!is_dated_nightly("nightly-2026-01-00"));
         assert!(!is_dated_nightly("nightly-2026-01-32"));
+        assert!(!is_dated_nightly("nightly-2026-02-31"));
         assert!(!is_dated_nightly("+nightly-2026-08-08"));
         assert!(!is_dated_nightly(""));
     }
@@ -321,5 +414,49 @@ mod tests {
         );
         assert!(validate_release(Profile::Full, &["fmt".into()], "nightly").is_ok());
         assert!(validate_release(Profile::Dev, &[], "nightly").is_ok());
+    }
+
+    #[test]
+    fn coverage_is_opt_in_but_only_selects_it_explicitly() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap()
+            .to_path_buf();
+        let config = Arc::new(Config::load(&root).unwrap());
+        let coverage = config
+            .checks
+            .iter()
+            .find(|check| check.name == "coverage")
+            .unwrap();
+        let mut ctx = Ctx {
+            root,
+            profile: Profile::Full,
+            nightly: "nightly".to_string(),
+            skip_embedded: false,
+            coverage: false,
+            config: Arc::clone(&config),
+        };
+
+        assert!(!coverage.selected(&ctx, &[]));
+        assert!(coverage.selected(&ctx, &["coverage".to_string()]));
+        ctx.coverage = true;
+        assert!(coverage.selected(&ctx, &[]));
+    }
+
+    #[test]
+    fn skip_summary_preserves_the_machine_prefix_and_explains_the_skip() {
+        let line = ReportLine {
+            verdict: Verdict::Skip,
+            name: "embedded build".to_string(),
+            note: Some(summary_reason(
+                "target is not installed\ninstall it with rustup target add",
+            )),
+        };
+
+        assert_eq!(
+            line.plain(),
+            "  SKIP  embedded build — target is not installed; install it with rustup target add"
+        );
     }
 }

@@ -8,7 +8,7 @@
 //! is no ambient environment to leak.
 
 pub mod checks;
+pub mod config;
 pub mod proc;
 pub mod runner;
-pub mod sha256;
 pub mod text;

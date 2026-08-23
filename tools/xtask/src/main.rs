@@ -1,31 +1,85 @@
-//! The ph-surfaces verification gate.
-//!
-//! This replaces `scripts/ci.sh`. It runs the same named checks, reports the
-//! same PASS/FAIL/SKIP verdicts in the same format, and runs natively on
-//! Windows and Linux with nothing but the pinned cargo the crate already
-//! requires -- no shell, no PowerShell twin, no container.
-//!
-//! Usage:
-//!   cargo xtask ci                                  full matrix
-//!   cargo xtask ci --profile dev                    fast inner loop
-//!   cargo xtask ci --profile release                release evidence; no SKIPs, no --only
-//!   cargo xtask ci --only 'no ph-curves'            one named check
-//!   cargo xtask ci --nightly nightly-YYYY-MM-DD     exact core-only toolchain
-//!   cargo xtask ci --skip-embedded                  skip target-dependent checks
-//!   cargo xtask ci --fail-fast                      stop at the first failure
-//!   cargo xtask code-size [--write]                 re-measure the code-size snapshot
-//!   cargo xtask asm [--write]                       re-disassemble the instruction snapshots
-//!   cargo xtask list                                the registry
+//! Native verification commands for ph-surfaces.
 
 use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::Arc;
 
-use xtask::checks;
+use clap::{Args, Parser, Subcommand};
+
+use xtask::config::Config;
 use xtask::runner::{self, Ctx, Profile};
 
+#[derive(Parser)]
+#[command(name = "xtask", about = "The ph-surfaces verification gate")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Run the verification matrix.
+    Ci(CiArgs),
+    /// Re-measure the code-size snapshot.
+    CodeSize(WriteArgs),
+    /// Re-disassemble the emitted-instruction snapshots.
+    Asm(WriteArgs),
+    /// Print the configured check registry.
+    List,
+}
+
+#[derive(Args)]
+struct CiArgs {
+    /// Which checks to run: dev, full, or release.
+    #[arg(long, default_value = "full", value_parser = ["dev", "full", "release"])]
+    profile: String,
+    /// Run one named check; repeatable and forbidden for release evidence.
+    #[arg(long)]
+    only: Vec<String>,
+    /// Toolchain for core-only proofs.
+    #[arg(long, default_value = "nightly")]
+    nightly: String,
+    /// Skip ordinary embedded builds and code-size measurement.
+    #[arg(long)]
+    skip_embedded: bool,
+    /// Stop at the first failure.
+    #[arg(long)]
+    fail_fast: bool,
+    /// Measure host test coverage with cargo-llvm-cov.
+    #[arg(long)]
+    coverage: bool,
+    /// Operate on another checkout.
+    #[arg(long)]
+    root: Option<PathBuf>,
+}
+
+impl Default for CiArgs {
+    fn default() -> Self {
+        Self {
+            profile: "full".to_string(),
+            only: Vec::new(),
+            nightly: "nightly".to_string(),
+            skip_embedded: false,
+            fail_fast: false,
+            coverage: false,
+            root: None,
+        }
+    }
+}
+
+#[derive(Args)]
+struct WriteArgs {
+    /// Rewrite the committed snapshot instead of printing it.
+    #[arg(long)]
+    write: bool,
+}
+
 fn main() -> ExitCode {
-    match dispatch() {
+    let command = Cli::parse()
+        .command
+        .unwrap_or(Command::Ci(CiArgs::default()));
+    match dispatch(command) {
         Ok(code) => ExitCode::from(code),
         Err(message) => {
             eprintln!("xtask: {message}");
@@ -34,88 +88,77 @@ fn main() -> ExitCode {
     }
 }
 
-fn dispatch() -> Result<u8, String> {
-    let mut args = env::args().skip(1);
-    let command = args.next().unwrap_or_else(|| "ci".to_string());
-    let rest: Vec<String> = args.collect();
-
-    match command.as_str() {
-        "ci" => run_ci(&rest),
-        "code-size" => run_code_size(&rest),
-        "asm" => run_asm(&rest),
-        "list" => {
-            runner::list(checks::CHECKS);
+fn dispatch(command: Command) -> Result<u8, String> {
+    match command {
+        Command::Ci(args) => run_ci(args),
+        Command::CodeSize(args) => run_code_size(args.write),
+        Command::Asm(args) => run_asm(args.write),
+        Command::List => {
+            let ctx = context(
+                current_root()?,
+                Profile::Full,
+                "nightly".into(),
+                false,
+                false,
+            )?;
+            runner::list(&ctx.config.checks);
             Ok(0)
         }
-        "--help" | "-h" | "help" => {
-            print_usage();
-            Ok(0)
-        }
-        other => Err(format!(
-            "unknown command `{other}`; try `ci`, `code-size`, `asm`, or `list`"
-        )),
     }
 }
 
-fn print_usage() {
-    println!("{}", include_str!("usage.txt"));
-}
-
-/// Re-measure the code-size snapshot, and optionally rewrite the committed one.
-fn run_code_size(args: &[String]) -> Result<u8, String> {
-    let write = args.iter().any(|argument| argument == "--write");
-    for argument in args {
-        if argument != "--write" {
-            return Err(format!("unknown option `{argument}`"));
-        }
-    }
-
+fn current_root() -> Result<PathBuf, String> {
     let here = env::current_dir().map_err(|error| error.to_string())?;
-    let root = runner::find_root(&here)
-        .ok_or_else(|| format!("no ph-surfaces checkout at or above {}", here.display()))?;
-    let ctx = Ctx {
-        root,
-        profile: Profile::Full,
-        nightly: "nightly".to_string(),
-        skip_embedded: false,
-    };
+    runner::find_root(&here)
+        .ok_or_else(|| format!("no ph-surfaces checkout at or above {}", here.display()))
+}
 
-    let snapshot = checks::code_size::measure(&ctx)?;
+fn context(
+    root: PathBuf,
+    profile: Profile,
+    nightly: String,
+    skip_embedded: bool,
+    coverage: bool,
+) -> Result<Ctx, String> {
+    let config = Arc::new(Config::load(&root)?);
+    Ok(Ctx {
+        root,
+        profile,
+        nightly,
+        skip_embedded,
+        coverage,
+        config,
+    })
+}
+
+fn run_code_size(write: bool) -> Result<u8, String> {
+    let ctx = context(
+        current_root()?,
+        Profile::Full,
+        "nightly".into(),
+        false,
+        false,
+    )?;
+    let snapshot = xtask::checks::code_size::measure(&ctx)?;
     if write {
-        let path = ctx.path(checks::code_size::SNAPSHOT);
-        std::fs::write(&path, &snapshot).map_err(|error| error.to_string())?;
-        println!("wrote {}", path.display());
+        write_snapshot(&ctx, &ctx.config.code_size.snapshot, &snapshot)?;
     } else {
         print!("{snapshot}");
     }
     Ok(0)
 }
 
-/// Re-disassemble the hot-path pairings, and optionally rewrite the committed
-/// per-target emitted-instruction snapshots. Informational, not a gate.
-fn run_asm(args: &[String]) -> Result<u8, String> {
-    let write = args.iter().any(|argument| argument == "--write");
-    for argument in args {
-        if argument != "--write" {
-            return Err(format!("unknown option `{argument}`"));
-        }
-    }
-
-    let here = env::current_dir().map_err(|error| error.to_string())?;
-    let root = runner::find_root(&here)
-        .ok_or_else(|| format!("no ph-surfaces checkout at or above {}", here.display()))?;
-    let ctx = Ctx {
-        root,
-        profile: Profile::Full,
-        nightly: "nightly".to_string(),
-        skip_embedded: false,
-    };
-
-    for (relative, snapshot) in checks::code_size::emit_asm(&ctx)? {
+fn run_asm(write: bool) -> Result<u8, String> {
+    let ctx = context(
+        current_root()?,
+        Profile::Full,
+        "nightly".into(),
+        false,
+        false,
+    )?;
+    for (relative, snapshot) in xtask::checks::code_size::emit_asm(&ctx)? {
         if write {
-            let path = ctx.path(&relative);
-            std::fs::write(&path, &snapshot).map_err(|error| error.to_string())?;
-            println!("wrote {}", path.display());
+            write_snapshot(&ctx, &relative, &snapshot)?;
         } else {
             print!("{snapshot}");
         }
@@ -123,62 +166,63 @@ fn run_asm(args: &[String]) -> Result<u8, String> {
     Ok(0)
 }
 
-fn run_ci(args: &[String]) -> Result<u8, String> {
-    let mut profile = Profile::Full;
-    let mut only: Vec<String> = Vec::new();
-    let mut nightly = "nightly".to_string();
-    let mut skip_embedded = false;
-    let mut fail_fast = false;
-    let mut root: Option<PathBuf> = None;
+fn write_snapshot(ctx: &Ctx, relative: &str, contents: &str) -> Result<(), String> {
+    let path = ctx.path(relative);
+    std::fs::write(&path, contents).map_err(|error| error.to_string())?;
+    println!("wrote {}", path.display());
+    Ok(())
+}
 
-    let mut cursor = args.iter();
-    while let Some(argument) = cursor.next() {
-        let mut value = || {
-            cursor
-                .next()
-                .cloned()
-                .ok_or_else(|| format!("{argument} needs a value"))
-        };
-        match argument.as_str() {
-            "--profile" => {
-                let name = value()?;
-                profile = Profile::parse(&name).ok_or_else(|| {
-                    format!("unknown profile `{name}`; use dev, full, or release")
-                })?;
-            }
-            "--only" => only.push(value()?),
-            "--nightly" => nightly = value()?,
-            "--root" => root = Some(PathBuf::from(value()?)),
-            "--skip-embedded" => skip_embedded = true,
-            "--fail-fast" => fail_fast = true,
-            "--help" | "-h" => {
-                print_usage();
-                return Ok(0);
-            }
-            other => return Err(format!("unknown option `{other}`")),
-        }
-    }
-
-    runner::validate_release(profile, &only, &nightly)?;
-
-    let root = match root {
-        Some(given) => given,
-        None => {
-            let here = env::current_dir().map_err(|error| error.to_string())?;
-            runner::find_root(&here)
-                .ok_or_else(|| format!("no ph-surfaces checkout at or above {}", here.display()))?
-        }
+fn run_ci(args: CiArgs) -> Result<u8, String> {
+    let profile = Profile::parse(&args.profile).expect("clap validated profile");
+    runner::validate_release(profile, &args.only, &args.nightly)?;
+    let root = match args.root {
+        Some(root) => root,
+        None => current_root()?,
     };
-
-    let ctx = Ctx {
+    let ctx = context(
         root,
         profile,
-        nightly,
-        skip_embedded,
-    };
+        args.nightly,
+        args.skip_embedded,
+        args.coverage,
+    )?;
 
     println!("profile: {}", ctx.profile);
     println!("root:    {}", ctx.root.display());
 
-    Ok(runner::run(&ctx, checks::CHECKS, &only, fail_fast) as u8)
+    Ok(runner::run(&ctx, &ctx.config.checks, &args.only, args.fail_fast) as u8)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn cli_preserves_commands_and_repeatable_only() {
+        let parsed = Cli::try_parse_from([
+            "xtask",
+            "ci",
+            "--profile",
+            "dev",
+            "--only",
+            "fmt",
+            "--only",
+            "test",
+            "--coverage",
+        ])
+        .unwrap();
+        let Some(Command::Ci(args)) = parsed.command else {
+            panic!("expected ci")
+        };
+        assert_eq!(args.profile, "dev");
+        assert_eq!(args.only, ["fmt", "test"]);
+        assert!(args.coverage);
+    }
+
+    #[test]
+    fn unknown_options_are_usage_errors() {
+        assert!(Cli::try_parse_from(["xtask", "ci", "--unknown"]).is_err());
+    }
 }

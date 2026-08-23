@@ -1,28 +1,21 @@
 //! Guard self-test: every ratchet is shown to fail on a mutated tree.
 //!
-//! A guard that has never been seen to fail is not evidence. This replaces
-//! `scripts/guard-selftest.sh`, and fixes two defects it carried:
-//!
-//! * it re-entered the whole gate as a subprocess without clearing the
-//!   environment, so a `REQUIRE_NO_SKIPS=1` parent run could make a guard look
-//!   like it fired when all that happened was a SKIP being escalated;
-//! * it hardcoded the `nightly` alias, so under dated-nightly release evidence
-//!   half of the `alloc` case silently skipped.
-//!
-//! Here a check is an ordinary function called with an explicit `Ctx`, so there
-//! is no ambient environment and no toolchain assumption to get wrong.
+//! A guard that has never been seen to fail is not evidence. Each case calls
+//! the relevant guard directly with an explicit `Ctx`, so an unrelated failure,
+//! an escalated `SKIP`, or ambient configuration cannot satisfy the assertion.
 //!
 //! Copies live in the system temp directory, not under `target/`. A copy nested
 //! inside this repository would let `git rev-parse` walk up and find the parent
-//! checkout, which is what the retired harness needed `GIT_CEILING_DIRECTORIES`
-//! to prevent.
+//! checkout instead of observing the mutation copy's actual provenance.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use xtask::checks::{history, line_endings, package, ratchets};
-use xtask::runner::{Check, Ctx, Outcome, Profile};
+use xtask::config::{Action, CheckSpec, Config};
+use xtask::runner::{Ctx, Outcome, Profile};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -63,6 +56,11 @@ fn tracked_copy(case: &str) -> PathBuf {
     }
     fs::copy(root.join("Cargo.lock"), destination.join("Cargo.lock"))
         .expect("could not copy Cargo.lock");
+    fs::copy(
+        root.join("tools/xtask/config.ron"),
+        destination.join("tools/xtask/config.ron"),
+    )
+    .expect("could not copy xtask configuration");
 
     destination
 }
@@ -73,6 +71,8 @@ fn ctx(root: &Path, profile: Profile) -> Ctx {
         profile,
         nightly: "nightly".to_string(),
         skip_embedded: false,
+        coverage: false,
+        config: Arc::new(Config::load(root).expect("mutation configuration must load")),
     }
 }
 
@@ -85,7 +85,9 @@ fn assert_fires(case: &str, name: &str, outcome: Outcome) {
                 "{case}: guard \"{name}\" fired without saying why"
             );
         }
-        Outcome::Pass => panic!("{case}: guard \"{name}\" did NOT fire"),
+        Outcome::Pass | Outcome::PassWithNote(_) => {
+            panic!("{case}: guard \"{name}\" did NOT fire")
+        }
         Outcome::Skip(reason) => {
             panic!("{case}: guard \"{name}\" skipped instead of firing: {reason}")
         }
@@ -241,9 +243,8 @@ fn a_ph_curves_dependency_is_rejected() {
 #[test]
 fn a_manifest_floor_change_is_rejected() {
     let root = tracked_copy("manifest-version");
-    // `package::PACKAGE_VERSION` is the gate's single version literal; using
-    // it here keeps a release bump a one-place edit.
-    let current = format!("version = \"{}\"", package::PACKAGE_VERSION);
+    let configuration = Config::load(&root).unwrap();
+    let current = format!("version = \"{}\"", configuration.package.version);
     rewrite(&root.join("Cargo.toml"), |text| {
         text.replace(&current, "version = \"0.0.0-mutated\"")
     });
@@ -383,7 +384,9 @@ fn a_shallow_repository_cannot_claim_a_full_history_scan() {
             reason.contains("shallow"),
             "shallow repository skipped for the wrong reason: {reason}"
         ),
-        Outcome::Pass => panic!("shallow repository passed the full-history secret scan"),
+        Outcome::Pass | Outcome::PassWithNote(_) => {
+            panic!("shallow repository passed the full-history secret scan")
+        }
         Outcome::Fail(reason) => panic!("ordinary profile failed instead of skipping: {reason}"),
     }
 }
@@ -402,23 +405,27 @@ fn a_tree_without_provenance_fails_strict_packaging() {
 
 #[test]
 fn a_would_be_skip_fails_the_release_profile() {
-    fn always_skips(_: &Ctx) -> Outcome {
-        Outcome::skip("a tool this machine does not have")
-    }
-    const REGISTRY: &[Check] = &[Check {
-        name: "synthetic",
-        profiles: &[Profile::Full, Profile::Release],
-        run: always_skips,
+    let registry = [CheckSpec {
+        name: "synthetic".to_string(),
+        profiles: vec![Profile::Full, Profile::Release],
+        opt_in: None,
+        action: Action::EmbeddedTarget {
+            target: "thumb".to_string(),
+        },
     }];
 
     let root = repo_root();
+    let mut full = ctx(&root, Profile::Full);
+    full.skip_embedded = true;
     assert_eq!(
-        xtask::runner::run(&ctx(&root, Profile::Full), REGISTRY, &[], false),
+        xtask::runner::run(&full, &registry, &[], false),
         0,
         "an ordinary run tolerates a SKIP"
     );
+    let mut release = ctx(&root, Profile::Release);
+    release.skip_embedded = true;
     assert_eq!(
-        xtask::runner::run(&ctx(&root, Profile::Release), REGISTRY, &[], false),
+        xtask::runner::run(&release, &registry, &[], false),
         1,
         "release evidence must record a would-be SKIP as a FAIL"
     );

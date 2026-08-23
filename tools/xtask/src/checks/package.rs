@@ -11,60 +11,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use crate::checks::cargo::EXAMPLES;
-use crate::checks::embedded::TARGETS;
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
+use similar::TextDiff;
+use walkdir::WalkDir;
+
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
-use crate::sha256;
 use crate::text;
-
-pub const PACKAGE_NAME: &str = "ph-surfaces";
-pub const PACKAGE_VERSION: &str = "0.1.0-incubating.1";
-
-/// The exact file set the packaged artifact must contain, sorted.
-///
-/// `.cargo_vcs_info.json`, `Cargo.lock`, and `Cargo.toml.orig` are added by
-/// cargo itself; everything else comes from the `include` allowlist in
-/// `Cargo.toml`. This is an allowlist: a stray file is as much a failure as a
-/// missing one.
-pub const PACKAGED_FILES: [&str; 23] = [
-    ".cargo_vcs_info.json",
-    "Cargo.lock",
-    "Cargo.toml",
-    "Cargo.toml.orig",
-    "LICENSE",
-    "README.md",
-    "examples/fail_safe_boundaries.rs",
-    "examples/firmware_cost_budget.rs",
-    "examples/firmware_quickstart.rs",
-    "examples/mixed_calibration_map.rs",
-    "examples/uniform_sensor_compensation.rs",
-    "src/axis/binary.rs",
-    "src/axis/bucketed.rs",
-    "src/axis/linear.rs",
-    "src/axis/mod.rs",
-    "src/axis/uniform.rs",
-    "src/boundary.rs",
-    "src/error.rs",
-    "src/evaluate.rs",
-    "src/interp.rs",
-    "src/lib.rs",
-    "src/lookup.rs",
-    "src/surface.rs",
-];
-
-/// Files a consumer has no use for and that must never reach the archive.
-const NON_CONSUMER_PREFIXES: [&str; 9] = [
-    "AGENTS.md",
-    "CHANGELOG.md",
-    "clippy.toml",
-    "deny.toml",
-    "rust-toolchain.toml",
-    "tools/",
-    "docs/",
-    "tests/",
-    ".github/",
-];
 
 pub struct Artifact {
     /// The `.crate` archive.
@@ -86,7 +40,8 @@ fn artifact(ctx: &Ctx) -> Result<&'static Artifact, String> {
 fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
     clean_release_tree(ctx)?;
 
-    let directory = format!("{PACKAGE_NAME}-{PACKAGE_VERSION}");
+    let package = &ctx.config.package;
+    let directory = format!("{}-{}", package.name, package.version);
     let archive = ctx.path(&format!("target/package/{directory}.crate"));
     let unpacked = ctx.path(&format!("target/package/{directory}"));
 
@@ -179,12 +134,12 @@ pub fn package_list(ctx: &Ctx) -> Outcome {
         println!("{file}");
     }
 
-    for required in PACKAGED_FILES {
+    for required in &ctx.config.package.files {
         // Cargo synthesizes these three; they are not tracked sources, so
         // `--list` reports them but the required-source check is about the
         // allowlist.
         if matches!(
-            required,
+            required.as_str(),
             ".cargo_vcs_info.json" | "Cargo.lock" | "Cargo.toml.orig"
         ) {
             continue;
@@ -197,7 +152,9 @@ pub fn package_list(ctx: &Ctx) -> Outcome {
     let strays: Vec<&String> = files
         .iter()
         .filter(|file| {
-            NON_CONSUMER_PREFIXES
+            ctx.config
+                .package
+                .non_consumer_prefixes
                 .iter()
                 .any(|prefix| file.starts_with(prefix))
         })
@@ -227,28 +184,19 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
     };
     actual.sort();
 
-    let mut expected: Vec<String> = PACKAGED_FILES.iter().map(|file| file.to_string()).collect();
+    let mut expected = ctx.config.package.files.clone();
     expected.sort();
 
     if actual != expected {
-        let missing: Vec<&String> = expected
-            .iter()
-            .filter(|file| !actual.contains(file))
-            .collect();
-        let unexpected: Vec<&String> = actual
-            .iter()
-            .filter(|file| !expected.contains(file))
-            .collect();
-        let mut message = String::new();
-        for file in missing {
-            message.push_str(&format!("- {file}\n"));
-        }
-        for file in unexpected {
-            message.push_str(&format!("+ {file}\n"));
-        }
-        message
-            .push_str("packaged file set differs from the expected list (- expected, + actual).");
-        return Outcome::Fail(message);
+        let expected = expected.join("\n") + "\n";
+        let actual = actual.join("\n") + "\n";
+        let diff = TextDiff::from_lines(&expected, &actual)
+            .unified_diff()
+            .header("expected", "actual")
+            .to_string();
+        return Outcome::fail(format!(
+            "{diff}packaged file set differs from the expected list."
+        ));
     }
 
     println!("packaged files:");
@@ -262,46 +210,27 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
 /// verify build may leave behind. That directory is not part of the crate.
 fn packaged_tree(root: &Path) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
-    collect_packaged_files(root, root, &mut files)?;
-    Ok(files)
-}
-
-fn collect_packaged_files(
-    root: &Path,
-    current: &Path,
-    files: &mut Vec<String>,
-) -> Result<(), String> {
-    let entries = fs::read_dir(current)
-        .map_err(|error| format!("could not read {}: {error}", current.display()))?;
-    for entry in entries {
-        let entry = entry.map_err(|error| {
-            format!(
-                "could not read an entry under {}: {error}",
-                current.display()
-            )
-        })?;
+    let walker = WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| entry.depth() == 0 || entry.file_name() != "target");
+    for entry in walker.skip(1) {
+        let entry = entry.map_err(|error| format!("could not walk {}: {error}", root.display()))?;
         let path = entry.path();
         let relative = path
             .strip_prefix(root)
             .map_err(|_| format!("{} is not under {}", path.display(), root.display()))?;
         let relative = relative.to_string_lossy().replace('\\', "/");
-        if relative == "target" || relative.starts_with("target/") {
-            continue;
-        }
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("could not stat {}: {error}", path.display()))?;
-        if file_type.is_dir() {
-            collect_packaged_files(root, &path, files)?;
-        } else if file_type.is_file() {
+        if entry.file_type().is_file() {
             files.push(relative);
-        } else {
+        } else if !entry.file_type().is_dir() {
             return Err(format!(
                 "packaged crate contains a non-file entry at {relative}"
             ));
         }
     }
-    Ok(())
+    files.sort();
+    Ok(files)
 }
 
 /// The archive digest, computed here rather than by whichever hashing utility a
@@ -318,12 +247,12 @@ pub fn package_digest(ctx: &Ctx) -> Outcome {
             return Outcome::fail(format!("could not read the packaged archive: {error}"));
         }
     };
-    let digest = sha256::hex(&bytes);
+    let digest = hex::encode(Sha256::digest(&bytes));
 
     // Re-read and re-hash: a digest that describes a file which changed while it
     // was being measured is not evidence.
     match fs::read(&artifact.archive) {
-        Ok(again) if sha256::hex(&again) == digest => {}
+        Ok(again) if hex::encode(Sha256::digest(&again)) == digest => {}
         Ok(_) => {
             return Outcome::fail("package changed while its SHA-256 digest was being verified.");
         }
@@ -345,7 +274,10 @@ pub fn package_provenance(ctx: &Ctx) -> Outcome {
     if !vcs_info.is_file() {
         return Outcome::fail("packaged crate is missing .cargo_vcs_info.json.");
     }
-    let info = match text::read_text(&vcs_info) {
+    let info: VcsInfo = match fs::read(&vcs_info)
+        .map_err(serde_json::Error::io)
+        .and_then(|bytes| serde_json::from_slice(&bytes))
+    {
         Ok(info) => info,
         Err(error) => return Outcome::fail(format!(".cargo_vcs_info.json is unreadable: {error}")),
     };
@@ -355,7 +287,7 @@ pub fn package_provenance(ctx: &Ctx) -> Outcome {
         _ => return Outcome::fail("could not resolve HEAD to compare packaged provenance."),
     };
 
-    let packaged = json_string_field(&info, "sha1").unwrap_or_default();
+    let packaged = info.git.sha1;
     if packaged != head {
         return Outcome::fail(format!(
             "packaged VCS SHA does not match HEAD: expected {head}, found {}",
@@ -369,7 +301,7 @@ pub fn package_provenance(ctx: &Ctx) -> Outcome {
 
     // Cargo 1.94 omits the member entirely for a clean tree, so its absence is
     // correct. Only an explicit `true` is a finding.
-    if json_bool_field(&info, "dirty") == Some(true) {
+    if info.git.dirty == Some(true) {
         return Outcome::fail("packaged VCS provenance is marked dirty.");
     }
 
@@ -377,26 +309,15 @@ pub fn package_provenance(ctx: &Ctx) -> Outcome {
     Outcome::Pass
 }
 
-fn json_string_field(text: &str, name: &str) -> Option<String> {
-    let needle = format!("\"{name}\"");
-    let after = text.split_once(&needle)?.1;
-    let after = after.trim_start().strip_prefix(':')?.trim_start();
-    let value = after.strip_prefix('"')?;
-    let end = value.find('"')?;
-    Some(value[..end].to_string())
+#[derive(Deserialize)]
+struct VcsInfo {
+    git: GitInfo,
 }
 
-fn json_bool_field(text: &str, name: &str) -> Option<bool> {
-    let needle = format!("\"{name}\"");
-    let after = text.split_once(&needle)?.1;
-    let after = after.trim_start().strip_prefix(':')?.trim_start();
-    if after.starts_with("true") {
-        Some(true)
-    } else if after.starts_with("false") {
-        Some(false)
-    } else {
-        None
-    }
+#[derive(Deserialize)]
+struct GitInfo {
+    sha1: String,
+    dirty: Option<bool>,
 }
 
 /// Prove the artifact from the artifact: its own rustdoc, doctests, and
@@ -442,7 +363,7 @@ pub fn package_consumer(ctx: &Ctx) -> Outcome {
     ) {
         return outcome;
     }
-    for example in EXAMPLES {
+    for example in &ctx.config.examples {
         if let outcome @ Outcome::Fail(_) = run_in(
             &artifact.unpacked,
             &cargo,
@@ -474,7 +395,7 @@ pub fn package_consumer(ctx: &Ctx) -> Outcome {
     match text::read_text(&consumer.join("Cargo.lock")) {
         Ok(lock) => {
             let allowed = [
-                format!("name = \"{PACKAGE_NAME}\""),
+                format!("name = \"{}\"", ctx.config.package.name),
                 "name = \"ph-surfaces-consumer\"".to_string(),
             ];
             let unexpected: Vec<&str> = lock
@@ -508,7 +429,8 @@ pub fn package_consumer(ctx: &Ctx) -> Outcome {
         }
     };
 
-    for target in TARGETS {
+    for target in &ctx.config.targets {
+        let target = target.triple.as_str();
         match proc::target_installed(target, &ctx.root) {
             Ok(true) => {}
             _ => {
@@ -610,5 +532,20 @@ mod tests {
         assert_eq!(files, ["Cargo.toml", "src/lib.rs"]);
 
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn vcs_json_and_sha256_use_standard_formats() {
+        let info: VcsInfo = serde_json::from_str(
+            r#"{"git":{"sha1":"0123456789abcdef","dirty":false},"path_in_vcs":""}"#,
+        )
+        .unwrap();
+        assert_eq!(info.git.sha1, "0123456789abcdef");
+        assert_eq!(info.git.dirty, Some(false));
+        assert!(serde_json::from_str::<VcsInfo>("not json").is_err());
+        assert_eq!(
+            hex::encode(Sha256::digest(b"abc")),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
     }
 }

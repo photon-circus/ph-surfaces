@@ -441,9 +441,9 @@ Active. Version `0.1.0` is published on
 [crates.io](https://crates.io/crates/ph-surfaces); API documentation is on
 [docs.rs](https://docs.rs/ph-surfaces). Compatibility follows semantic
 versioning for a pre-1.0 crate: a breaking change increments the minor
-version. There is no 1.0 compatibility promise. The
-[traceability checklist](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
-maps each contract claim to its tests and gates.
+version. There is no 1.0 compatibility promise. The maintainer-facing
+[release traceability map](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
+summarizes the implementation, tests, and gates behind the contract.
 
 ## Responsibility
 
@@ -662,6 +662,10 @@ The canonical entry point is local:
 ```sh
 cargo xtask ci
 ```
+
+Add `--coverage` to run the host tests under `cargo-llvm-cov` and print a
+source-coverage summary. Coverage is diagnostic rather than a percentage gate;
+if requested without `cargo-llvm-cov` installed, it is reported as `SKIP`.
 
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
 not a passed check. Release evidence sets an exact nightly and forbids skips:

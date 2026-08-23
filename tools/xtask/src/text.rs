@@ -1,272 +1,306 @@
-//! File reading and the small pattern scanners the source ratchets need.
-//!
-//! `scripts/ci.sh` expressed these as `grep -E` over `find | sort -z | xargs -0
-//! cat` pipelines with hand-built POSIX regexes. Those pipelines needed
-//! `tr -d '\r'` at some sites and not others, which is how a CRLF checkout could
-//! turn a FAIL into a SKIP. Reading files here means CR handling is decided
-//! once, in `read_text`.
+//! Text normalization and syntax-aware Rust source policy checks.
 
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// One physical line of one file, carrying enough context to report it the way
-/// `grep -n` did.
-pub struct Line {
-    pub path: PathBuf,
-    pub number: usize,
-    pub text: String,
-}
+use proc_macro2::{TokenStream, TokenTree};
+use syn::visit::{self, Visit};
+use syn::{
+    Attribute, ExprUnsafe, Item, ItemForeignMod, ItemImpl, ItemTrait, Lit, LitFloat, Macro,
+    Signature,
+};
+use walkdir::WalkDir;
 
-impl Line {
-    /// `path:line: text`, the shape the shell gate printed on a hit.
-    pub fn render(&self) -> String {
-        format!(
-            "{}:{}: {}",
-            self.path.display().to_string().replace('\\', "/"),
-            self.number,
-            self.text
-        )
-    }
-}
+use crate::config::SourcePolicy;
 
-/// Read a file as text with CR stripped, so every caller sees LF regardless of
-/// how the worktree was checked out. The `line endings` check is what asserts
-/// the bytes on disk really are LF; this is about never miscomparing.
 pub fn read_text(path: &Path) -> io::Result<String> {
     Ok(String::from_utf8_lossy(&fs::read(path)?).replace('\r', ""))
 }
 
-/// Every `*.rs` under `dir`, recursively, in a stable sorted order.
 pub fn rust_sources(dir: &Path) -> io::Result<Vec<PathBuf>> {
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
     let mut found = Vec::new();
-    if dir.is_dir() {
-        collect(dir, &mut found)?;
+    for entry in WalkDir::new(dir).follow_links(false) {
+        let entry = entry.map_err(io::Error::other)?;
+        if entry.file_type().is_file()
+            && entry
+                .path()
+                .extension()
+                .is_some_and(|extension| extension == "rs")
+        {
+            found.push(entry.into_path());
+        }
     }
     found.sort();
     Ok(found)
 }
 
-fn collect(dir: &Path, out: &mut Vec<PathBuf>) -> io::Result<()> {
-    for entry in fs::read_dir(dir)? {
-        let path = entry?.path();
-        if path.is_dir() {
-            collect(&path, out)?;
-        } else if path.extension().is_some_and(|extension| extension == "rs") {
-            out.push(path);
-        }
-    }
-    Ok(())
+#[derive(Clone, Copy)]
+pub enum Scan {
+    AllCode,
+    Runtime,
+    Examples,
+    FeatureCfg,
 }
 
-/// Lines of every `*.rs` under each directory, with full-line comments removed.
-///
-/// Doc comments legitimately discuss floating point, allocation, features, and
-/// the banned crate by name; none of that is a code path. A trailing comment on
-/// a code line is *not* stripped, matching the shell gate.
-pub fn code_lines(root: &Path, dirs: &[&str]) -> io::Result<Vec<Line>> {
-    let mut lines = Vec::new();
+pub fn source_findings(
+    root: &Path,
+    dirs: &[String],
+    policy: &SourcePolicy,
+    scan: Scan,
+) -> Result<Vec<String>, String> {
+    let mut findings = Vec::new();
     for dir in dirs {
-        for path in rust_sources(&root.join(dir))? {
-            let text = read_text(&path)?;
-            let relative = path.strip_prefix(root).unwrap_or(&path).to_path_buf();
-            for (index, raw) in text.lines().enumerate() {
-                let trimmed = raw.trim_start();
-                if trimmed.starts_with("//")
-                    || trimmed.starts_with("/*")
-                    || trimmed.starts_with('*')
-                {
-                    continue;
+        for path in rust_sources(&root.join(dir)).map_err(|error| error.to_string())? {
+            let source = read_text(&path).map_err(|error| error.to_string())?;
+            let mut file = syn::parse_file(&source)
+                .map_err(|error| format!("{} is not valid Rust: {error}", path.display()))?;
+            let relative = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+
+            if matches!(scan, Scan::Runtime) {
+                validate_test_tail(&relative, &file.items, &mut findings);
+                file.items.retain(|item| !has_cfg_test(item_attrs(item)));
+            }
+
+            let allow_i64 = relative == policy.arithmetic_kernel;
+            let mut analyzer = Analyzer {
+                relative: &relative,
+                policy,
+                scan,
+                allow_i64,
+                findings: &mut findings,
+            };
+            analyzer.visit_file(&file);
+        }
+    }
+    findings.sort();
+    findings.dedup();
+    Ok(findings)
+}
+
+fn validate_test_tail(relative: &str, items: &[Item], findings: &mut Vec<String>) {
+    let mut in_tail = false;
+    for item in items {
+        let is_test = has_cfg_test(item_attrs(item));
+        if is_test {
+            in_tail = true;
+        } else if in_tail {
+            findings.push(format!(
+                "{relative}: runtime item follows a #[cfg(test)] item; keep tests at the file tail"
+            ));
+            return;
+        }
+    }
+}
+
+fn item_attrs(item: &Item) -> &[Attribute] {
+    match item {
+        Item::Const(item) => &item.attrs,
+        Item::Enum(item) => &item.attrs,
+        Item::ExternCrate(item) => &item.attrs,
+        Item::Fn(item) => &item.attrs,
+        Item::ForeignMod(item) => &item.attrs,
+        Item::Impl(item) => &item.attrs,
+        Item::Macro(item) => &item.attrs,
+        Item::Mod(item) => &item.attrs,
+        Item::Static(item) => &item.attrs,
+        Item::Struct(item) => &item.attrs,
+        Item::Trait(item) => &item.attrs,
+        Item::TraitAlias(item) => &item.attrs,
+        Item::Type(item) => &item.attrs,
+        Item::Union(item) => &item.attrs,
+        Item::Use(item) => &item.attrs,
+        Item::Verbatim(_) => &[],
+        _ => &[],
+    }
+}
+
+fn has_cfg_test(attrs: &[Attribute]) -> bool {
+    attrs.iter().any(|attr| match &attr.meta {
+        syn::Meta::List(list) if attr.path().is_ident("cfg") => {
+            let mut tokens = list.tokens.clone().into_iter();
+            matches!(tokens.next(), Some(TokenTree::Ident(ident)) if ident == "test")
+                && tokens.next().is_none()
+        }
+        _ => false,
+    })
+}
+
+fn meta_tokens(attr: &Attribute) -> TokenStream {
+    match &attr.meta {
+        syn::Meta::Path(path) => path
+            .segments
+            .iter()
+            .map(|segment| TokenTree::Ident(segment.ident.clone()))
+            .collect(),
+        syn::Meta::List(list) => list.tokens.clone(),
+        syn::Meta::NameValue(_) => TokenStream::new(),
+    }
+}
+
+fn token_has_ident(tokens: TokenStream, wanted: &str) -> bool {
+    tokens.into_iter().any(|token| match token {
+        TokenTree::Ident(ident) => ident == wanted,
+        TokenTree::Group(group) => token_has_ident(group.stream(), wanted),
+        _ => false,
+    })
+}
+
+struct Analyzer<'a> {
+    relative: &'a str,
+    policy: &'a SourcePolicy,
+    scan: Scan,
+    allow_i64: bool,
+    findings: &'a mut Vec<String>,
+}
+
+impl Analyzer<'_> {
+    fn finding(&mut self, message: impl AsRef<str>) {
+        if self.findings.len() < 20 {
+            self.findings
+                .push(format!("{}: {}", self.relative, message.as_ref()));
+        }
+    }
+
+    fn inspect_ident(&mut self, name: &str) {
+        match self.scan {
+            Scan::AllCode => {
+                if matches!(name, "f32" | "f64") {
+                    self.finding("code names a floating-point type");
                 }
-                lines.push(Line {
-                    path: relative.clone(),
-                    number: index + 1,
-                    text: raw.to_string(),
-                });
+                if name == "ph_curves" {
+                    self.finding("code references ph-curves");
+                }
+            }
+            Scan::Runtime => {
+                if matches!(name, "alloc" | "std") {
+                    self.finding("runtime code reaches for alloc or std");
+                }
+                if matches!(name, "i128" | "u128") {
+                    self.finding("runtime code uses a 128-bit integer");
+                }
+                if !self.allow_i64 && matches!(name, "i64" | "u64") {
+                    self.finding("64-bit arithmetic appears outside the configured kernel");
+                }
+            }
+            Scan::Examples => {
+                if matches!(name, "alloc" | "std")
+                    || self
+                        .policy
+                        .forbidden_example_types
+                        .iter()
+                        .any(|item| item == name)
+                {
+                    self.finding("example uses a host or allocating path/type");
+                }
+            }
+            Scan::FeatureCfg => {}
+        }
+    }
+
+    fn inspect_tokens(&mut self, tokens: TokenStream) {
+        for token in tokens {
+            match token {
+                TokenTree::Ident(ident) => self.inspect_ident(&ident.to_string()),
+                TokenTree::Literal(literal) => {
+                    if let Ok(literal) = syn::parse_str::<Lit>(&literal.to_string()) {
+                        match literal {
+                            Lit::Float(_) if matches!(self.scan, Scan::AllCode) => {
+                                self.finding("code contains a floating-point literal");
+                            }
+                            Lit::Int(integer) if matches!(self.scan, Scan::Runtime) => {
+                                self.inspect_ident(integer.suffix());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                TokenTree::Group(group) => self.inspect_tokens(group.stream()),
+                _ => {}
             }
         }
     }
-    Ok(lines)
 }
 
-fn is_word(byte: u8) -> bool {
-    byte.is_ascii_alphanumeric() || byte == b'_'
-}
-
-fn word_before(bytes: &[u8], at: usize) -> bool {
-    at > 0 && is_word(bytes[at - 1])
-}
-
-fn word_after(bytes: &[u8], at: usize) -> bool {
-    at < bytes.len() && is_word(bytes[at])
-}
-
-/// `\bneedle` -- `needle` not preceded by a word character.
-pub fn contains_at_word_start(line: &str, needle: &str) -> bool {
-    let bytes = line.as_bytes();
-    line.match_indices(needle)
-        .any(|(at, _)| !word_before(bytes, at))
-}
-
-/// `\bneedle\b` -- `needle` as a whole word.
-pub fn contains_word(line: &str, needle: &str) -> bool {
-    let bytes = line.as_bytes();
-    line.match_indices(needle)
-        .any(|(at, _)| !word_before(bytes, at) && !word_after(bytes, at + needle.len()))
-}
-
-/// `\bname[[:space:]]*!` -- a macro invocation of `name`.
-pub fn contains_macro_call(line: &str, name: &str) -> bool {
-    let bytes = line.as_bytes();
-    line.match_indices(name).any(|(at, _)| {
-        if word_before(bytes, at) {
-            return false;
+impl<'ast> Visit<'ast> for Analyzer<'_> {
+    fn visit_attribute(&mut self, attr: &'ast Attribute) {
+        if matches!(self.scan, Scan::FeatureCfg)
+            && (attr.path().is_ident("cfg") || attr.path().is_ident("cfg_attr"))
+            && token_has_ident(meta_tokens(attr), "feature")
+        {
+            self.finding("a cfg names a feature");
         }
-        let mut cursor = at + name.len();
-        while matches!(bytes.get(cursor), Some(b' ' | b'\t')) {
-            cursor += 1;
-        }
-        bytes.get(cursor) == Some(&b'!')
-    })
-}
-
-/// `extern[[:space:]]+crate[[:space:]]+<name>`.
-pub fn contains_extern_crate(line: &str, name: &str) -> bool {
-    let bytes = line.as_bytes();
-    line.match_indices("extern").any(|(at, _)| {
-        if word_before(bytes, at) {
-            return false;
-        }
-        let after_extern = &line[at + "extern".len()..];
-        let trimmed = after_extern.trim_start_matches([' ', '\t']);
-        if trimmed.len() == after_extern.len() {
-            return false;
-        }
-        let Some(after_crate) = trimmed.strip_prefix("crate") else {
-            return false;
-        };
-        let trimmed = after_crate.trim_start_matches([' ', '\t']);
-        if trimmed.len() == after_crate.len() {
-            return false;
-        }
-        trimmed
-            .strip_prefix(name)
-            .is_some_and(|rest| !rest.as_bytes().first().copied().is_some_and(is_word))
-    })
-}
-
-/// How the two ph-curves ratchets spell the separator.
-///
-/// The source ratchet used `ph.curves` -- any character -- because a code path
-/// naming the crate at all is a finding. The manifest ratchet used
-/// `ph[-_]curves`, the two spellings that actually resolve to the crate.
-#[derive(Clone, Copy)]
-pub enum Separator {
-    Any,
-    DashOrUnderscore,
-}
-
-/// The banned crate name, under the given separator rule.
-pub fn contains_ph_curves(line: &str, separator: Separator, ignore_case: bool) -> bool {
-    let haystack = if ignore_case {
-        line.to_ascii_lowercase()
-    } else {
-        line.to_string()
-    };
-    let bytes = haystack.as_bytes();
-    haystack.match_indices("ph").any(|(at, _)| {
-        let tail = at + 3;
-        if haystack.len() < tail + 6 || &haystack[tail..tail + 6] != "curves" {
-            return false;
-        }
-        match separator {
-            Separator::Any => true,
-            Separator::DashOrUnderscore => matches!(bytes[at + 2], b'-' | b'_'),
-        }
-    })
-}
-
-/// The byte offset of the first Rust float literal on the line, if any.
-///
-/// The shell gate needed two alternating POSIX regexes for this. The awkward
-/// case is that `1..2` is an integer range, not a trailing-dot float.
-pub fn find_float_literal(line: &str) -> Option<usize> {
-    let bytes = line.as_bytes();
-    let mut at = 0;
-    while at < bytes.len() {
-        if !bytes[at].is_ascii_digit() || word_before(bytes, at) {
-            at += 1;
-            continue;
-        }
-        if float_literal_end(bytes, at).is_some() {
-            return Some(at);
-        }
-        // Skip the whole numeric run so `0xf32` cannot be re-entered partway
-        // and mistaken for a suffixed literal.
-        while at < bytes.len() && (is_word(bytes[at]) || bytes[at] == b'.') {
-            at += 1;
-        }
+        visit::visit_attribute(self, attr);
     }
-    None
-}
 
-/// The end offset of a float literal starting at `start`, if there is one.
-fn float_literal_end(bytes: &[u8], start: usize) -> Option<usize> {
-    let digits = |from: usize| {
-        let mut cursor = from;
-        while matches!(bytes.get(cursor), Some(byte) if byte.is_ascii_digit() || *byte == b'_') {
-            cursor += 1;
-        }
-        cursor
-    };
+    fn visit_ident(&mut self, ident: &'ast proc_macro2::Ident) {
+        self.inspect_ident(&ident.to_string());
+    }
 
-    let mut cursor = digits(start);
-    let mut fractional = false;
-
-    if bytes.get(cursor) == Some(&b'.') {
-        let after_dot = digits(cursor + 1);
-        if after_dot > cursor + 1 {
-            cursor = after_dot;
-            fractional = true;
-        } else {
-            // `1.` is a float only when what follows is neither a word
-            // character nor another `.`, which keeps `1..2` an integer range
-            // and `1.method()` a method call.
-            return match bytes.get(cursor + 1) {
-                None => Some(cursor + 1),
-                Some(&byte) if !is_word(byte) && byte != b'.' => Some(cursor + 1),
-                _ => None,
-            };
+    fn visit_lit_float(&mut self, _: &'ast LitFloat) {
+        if matches!(self.scan, Scan::AllCode) {
+            self.finding("code contains a floating-point literal");
         }
     }
 
-    let mut exponent = false;
-    if matches!(bytes.get(cursor), Some(b'e' | b'E')) {
-        let mut probe = cursor + 1;
-        if matches!(bytes.get(probe), Some(b'+' | b'-')) {
-            probe += 1;
+    fn visit_macro(&mut self, mac: &'ast Macro) {
+        if matches!(self.scan, Scan::Examples)
+            && mac.path.segments.last().is_some_and(|segment| {
+                self.policy
+                    .forbidden_example_macros
+                    .iter()
+                    .any(|name| segment.ident == name)
+            })
+        {
+            self.finding("example invokes a forbidden host/allocating macro");
         }
-        let after_exponent = digits(probe);
-        if after_exponent > probe {
-            cursor = after_exponent;
-            exponent = true;
-        }
+        self.inspect_tokens(mac.tokens.clone());
+        visit::visit_macro(self, mac);
     }
 
-    let mut suffix = false;
-    let mut probe = cursor;
-    if bytes.get(probe) == Some(&b'_') {
-        probe += 1;
-    }
-    if bytes.len() >= probe + 3 && matches!(&bytes[probe..probe + 3], b"f32" | b"f64") {
-        cursor = probe + 3;
-        suffix = true;
+    fn visit_expr_unsafe(&mut self, node: &'ast ExprUnsafe) {
+        if matches!(self.scan, Scan::Examples | Scan::Runtime) {
+            self.finding("code uses unsafe");
+        }
+        visit::visit_expr_unsafe(self, node);
     }
 
-    if !(fractional || exponent || suffix) || word_after(bytes, cursor) {
-        return None;
+    fn visit_signature(&mut self, node: &'ast Signature) {
+        if matches!(node.safety, syn::Safety::Unsafe(_))
+            && matches!(self.scan, Scan::Examples | Scan::Runtime)
+        {
+            self.finding("code declares an unsafe function");
+        }
+        visit::visit_signature(self, node);
     }
-    Some(cursor)
+
+    fn visit_item_foreign_mod(&mut self, node: &'ast ItemForeignMod) {
+        if matches!(self.scan, Scan::Examples | Scan::Runtime) {
+            self.finding("code declares an unsafe foreign block");
+        }
+        visit::visit_item_foreign_mod(self, node);
+    }
+
+    fn visit_item_impl(&mut self, node: &'ast ItemImpl) {
+        if node.unsafety.is_some() && matches!(self.scan, Scan::Examples | Scan::Runtime) {
+            self.finding("code declares an unsafe impl");
+        }
+        visit::visit_item_impl(self, node);
+    }
+
+    fn visit_item_trait(&mut self, node: &'ast ItemTrait) {
+        if node.unsafety.is_some() && matches!(self.scan, Scan::Examples | Scan::Runtime) {
+            self.finding("code declares an unsafe trait");
+        }
+        visit::visit_item_trait(self, node);
+    }
 }
 
 #[cfg(test)]
@@ -274,60 +308,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn integer_forms_are_not_float_literals() {
-        for line in [
-            "let range = 1..2;",
-            "let value: u16 = 1_000;",
-            "let mask = 0xf32;",
-            "let axis_1 = index32;",
-            "const LIMIT: i32 = 423;",
-            "arr[1].get()",
-        ] {
-            assert_eq!(find_float_literal(line), None, "{line}");
+    fn macro_token_scanning_distinguishes_float_and_integer_literals() {
+        let file =
+            syn::parse_file("fn f() { assert_eq!(1..2, 0xf32); assert_eq!(1.5, 2.); }").unwrap();
+        let policy: SourcePolicy = ron::from_str(
+            "(runtime_roots:[],oracle_roots:[],example_roots:[],arithmetic_kernel:\"x\",forbidden_example_types:[\"Vec\"],forbidden_example_macros:[\"println\"],dependency_manifests:[\"Cargo.toml\"])",
+        )
+        .unwrap();
+        let mut findings = Vec::new();
+        Analyzer {
+            relative: "fixture.rs",
+            policy: &policy,
+            scan: Scan::AllCode,
+            allow_i64: false,
+            findings: &mut findings,
         }
-    }
-
-    #[test]
-    fn every_float_shape_is_caught() {
-        for line in [
-            "let x = 1.5;",
-            "let x = 4.23e14;",
-            "let x = 1e5;",
-            "let x = 1f32;",
-            "let x = 1_f64;",
-            "let x = 2.;",
-            "let x = 1.0E-3;",
-        ] {
-            assert!(find_float_literal(line).is_some(), "{line}");
-        }
-    }
-
-    #[test]
-    fn word_scanners_respect_boundaries() {
-        assert!(contains_word("let x: f32 = y;", "f32"));
-        assert!(!contains_word("let xf32y = 1;", "f32"));
-        assert!(contains_at_word_start("use alloc::vec::Vec;", "alloc::"));
-        assert!(!contains_at_word_start("use myalloc::thing;", "alloc::"));
-        assert!(contains_macro_call("println !(\"hi\");", "println"));
-        assert!(!contains_macro_call("let printlnx = 1;", "println"));
-        assert!(contains_extern_crate("extern  crate  alloc;", "alloc"));
-        assert!(!contains_extern_crate("extern crate allocator;", "alloc"));
-        assert!(contains_ph_curves(
-            "ph-curves",
-            Separator::DashOrUnderscore,
-            false
-        ));
-        assert!(contains_ph_curves(
-            "ph_curves",
-            Separator::DashOrUnderscore,
-            false
-        ));
-        assert!(!contains_ph_curves(
-            "ph curves",
-            Separator::DashOrUnderscore,
-            false
-        ));
-        assert!(contains_ph_curves("ph curves", Separator::Any, false));
-        assert!(!contains_ph_curves("ph--curves", Separator::Any, false));
+        .visit_file(&file);
+        assert_eq!(findings.len(), 2);
     }
 }

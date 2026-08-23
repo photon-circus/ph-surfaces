@@ -128,11 +128,13 @@ without assuming a pointer width.
 `cargo xtask ci` is the verification entry point. It reports `PASS`, `FAIL`,
 and `SKIP` distinctly. A skipped check is not a passed check.
 
-The gate is `tools/xtask`, a zero-dependency Rust crate in its own workspace,
-so it runs identically on Windows and Linux with nothing but the pinned cargo
-this crate already requires. There is no shell script and no PowerShell twin.
-`tools/xtask/Cargo.toml` carries an empty `[workspace]` table so the repository
-manifest never gains one and the root `Cargo.lock` stays dependency-free.
+The gate is a native Rust host tool in its own workspace, with declarative
+policy in `tools/xtask/config.ron` and reviewed host dependencies locked in
+`tools/xtask/Cargo.lock`. Those tooling dependencies may use `std` and
+allocation; they are isolated from the runtime crate. There is no shell script
+and no PowerShell twin. `tools/xtask/Cargo.toml` carries an empty `[workspace]`
+table so the repository manifest never gains one and the root `Cargo.lock`
+stays dependency-free.
 
 `cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD` is the
 release-evidence mode: every check must run, a would-be `SKIP` is recorded as
@@ -143,7 +145,9 @@ debug and release test suites.
 `cargo xtask ci --only '<check name>'` runs one check; `cargo xtask list` prints
 the registry. The release profile rejects `--only` — a partial run is not
 release evidence — and requires `--nightly nightly-YYYY-MM-DD`. `--skip-embedded`
-drops the target-dependent checks and `--fail-fast` stops at the first failure.
+drops the target-dependent checks, `--coverage` opts into a diagnostic
+`cargo-llvm-cov` summary with no percentage threshold, and `--fail-fast` stops
+at the first failure.
 The `package` family builds the
 `.crate`, asserts its exact file list, verifies its provenance and digest, and
 compiles the downstream `#![no_std]` consumer in `tools/consumer` against it.
@@ -162,15 +166,15 @@ hosted run as a local-CI failure.
 
 | Change | Also update |
 | --- | --- |
-| Version or crate `publish` setting | Release process (`RELEASING.md`): `Cargo.lock`, changelog heading date, `PACKAGE_VERSION` in `tools/xtask/src/checks/package.rs` (the gate's single version literal), the `publish` assertion in `tools/xtask/src/checks/ratchets.rs`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged guide URLs (README, `src/lib.rs`, `examples/*.rs`) from `main` to the release tag. |
-| New packaged file | `include` in `Cargo.toml`, and `PACKAGED_FILES` in `tools/xtask/src/checks/package.rs` |
-| New guard in `tools/xtask` | A row in `CHECKS` (`tools/xtask/src/checks/mod.rs`) and a mutation case in `tools/xtask/tests/mutation.rs` showing it fails |
+| Version or crate `publish` setting | Release process (`RELEASING.md`): root `Cargo.lock`, changelog heading date, `package.version` and `package.manifest.publish` in `tools/xtask/config.ron`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged guide URLs (README, `src/lib.rs`, `examples/*.rs`) from `main` to the release tag. |
+| New packaged file | `include` in `Cargo.toml`, and `package.files` in `tools/xtask/config.ron` |
+| New guard in `tools/xtask` | An `Action` variant and required-handler entry in `tools/xtask/src/config.rs`, dispatch in `tools/xtask/src/checks/mod.rs`, a row in `tools/xtask/config.ron`, and a mutation case in `tools/xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `src/lib.rs` crate docs, `src/surface.rs` / `src/evaluate.rs` / `src/axis/` item docs, `README.md` "Resource accounting and cost" |
 | New or changed axis strategy | `src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `tools/consumer/src/lib.rs`, `docs/v0.1-traceability.md` |
-| New dependency | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR |
+| New runtime/dev/build dependency in the root crate | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR. Host-only xtask dependencies stay in its isolated manifest and lockfile and do not alter the runtime graph. |
 | New or changed public API item | `src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
 | Example map values (`ELEVATION`, `CORRECTION`) | `tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `src/lib.rs` § Examples, `tools/consumer/src/lib.rs` |
-| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `examples/*.rs`, `tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs` |
+| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `examples/*.rs`, `tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs`, and `examples` in `tools/xtask/config.ron` when the Cargo example set changes |
 | Contract wording or acceptance claim | `README.md` "Contract", `src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
 
 ## Validating

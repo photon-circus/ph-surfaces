@@ -10,10 +10,6 @@ use crate::checks::cargo::step;
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
 
-/// The two bare-metal targets, named once. The shell gate spelled them in three
-/// separate places.
-pub const TARGETS: [&str; 2] = ["thumbv7em-none-eabi", "riscv32imac-unknown-none-elf"];
-
 /// An ordinary bare-metal build on the pinned toolchain, then clippy for the
 /// same target with warnings denied.
 ///
@@ -41,7 +37,7 @@ pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
         &["build", "--target", target, "--locked"],
         &[],
     ) {
-        Outcome::Pass => {}
+        Outcome::Pass | Outcome::PassWithNote(_) => {}
         failure => return failure,
     }
     step(
@@ -104,20 +100,4 @@ pub fn core_only(ctx: &Ctx, target: &str) -> Outcome {
         ],
         &[],
     )
-}
-
-pub fn thumbv7em(ctx: &Ctx) -> Outcome {
-    embedded_target(ctx, TARGETS[0])
-}
-
-pub fn riscv32imac(ctx: &Ctx) -> Outcome {
-    embedded_target(ctx, TARGETS[1])
-}
-
-pub fn core_only_thumbv7em(ctx: &Ctx) -> Outcome {
-    core_only(ctx, TARGETS[0])
-}
-
-pub fn core_only_riscv32imac(ctx: &Ctx) -> Outcome {
-    core_only(ctx, TARGETS[1])
 }

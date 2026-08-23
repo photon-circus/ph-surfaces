@@ -13,21 +13,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::checks::embedded::TARGETS;
+use similar::TextDiff;
+
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
 use crate::text;
-
-/// The four measured pairings: the exported symbol name, and the crate feature
-/// that instantiates it.
-const PAIRINGS: [(&str, &str); 4] = [
-    ("ph_eval_binary", "pairing-binary"),
-    ("ph_eval_linear", "pairing-linear"),
-    ("ph_eval_mixed", "pairing-mixed"),
-    ("ph_eval_uniform", "pairing-uniform"),
-];
-
-pub const SNAPSHOT: &str = "docs/code-size-snapshot.txt";
 
 /// Locate one `llvm-tools-preview` binary in the sysroot, or the reason the
 /// measurement cannot run.
@@ -69,7 +59,8 @@ fn llvm_nm(ctx: &Ctx) -> Result<PathBuf, String> {
 
 /// Produce the snapshot text, or the reason the measurement cannot run.
 pub fn measure(ctx: &Ctx) -> Result<String, String> {
-    for target in TARGETS {
+    for target in &ctx.config.targets {
+        let target = target.triple.as_str();
         match proc::target_installed(target, &ctx.root) {
             Ok(true) => {}
             _ => {
@@ -96,10 +87,12 @@ pub fn measure(ctx: &Ctx) -> Result<String, String> {
          (single-pairing compiler object .text total)\n",
     );
     snapshot.push_str("# Pairings:\n");
-    snapshot.push_str("#   ph_eval_binary   Binary\u{d7}Binary ELEVATION 5\u{d7}4\n");
-    snapshot.push_str("#   ph_eval_linear   Linear\u{d7}Linear 3\u{d7}2\n");
-    snapshot.push_str("#   ph_eval_uniform  Uniform\u{d7}Uniform 2\u{d7}2\n");
-    snapshot.push_str("#   ph_eval_mixed    BucketedAxis<17, 8> \u{d7} UniformAxis<9, 0, 200>\n");
+    for pairing in &ctx.config.code_size.pairings {
+        snapshot.push_str(&format!(
+            "#   {:<18} {}\n",
+            pairing.symbol, pairing.description
+        ));
+    }
     snapshot.push_str(
         "#   ph_interp_kernel shared scalar interpolation, measured from the\n\
          #                    ph-surfaces rlib: non-generic, so it is not in the\n\
@@ -109,19 +102,21 @@ pub fn measure(ctx: &Ctx) -> Result<String, String> {
     snapshot.push_str("#\n");
     snapshot.push_str("# This is not a guarantee, not total flash, and not WCET.\n\n");
 
-    for (index, target) in TARGETS.iter().enumerate() {
+    for (index, configured) in ctx.config.targets.iter().enumerate() {
+        let target = configured.triple.as_str();
         if index > 0 {
             snapshot.push('\n');
         }
         snapshot.push_str(target);
         snapshot.push('\n');
-        for (name, feature) in PAIRINGS {
-            let size = pairing_size(ctx, &nm, target, name, feature)?;
-            snapshot.push_str(&format!("{name} {size}\n"));
+        for pairing in &ctx.config.code_size.pairings {
+            let size = pairing_size(ctx, &nm, target, &pairing.symbol, &pairing.feature)?;
+            snapshot.push_str(&format!("{} {size}\n", pairing.symbol));
         }
-        let rlib = ph_surfaces_rlib(ctx, target, PAIRINGS[0].0)?;
-        let size = kernel_size(&nm, &rlib)?;
-        snapshot.push_str(&format!("ph_interp_kernel {size}\n"));
+        let first = &ctx.config.code_size.pairings[0];
+        let rlib = ph_surfaces_rlib(ctx, target, &first.symbol)?;
+        let size = kernel_size(&nm, &rlib, &ctx.config.code_size.kernel_path_fragment)?;
+        snapshot.push_str(&format!("{} {size}\n", ctx.config.code_size.kernel_symbol));
     }
 
     Ok(snapshot)
@@ -210,7 +205,7 @@ fn ph_surfaces_rlib(ctx: &Ctx, target: &str, name: &str) -> Result<PathBuf, Stri
 
 /// Sum the sizes of the `ph_surfaces::interp` text symbols in the rlib, as
 /// `%08x`. `llvm-nm --demangle` reads archives, printing one block per member.
-fn kernel_size(nm: &Path, rlib: &Path) -> Result<String, String> {
+fn kernel_size(nm: &Path, rlib: &Path, kernel: &str) -> Result<String, String> {
     let listing = match proc::capture(
         &nm.display().to_string(),
         &[
@@ -229,7 +224,7 @@ fn kernel_size(nm: &Path, rlib: &Path) -> Result<String, String> {
     let mut total: u64 = 0;
     let mut found = false;
     for line in listing.lines() {
-        if !line.contains("ph_surfaces::interp::") {
+        if !line.contains(kernel) {
             continue;
         }
         let fields: Vec<&str> = line.split_whitespace().collect();
@@ -290,11 +285,6 @@ fn text_size(nm: &Path, object: &Path) -> Result<String, String> {
     Ok(format!("{total:08x}"))
 }
 
-/// Where one target's emitted-instruction snapshot lives.
-pub fn asm_snapshot_path(target: &str) -> String {
-    format!("docs/asm-snapshot-{target}.txt")
-}
-
 /// Produce the per-target emitted-instruction snapshots, or the reason the
 /// measurement cannot run.
 ///
@@ -304,7 +294,8 @@ pub fn asm_snapshot_path(target: &str) -> String {
 /// `cargo xtask asm --write` is re-run, without blocking a toolchain bump on
 /// instruction scheduling noise.
 pub fn emit_asm(ctx: &Ctx) -> Result<Vec<(String, String)>, String> {
-    for target in TARGETS {
+    for configured in &ctx.config.targets {
+        let target = configured.triple.as_str();
         match proc::target_installed(target, &ctx.root) {
             Ok(true) => {}
             _ => {
@@ -322,7 +313,8 @@ pub fn emit_asm(ctx: &Ctx) -> Result<Vec<(String, String)>, String> {
     };
 
     let mut snapshots: Vec<(String, String)> = Vec::new();
-    for target in TARGETS {
+    for configured in &ctx.config.targets {
+        let target = configured.triple.as_str();
         let mut snapshot = String::new();
         snapshot.push_str("# ph-surfaces emitted-instruction snapshot (non-normative)\n");
         snapshot.push_str(&format!("# Target: {target}\n"));
@@ -339,19 +331,27 @@ pub fn emit_asm(ctx: &Ctx) -> Result<Vec<(String, String)>, String> {
             "# This is not a timing, WCET, or branch-freedom guarantee; it is the\n\
              # instruction stream to review when one of those properties matters.\n",
         );
-        for (name, feature) in PAIRINGS {
-            let object = pairing_object(ctx, target, name, feature)?;
-            snapshot.push_str(&format!("\n## {name} ({feature})\n"));
+        for pairing in &ctx.config.code_size.pairings {
+            let object = pairing_object(ctx, target, &pairing.symbol, &pairing.feature)?;
+            snapshot.push_str(&format!("\n## {} ({})\n", pairing.symbol, pairing.feature));
             snapshot.push_str(&disassemble(&objdump, &object)?);
         }
         // The scalar kernel -- `interpolate_segment` and the rounding
         // division, with the crate's only 64-bit arithmetic -- is non-generic
         // and lives in the ph-surfaces rlib, not in the pairing objects.
-        let rlib = ph_surfaces_rlib(ctx, target, PAIRINGS[0].0)?;
-        snapshot.push_str("\n## ph_interp_kernel (ph_surfaces::interp, from the rlib)\n");
+        let first = &ctx.config.code_size.pairings[0];
+        let rlib = ph_surfaces_rlib(ctx, target, &first.symbol)?;
+        snapshot.push_str(&format!(
+            "\n## {} ({}, from the rlib)\n",
+            ctx.config.code_size.kernel_symbol, ctx.config.code_size.kernel_path_fragment
+        ));
         let kernel = disassemble(&objdump, &rlib)?;
-        snapshot.push_str(&only_interp_sections(&kernel));
-        snapshots.push((asm_snapshot_path(target), snapshot));
+        snapshot.push_str(&only_interp_sections(
+            &kernel,
+            &ctx.config.code_size.kernel_path_fragment,
+            &ctx.config.code_size.kernel_mangled_fragment,
+        ));
+        snapshots.push((configured.asm_snapshot.clone(), snapshot));
     }
     Ok(snapshots)
 }
@@ -359,12 +359,12 @@ pub fn emit_asm(ctx: &Ctx) -> Result<Vec<(String, String)>, String> {
 /// Keep only the `ph_surfaces::interp` sections of an rlib disassembly. The
 /// archive listing interleaves per-member headers naming absolute paths;
 /// section-block filtering drops those along with every unrelated section.
-fn only_interp_sections(listing: &str) -> String {
+fn only_interp_sections(listing: &str, readable: &str, mangled: &str) -> String {
     let mut kept = String::new();
     let mut keeping = false;
     for line in listing.lines() {
         if line.starts_with("Disassembly of section") {
-            keeping = line.contains("ph_surfaces6interp") || line.contains("ph_surfaces::interp");
+            keeping = line.contains(mangled) || line.contains(readable);
         } else if line.contains("file format") {
             // A new archive member's header; its line names an absolute path.
             keeping = false;
@@ -438,9 +438,10 @@ pub fn code_size_snapshot(ctx: &Ctx) -> Outcome {
         Ok(snapshot) => snapshot,
         Err(reason) => return Outcome::skip(reason),
     };
-    let committed = match text::read_text(&ctx.path(SNAPSHOT)) {
+    let snapshot_path = &ctx.config.code_size.snapshot;
+    let committed = match text::read_text(&ctx.path(snapshot_path)) {
         Ok(text) => text,
-        Err(error) => return Outcome::fail(format!("{SNAPSHOT} is unreadable: {error}")),
+        Err(error) => return Outcome::fail(format!("{snapshot_path} is unreadable: {error}")),
     };
 
     let measured_body = measurements(&measured);
@@ -456,26 +457,15 @@ pub fn code_size_snapshot(ctx: &Ctx) -> Outcome {
         return Outcome::Pass;
     }
 
-    let mut diff = String::new();
-    let mut expected = committed_body.iter();
-    let mut actual = measured_body.iter();
-    loop {
-        match (expected.next(), actual.next()) {
-            (None, None) => break,
-            (left, right) if left == right => continue,
-            (left, right) => {
-                if let Some(line) = left {
-                    diff.push_str(&format!("- {line}\n"));
-                }
-                if let Some(line) = right {
-                    diff.push_str(&format!("+ {line}\n"));
-                }
-            }
-        }
-    }
+    let expected = committed_body.join("\n") + "\n";
+    let actual = measured_body.join("\n") + "\n";
+    let diff = TextDiff::from_lines(&expected, &actual)
+        .unified_diff()
+        .header("committed", "measured")
+        .to_string();
 
     Outcome::fail(format!(
-        "{diff}code-size measurements differ from {SNAPSHOT} (- committed, + measured).\n\
+        "{diff}code-size measurements differ from {snapshot_path}.\n\
          Re-run `cargo xtask code-size --write` and commit the output."
     ))
 }

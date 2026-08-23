@@ -62,13 +62,13 @@ For the release commit:
 - move accumulated changelog entries into `## 0.1.0 - YYYY-MM-DD` (UTC),
   retaining an empty `Unreleased` section and a value statement under the
   release heading;
-- update `PACKAGE_VERSION` in `tools/xtask/src/checks/package.rs` — the
-  gate's single version literal, read by the `manifest floor` ratchet, the
-  package checks, and the mutation fixtures — and the `publish = false`
-  assertion in `tools/xtask/src/checks/ratchets.rs`.
+- update `package.version` and `package.manifest.publish` in
+  `tools/xtask/config.ron`; the manifest-floor and package checks read those
+  declarative expectations, and mutation fixtures load the same file.
 
 After this step, `grep -r "0.1.0-incubating" --include="*.rs" --include="*.toml"
---include="*.lock" .` from the repository root must return nothing.
+--include="*.ron" --include="*.lock" .` from the repository root must return
+nothing.
 
 The changelog release section must state the user value, important constraints,
 known issues, and any breaking change explicitly.
