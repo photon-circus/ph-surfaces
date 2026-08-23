@@ -3,10 +3,10 @@
 # Profile: opt-level=s, lto=false, codegen-units=1, panic=abort, debug=false
 # Tool: llvm-nm --demangle --print-size (single-pairing compiler object .text total)
 # Pairings:
-#   ph_eval_binary   Binary×Binary ELEVATION 5×4
-#   ph_eval_linear   Linear×Linear 3×2
-#   ph_eval_uniform  Uniform×Uniform 2×2
-#   ph_eval_mixed    BucketedAxis<17, 8> × UniformAxis<9, 0, 200>
+#   ph_eval_binary     Binary×Binary ELEVATION 5×4
+#   ph_eval_linear     Linear×Linear 3×2
+#   ph_eval_mixed      BucketedAxis<17, 8> × UniformAxis<9, 0, 200>
+#   ph_eval_uniform    Uniform×Uniform 2×2
 #   ph_interp_kernel shared scalar interpolation, measured from the
 #                    ph-surfaces rlib: non-generic, so it is not in the
 #                    per-pairing objects above and is paid once, not per

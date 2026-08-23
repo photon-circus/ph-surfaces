@@ -68,7 +68,7 @@ packaged crate, so the README cannot drift from the API it describes.
 Task-oriented firmware guidance lives next to this README, not inside the
 normative contract below.
 
-1. **[Usage guide](https://github.com/photon-circus/ph-surfaces/blob/main/docs/usage-guide.md)** — lay out axes as `values[y][x]`,
+1. **[Usage guide](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md)** — lay out axes as `values[y][x]`,
    declare a static Binary surface, name all four boundary sides, and place
    payload / handle / work figures in the right budget.
 2. **One evaluation.** The query `(125, 20)` above sits in the cell
@@ -76,7 +76,7 @@ normative contract below.
    rounds to nearest with ties away from zero, then Y interpolates those two
    already-rounded results: `25`, then `75`, then `50`. An X-side `Error`
    short-circuits before Y. The arithmetic is walked in
-   **[the interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/main/docs/interpolation-walkthrough.md)**.
+   **[the interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md)**.
 3. **Choose a strategy** independently on each axis. Changing a strategy cannot
    change a value, an error, rounding, order, or boundary behaviour.
 
@@ -88,7 +88,7 @@ normative contract below.
    | Irregular axis needs a smaller proven local bound | `BucketedAxis` | `max_local_comparisons` improves enough to justify `2*B` index bytes |
 
    The cookbook, including Bucketed index tuning, is
-   **[choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/main/docs/choosing-a-strategy.md)**.
+   **[choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md)**.
 4. **Runnable examples** (host `main` is an assertion harness; the tables are
    `static` and `core`-only):
    [`firmware_quickstart`](examples/firmware_quickstart.rs),
@@ -442,7 +442,7 @@ Active. Version `0.1.0` is published on
 [docs.rs](https://docs.rs/ph-surfaces). Compatibility follows semantic
 versioning for a pre-1.0 crate: a breaking change increments the minor
 version. There is no 1.0 compatibility promise. The maintainer-facing
-[release traceability map](https://github.com/photon-circus/ph-surfaces/blob/main/docs/v0.1-traceability.md)
+[release traceability map](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/v0.1-traceability.md)
 summarizes the implementation, tests, and gates behind the contract.
 
 ## Responsibility
@@ -608,7 +608,7 @@ unclaimed.
 A reproducible recipe records compiler-object `.text` totals for four named,
 single-pairing consumers. It is not a guarantee, not total flash, and not
 WCET. The committed snapshot is
-[`docs/code-size-snapshot.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/code-size-snapshot.txt).
+[`docs/code-size-snapshot.txt`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/code-size-snapshot.txt).
 
 ```sh
 cargo xtask code-size
@@ -637,9 +637,9 @@ missing.
 The instruction streams behind those totals are committed alongside the
 sizes: `cargo xtask asm --write` disassembles the same four pairing objects
 plus the interp kernel with `llvm-objdump -d -r --demangle` into
-[`docs/asm-snapshot-thumbv7em-none-eabi.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/asm-snapshot-thumbv7em-none-eabi.txt)
+[`docs/asm-snapshot-thumbv7em-none-eabi.txt`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/asm-snapshot-thumbv7em-none-eabi.txt)
 and
-[`docs/asm-snapshot-riscv32imac-unknown-none-elf.txt`](https://github.com/photon-circus/ph-surfaces/blob/main/docs/asm-snapshot-riscv32imac-unknown-none-elf.txt).
+[`docs/asm-snapshot-riscv32imac-unknown-none-elf.txt`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/asm-snapshot-riscv32imac-unknown-none-elf.txt).
 They are informational, not a gate: review them when a branch on the hot
 path, a new library call (the 64-bit rounding division lowers to
 `__aeabi_ldivmod` on ARM and `__divdi3` on RISC-V), or a
@@ -748,14 +748,14 @@ hosted check is not a pass.
 ## Contributing and releases
 
 Contributions are welcome under the repository-specific
-[`CONTRIBUTING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CONTRIBUTING.md)
+[`CONTRIBUTING.md`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/CONTRIBUTING.md)
 and
-[`CODE_OF_CONDUCT.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CODE_OF_CONDUCT.md).
+[`CODE_OF_CONDUCT.md`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/CODE_OF_CONDUCT.md).
 Never put vulnerability details in a public issue; follow
-[`SECURITY.md`](https://github.com/photon-circus/ph-surfaces/blob/main/SECURITY.md).
+[`SECURITY.md`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/SECURITY.md).
 
 Releases follow
-[`RELEASING.md`](https://github.com/photon-circus/ph-surfaces/blob/main/RELEASING.md).
+[`RELEASING.md`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/RELEASING.md).
 A pull request approval does not by itself authorize a tag, crates.io
 upload, yank, or GitHub Release. The changelog is
-[`CHANGELOG.md`](https://github.com/photon-circus/ph-surfaces/blob/main/CHANGELOG.md).
+[`CHANGELOG.md`](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/CHANGELOG.md).
