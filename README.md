@@ -663,6 +663,10 @@ The canonical entry point is local:
 cargo xtask ci
 ```
 
+Add `--coverage` to run the host tests under `cargo-llvm-cov` and print a
+source-coverage summary. Coverage is diagnostic rather than a percentage gate;
+if requested without `cargo-llvm-cov` installed, it is reported as `SKIP`.
+
 That script reports each check as `PASS`, `FAIL`, or `SKIP`. A skipped check is
 not a passed check. Release evidence sets an exact nightly and forbids skips:
 

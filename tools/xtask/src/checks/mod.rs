@@ -25,6 +25,7 @@ pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
         Action::Examples => cargo::examples(ctx),
         Action::Clippy => cargo::clippy(ctx),
         Action::Doc => cargo::doc(ctx),
+        Action::Coverage => cargo::coverage(ctx),
         Action::PackageList => package::package_list(ctx),
         Action::PackageBuild => package::package_build(ctx),
         Action::PackageProvenance => package::package_provenance(ctx),

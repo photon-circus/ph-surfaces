@@ -15,7 +15,7 @@ use serde::Deserialize;
 use time::Date;
 use time::macros::format_description;
 
-use crate::config::{CheckSpec, Config};
+use crate::config::{CheckSpec, Config, OptIn};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deserialize)]
 pub enum Profile {
@@ -113,6 +113,7 @@ pub struct Ctx {
     pub profile: Profile,
     pub nightly: String,
     pub skip_embedded: bool,
+    pub coverage: bool,
     pub config: Arc<Config>,
 }
 
@@ -133,6 +134,10 @@ impl CheckSpec {
             return only.iter().any(|wanted| wanted == &self.name);
         }
         self.profiles.contains(&ctx.profile)
+            && match self.opt_in {
+                None => true,
+                Some(OptIn::Coverage) => ctx.coverage,
+            }
     }
 }
 
@@ -335,7 +340,11 @@ pub fn list(checks: &[CheckSpec]) {
             .iter()
             .map(|profile| profile.to_string())
             .collect();
-        println!("{:<34} {}", check.name, profiles.join(","));
+        let opt_in = match check.opt_in {
+            None => "",
+            Some(OptIn::Coverage) => " [--coverage]",
+        };
+        println!("{:<34} {}{opt_in}", check.name, profiles.join(","));
     }
 }
 
@@ -397,6 +406,34 @@ mod tests {
         );
         assert!(validate_release(Profile::Full, &["fmt".into()], "nightly").is_ok());
         assert!(validate_release(Profile::Dev, &[], "nightly").is_ok());
+    }
+
+    #[test]
+    fn coverage_is_opt_in_but_only_selects_it_explicitly() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .unwrap()
+            .to_path_buf();
+        let config = Arc::new(Config::load(&root).unwrap());
+        let coverage = config
+            .checks
+            .iter()
+            .find(|check| check.name == "coverage")
+            .unwrap();
+        let mut ctx = Ctx {
+            root,
+            profile: Profile::Full,
+            nightly: "nightly".to_string(),
+            skip_embedded: false,
+            coverage: false,
+            config: Arc::clone(&config),
+        };
+
+        assert!(!coverage.selected(&ctx, &[]));
+        assert!(coverage.selected(&ctx, &["coverage".to_string()]));
+        ctx.coverage = true;
+        assert!(coverage.selected(&ctx, &[]));
     }
 
     #[test]

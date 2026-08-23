@@ -66,3 +66,22 @@ pub fn doc(ctx: &Ctx) -> Outcome {
         &[("RUSTDOCFLAGS", "-D warnings")],
     )
 }
+
+/// Measure host test coverage without imposing a percentage ratchet.
+pub fn coverage(ctx: &Ctx) -> Outcome {
+    let cargo = proc::cargo();
+    let version = match proc::capture(&cargo, &["llvm-cov", "--version"], &ctx.root) {
+        Ok(output) if output.ok() => output.stdout.trim().to_string(),
+        Ok(_) | Err(_) => {
+            return Outcome::skip(
+                "cargo-llvm-cov not installed; install it with `cargo install cargo-llvm-cov --locked`",
+            );
+        }
+    };
+    println!("tool: {version}");
+
+    cargo_step(
+        ctx,
+        &["llvm-cov", "--locked", "--all-targets", "--summary-only"],
+    )
+}

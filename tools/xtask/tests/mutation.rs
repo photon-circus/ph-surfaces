@@ -1,21 +1,12 @@
 //! Guard self-test: every ratchet is shown to fail on a mutated tree.
 //!
-//! A guard that has never been seen to fail is not evidence. This replaces
-//! `scripts/guard-selftest.sh`, and fixes two defects it carried:
-//!
-//! * it re-entered the whole gate as a subprocess without clearing the
-//!   environment, so a `REQUIRE_NO_SKIPS=1` parent run could make a guard look
-//!   like it fired when all that happened was a SKIP being escalated;
-//! * it hardcoded the `nightly` alias, so under dated-nightly release evidence
-//!   half of the `alloc` case silently skipped.
-//!
-//! Here a check is an ordinary function called with an explicit `Ctx`, so there
-//! is no ambient environment and no toolchain assumption to get wrong.
+//! A guard that has never been seen to fail is not evidence. Each case calls
+//! the relevant guard directly with an explicit `Ctx`, so an unrelated failure,
+//! an escalated `SKIP`, or ambient configuration cannot satisfy the assertion.
 //!
 //! Copies live in the system temp directory, not under `target/`. A copy nested
 //! inside this repository would let `git rev-parse` walk up and find the parent
-//! checkout, which is what the retired harness needed `GIT_CEILING_DIRECTORIES`
-//! to prevent.
+//! checkout instead of observing the mutation copy's actual provenance.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -80,6 +71,7 @@ fn ctx(root: &Path, profile: Profile) -> Ctx {
         profile,
         nightly: "nightly".to_string(),
         skip_embedded: false,
+        coverage: false,
         config: Arc::new(Config::load(root).expect("mutation configuration must load")),
     }
 }
@@ -412,6 +404,7 @@ fn a_would_be_skip_fails_the_release_profile() {
     let registry = [CheckSpec {
         name: "synthetic".to_string(),
         profiles: vec![Profile::Full, Profile::Release],
+        opt_in: None,
         action: Action::EmbeddedTarget {
             target: "thumb".to_string(),
         },

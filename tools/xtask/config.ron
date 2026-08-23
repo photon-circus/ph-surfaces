@@ -91,6 +91,7 @@
         (name: "examples", profiles: [Full, Release], action: Examples),
         (name: "clippy", profiles: [Dev, Full, Release], action: Clippy),
         (name: "doc", profiles: [Full, Release], action: Doc),
+        (name: "coverage", profiles: [Dev, Full, Release], opt_in: Some(Coverage), action: Coverage),
         (name: "package list", profiles: [Full, Release], action: PackageList),
         (name: "package build", profiles: [Full, Release], action: PackageBuild),
         (name: "package provenance", profiles: [Release], action: PackageProvenance),

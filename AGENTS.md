@@ -145,7 +145,9 @@ debug and release test suites.
 `cargo xtask ci --only '<check name>'` runs one check; `cargo xtask list` prints
 the registry. The release profile rejects `--only` — a partial run is not
 release evidence — and requires `--nightly nightly-YYYY-MM-DD`. `--skip-embedded`
-drops the target-dependent checks and `--fail-fast` stops at the first failure.
+drops the target-dependent checks, `--coverage` opts into a diagnostic
+`cargo-llvm-cov` summary with no percentage threshold, and `--fail-fast` stops
+at the first failure.
 The `package` family builds the
 `.crate`, asserts its exact file list, verifies its provenance and digest, and
 compiles the downstream `#![no_std]` consumer in `tools/consumer` against it.

@@ -85,7 +85,14 @@ pub struct Pairing {
 pub struct CheckSpec {
     pub name: String,
     pub profiles: Vec<Profile>,
+    #[serde(default)]
+    pub opt_in: Option<OptIn>,
     pub action: Action,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+pub enum OptIn {
+    Coverage,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -101,6 +108,7 @@ pub enum Action {
     Examples,
     Clippy,
     Doc,
+    Coverage,
     PackageList,
     PackageBuild,
     PackageProvenance,
@@ -128,6 +136,7 @@ impl Action {
             Self::Examples => "Examples",
             Self::Clippy => "Clippy",
             Self::Doc => "Doc",
+            Self::Coverage => "Coverage",
             Self::PackageList => "PackageList",
             Self::PackageBuild => "PackageBuild",
             Self::PackageProvenance => "PackageProvenance",
@@ -270,6 +279,19 @@ impl Config {
             if let Some(name) = check.action.singleton_name() {
                 *singleton_counts.entry(name).or_default() += 1;
             }
+            match (&check.action, check.opt_in) {
+                (Action::Coverage, Some(OptIn::Coverage)) => {}
+                (Action::Coverage, _) => {
+                    return Err("the coverage action must be enabled by the coverage opt-in".into());
+                }
+                (_, Some(OptIn::Coverage)) => {
+                    return Err(format!(
+                        "check `{}` uses the coverage opt-in with a non-coverage action",
+                        check.name
+                    ));
+                }
+                (_, None) => {}
+            }
             if let Some(target) = check.action.target_id() {
                 if self.target(target).is_none() {
                     return Err(format!(
@@ -304,6 +326,7 @@ impl Config {
             "Examples",
             "Clippy",
             "Doc",
+            "Coverage",
             "PackageList",
             "PackageBuild",
             "PackageProvenance",

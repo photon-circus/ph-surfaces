@@ -46,6 +46,9 @@ struct CiArgs {
     /// Stop at the first failure.
     #[arg(long)]
     fail_fast: bool,
+    /// Measure host test coverage with cargo-llvm-cov.
+    #[arg(long)]
+    coverage: bool,
     /// Operate on another checkout.
     #[arg(long)]
     root: Option<PathBuf>,
@@ -59,6 +62,7 @@ impl Default for CiArgs {
             nightly: "nightly".to_string(),
             skip_embedded: false,
             fail_fast: false,
+            coverage: false,
             root: None,
         }
     }
@@ -90,7 +94,13 @@ fn dispatch(command: Command) -> Result<u8, String> {
         Command::CodeSize(args) => run_code_size(args.write),
         Command::Asm(args) => run_asm(args.write),
         Command::List => {
-            let ctx = context(current_root()?, Profile::Full, "nightly".into(), false)?;
+            let ctx = context(
+                current_root()?,
+                Profile::Full,
+                "nightly".into(),
+                false,
+                false,
+            )?;
             runner::list(&ctx.config.checks);
             Ok(0)
         }
@@ -108,6 +118,7 @@ fn context(
     profile: Profile,
     nightly: String,
     skip_embedded: bool,
+    coverage: bool,
 ) -> Result<Ctx, String> {
     let config = Arc::new(Config::load(&root)?);
     Ok(Ctx {
@@ -115,12 +126,19 @@ fn context(
         profile,
         nightly,
         skip_embedded,
+        coverage,
         config,
     })
 }
 
 fn run_code_size(write: bool) -> Result<u8, String> {
-    let ctx = context(current_root()?, Profile::Full, "nightly".into(), false)?;
+    let ctx = context(
+        current_root()?,
+        Profile::Full,
+        "nightly".into(),
+        false,
+        false,
+    )?;
     let snapshot = xtask::checks::code_size::measure(&ctx)?;
     if write {
         write_snapshot(&ctx, &ctx.config.code_size.snapshot, &snapshot)?;
@@ -131,7 +149,13 @@ fn run_code_size(write: bool) -> Result<u8, String> {
 }
 
 fn run_asm(write: bool) -> Result<u8, String> {
-    let ctx = context(current_root()?, Profile::Full, "nightly".into(), false)?;
+    let ctx = context(
+        current_root()?,
+        Profile::Full,
+        "nightly".into(),
+        false,
+        false,
+    )?;
     for (relative, snapshot) in xtask::checks::code_size::emit_asm(&ctx)? {
         if write {
             write_snapshot(&ctx, &relative, &snapshot)?;
@@ -156,7 +180,13 @@ fn run_ci(args: CiArgs) -> Result<u8, String> {
         Some(root) => root,
         None => current_root()?,
     };
-    let ctx = context(root, profile, args.nightly, args.skip_embedded)?;
+    let ctx = context(
+        root,
+        profile,
+        args.nightly,
+        args.skip_embedded,
+        args.coverage,
+    )?;
 
     println!("profile: {}", ctx.profile);
     println!("root:    {}", ctx.root.display());
@@ -180,6 +210,7 @@ mod tests {
             "fmt",
             "--only",
             "test",
+            "--coverage",
         ])
         .unwrap();
         let Some(Command::Ci(args)) = parsed.command else {
@@ -187,6 +218,7 @@ mod tests {
         };
         assert_eq!(args.profile, "dev");
         assert_eq!(args.only, ["fmt", "test"]);
+        assert!(args.coverage);
     }
 
     #[test]
