@@ -140,6 +140,17 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
     if workspace.get("members").is_none() {
         return Outcome::fail("Cargo.toml workspace.members must be present.");
     }
+    // A missing `default-members` list is not "omit the gate": Cargo then
+    // defaults a root build to every member, including host-only `xtask`.
+    if workspace
+        .get("default-members")
+        .and_then(Value::as_array)
+        .is_none()
+    {
+        return Outcome::fail(
+            "Cargo.toml workspace.default-members must be present so a bare cargo build cannot default to including xtask.",
+        );
+    }
     if workspace_lists_xtask_as_default_member(workspace) {
         return Outcome::fail(
             "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
