@@ -4,6 +4,11 @@
 
 ### Added
 
+- Unpackaged host workflow `docs/generating-tables.md`, linked from the
+  runtime README by GitHub URL. Baker README carries the org status
+  disclosure (Model conformance: N/A. Physical evidence: N/A). `AGENTS.md`
+  states the host/target split and the formula/fitting boundary. This is
+  not a runtime API change.
 - Host-side baker Rust emission in `ph-surfaces-bake`: `--emit-rust` writes
   deterministic static knot arrays, a row-major `values[y][x]` grid,
   `PAYLOAD_BYTES` for the selected pairing, and `MAX_ERR_LSB` to stdout.

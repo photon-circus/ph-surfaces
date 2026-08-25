@@ -1,10 +1,11 @@
 //! Frozen integer golden vectors for the runtime conformance suite.
 //!
-//! `--emit-golden` writes CSV under `crates/surfaces/tests/conformance/golden/`
-//! from the working directory, or `--out DIR`.
-//! Those files are frozen inputs: a failing test is an implementation defect
-//! until proven otherwise. Regenerating them belongs in a dedicated freeze
-//! commit with no implementation source. This is not `MAX_ERR_LSB`.
+//! `--emit-golden` writes the checked-in rounding fixture as CSV under
+//! `crates/surfaces/tests/conformance/golden/` from the working directory, or
+//! `--out DIR`. It does not ingest caller samples. Those files are frozen
+//! inputs: a failing test is an implementation defect until proven otherwise.
+//! Regenerating them belongs in a dedicated freeze commit with no
+//! implementation source. This is not `MAX_ERR_LSB`.
 
 use std::fmt::Write as _;
 use std::path::Path;

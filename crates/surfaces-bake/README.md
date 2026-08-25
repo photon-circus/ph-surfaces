@@ -2,6 +2,13 @@
 
 Host baker for `ph-surfaces`.
 
+> [!NOTE]
+> **Lifecycle:** Active
+> **Distribution:** unpublished host package in this repository
+> (`ph-surfaces-bake`). Not on crates.io at runtime `v0.1.0`.
+> **Model conformance:** N/A
+> **Physical evidence:** N/A
+
 This package requires `std` and `f64`. It is host tooling and must **never**
 be linked into target firmware.
 
@@ -28,26 +35,28 @@ accuracy, timing, flash, or WCET claim.
 Residual arithmetic uses `num-bigint`, `num-rational`, and `num-traits`.
 Those crates stay off the runtime graph.
 
-The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
-`emit_max_err_lsb` for the const fragment.
-
-**Model conformance: N/A. Physical evidence: N/A.**
+The public host API is `BakeInput::quantize` → `QuantizedTable`,
+`emit_max_err_lsb`, `emit_rust` / `emit_rust_with`, and `write_goldens`.
 
 ```sh
 ph-surfaces-bake --help
 ph-surfaces-bake --samples points.txt --x-knots 0,10 --y-knots 0,5 --scale 1
 ph-surfaces-bake --samples points.txt --x-uniform 0,10,3 --y-uniform 0,5,3 --scale 1
 ph-surfaces-bake --emit-rust --samples points.txt --x-knots 0,10 --y-knots 0,5 --scale 1
+ph-surfaces-bake --emit-golden
 ```
 
 `--emit-rust` writes Rust source on stdout. The baker does not own the
 destination path; `cargo xtask generate` places the checked-in copy. The
 emitted `MAX_ERR_LSB` is an i32 value LSB: deviation between the supplied
 samples and the table built from them. It is not a device, accuracy, timing,
-or flash claim. `--emit-golden` writes frozen integer CSV under
+or flash claim. `--emit-golden` writes the repository's checked-in rounding
+fixture as frozen integer CSV under
 `crates/surfaces/tests/conformance/golden/`, located from the working
-directory (or `--out DIR`). Those files are read-only inputs: a failing test
-is an implementation defect until proven otherwise.
+directory (or `--out DIR`). It does not ingest the caller's samples.
+Those files are read-only inputs: a failing test is an implementation defect
+until proven otherwise. Regenerating them belongs in a dedicated golden-freeze
+issue.
 
 The baker may take reviewed host crates for exact residual arithmetic. A
 declared implementation-line budget keeps it from growing without bound. The

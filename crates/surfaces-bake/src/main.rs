@@ -273,8 +273,8 @@ fn help() -> String {
      --emit-rust    write static Rust tables to stdout (BinaryAxis × BinaryAxis)\n\
      --x-bucketed   emit X as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
      --y-bucketed   emit Y as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
-     --emit-golden  write frozen CSV under crates/surfaces/tests/conformance/golden/\n\
-                    located from the working directory, or --out DIR\n\
+     --emit-golden  write the checked-in rounding fixture CSV (not the caller's table)\n\
+                    under crates/surfaces/tests/conformance/golden/ from cwd, or --out DIR\n\
      \n\
      Each axis takes either a knot list or a uniform descriptor, never both.\n\
      The baker does not choose a grid.\n"
@@ -338,7 +338,7 @@ mod tests {
         assert!(text.contains("--samples"));
         assert!(text.contains("--scale"));
         assert!(text.contains("write static Rust tables to stdout"));
-        assert!(text.contains("write frozen CSV under crates/surfaces/tests/conformance/golden/"));
+        assert!(text.contains("write the checked-in rounding fixture CSV"));
         assert_eq!(dispatch(&["-h".to_string()]).unwrap(), text);
     }
 

@@ -12,8 +12,8 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > compile-time lookup strategies, and an explicit Error/Clamp boundary
 > policy. There is no 1.0 compatibility promise.
 > Host table generation lives in the sibling crate `ph-surfaces-bake`
-> (quantize a caller-stated grid and emit `MAX_ERR_LSB` as deviation from
-> supplied samples) and is not part of this runtime package.
+> (quantize a caller-stated grid, emit static tables, and emit `MAX_ERR_LSB`
+> as deviation from supplied samples) and is not part of this runtime package.
 > **Domain:** Libraries.
 
 ```toml
@@ -103,6 +103,11 @@ normative contract below.
    ```sh
    cargo run --example firmware_quickstart
    ```
+
+5. **Host tables** live in `ph-surfaces-bake`, not this crate:
+   **[generating tables](https://github.com/photon-circus/ph-surfaces/blob/main/docs/generating-tables.md)**
+   — samples and an explicit grid to a checked-in static table. Firmware
+   never links the baker.
 
 ## Independence from `ph-curves`
 
