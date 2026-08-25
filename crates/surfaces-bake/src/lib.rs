@@ -54,8 +54,8 @@
 //! and `MAX_ERR_LSB` as source text. [`emit_rust_with`] is the same for an
 //! explicit pairing and returns [`BakeError::InvalidBucketCount`] when a
 //! bucketed axis is outside `1..=65_536`. The baker prints that text on
-//! stdout; `cargo xtask generate` places the checked-in copy. Frozen golden
-//! vectors: issue #42.
+//! stdout; `cargo xtask generate` places the checked-in copy. [`write_goldens`]
+//! writes frozen integer CSV under the runtime conformance tree.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
@@ -63,12 +63,14 @@
 mod bound;
 mod emit;
 mod error;
+mod golden;
 mod grid;
 mod quantize;
 mod samples;
 
 pub use emit::{EmitAxis, checked_in_source, emit_rust, emit_rust_with};
 pub use error::{AxisName, BakeError, SampleField};
+pub use golden::{rounding_csv, write_goldens};
 pub use grid::{Axis, MAX_GRID_CELLS};
 pub use quantize::{QuantizedTable, emit_max_err_lsb};
 pub use samples::{Sample, parse_samples};

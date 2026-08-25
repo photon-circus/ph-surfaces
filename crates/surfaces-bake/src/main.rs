@@ -28,7 +28,7 @@ fn dispatch(args: &[String]) -> Result<String, (u8, String)> {
     match args {
         [] => Err((2, usage_error("missing args"))),
         [a] if a == "--help" || a == "-h" => Ok(help()),
-        [a] if a == "--emit-golden" => Err((1, not_implemented("--emit-golden"))),
+        [a] if a == "--emit-golden" => emit_golden(),
         _ => ingest(args),
     }
 }
@@ -267,19 +267,30 @@ fn help() -> String {
      --emit-rust    write static Rust tables to stdout (BinaryAxis × BinaryAxis)\n\
      --x-bucketed   emit X as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
      --y-bucketed   emit Y as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
-     --emit-golden  not implemented yet\n\
+     --emit-golden  write frozen CSV under crates/surfaces/tests/conformance/golden/\n\
      \n\
      Each axis takes either a knot list or a uniform descriptor, never both.\n\
      The baker does not choose a grid.\n"
         .to_string()
 }
 
-fn usage_error(detail: &str) -> String {
-    format!("ph-surfaces-bake: {detail}. Try --help\n")
+fn emit_golden() -> Result<String, (u8, String)> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../surfaces/tests/conformance/golden");
+    ph_surfaces_bake::write_goldens(&dir).map_err(|error| {
+        (
+            1,
+            format!(
+                "ph-surfaces-bake: could not write goldens under {}: {error}\n",
+                dir.display()
+            ),
+        )
+    })?;
+    Ok(format!("wrote goldens under {}\n", dir.display()))
 }
 
-fn not_implemented(flag: &str) -> String {
-    format!("ph-surfaces-bake: {flag} is not implemented yet\n")
+fn usage_error(detail: &str) -> String {
+    format!("ph-surfaces-bake: {detail}. Try --help\n")
 }
 
 fn bake_error(error: BakeError) -> String {
@@ -297,7 +308,7 @@ mod tests {
         assert!(text.contains("--samples"));
         assert!(text.contains("--scale"));
         assert!(text.contains("write static Rust tables to stdout"));
-        assert!(text.contains("--emit-golden  not implemented yet"));
+        assert!(text.contains("write frozen CSV under crates/surfaces/tests/conformance/golden/"));
         assert_eq!(dispatch(&["-h".to_string()]).unwrap(), text);
     }
 
@@ -316,10 +327,13 @@ mod tests {
     }
 
     #[test]
-    fn emit_golden_is_not_implemented_yet() {
-        let golden = dispatch(&["--emit-golden".to_string()]).unwrap_err();
-        assert_eq!(golden.0, 1);
-        assert!(golden.1.contains("not implemented yet"));
+    fn emit_golden_writes_the_rounding_csv() {
+        let message = dispatch(&["--emit-golden".to_string()]).unwrap();
+        assert!(message.contains("wrote goldens under"));
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../surfaces/tests/conformance/golden/rounding.csv");
+        let on_disk = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(on_disk, ph_surfaces_bake::rounding_csv());
     }
 
     #[test]

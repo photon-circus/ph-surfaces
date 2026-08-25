@@ -130,7 +130,7 @@ pub fn checked_in_source() -> String {
     )
 }
 
-fn checked_in_input() -> BakeInput {
+pub(crate) fn checked_in_input() -> BakeInput {
     BakeInput::parse(
         CHECKED_IN_SAMPLES,
         Axis::knots(vec![0, 2]),

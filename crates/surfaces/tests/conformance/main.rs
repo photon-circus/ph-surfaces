@@ -13,6 +13,7 @@
 //! checks in `cargo xtask ci` fail if this directory names it or a float.
 //! `strategies.rs` extends that evidence across every
 //! applicable Linear/Binary/Uniform/Bucketed pairing.
+//! Frozen baker CSV under `golden/` is integer-only and is not a float oracle.
 //!
 //! # Exhaustive vs sampled
 //!
@@ -33,6 +34,7 @@ mod boundary;
 mod determinism;
 mod examples;
 mod fixtures;
+mod golden;
 mod lookup;
 mod order;
 mod range;
