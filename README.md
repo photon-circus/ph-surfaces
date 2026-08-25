@@ -11,6 +11,8 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > The API is intentionally narrow: one static bilinear surface, four
 > compile-time lookup strategies, and an explicit Error/Clamp boundary
 > policy. There is no 1.0 compatibility promise.
+> Host table generation lives in the sibling crate `ph-surfaces-bake` and
+> is not part of this runtime package.
 > **Domain:** Libraries.
 
 ```toml
@@ -468,7 +470,9 @@ v0.1 explicitly does not include:
 - Dynamic or runtime-loaded grids, runtime mutation, caching, allocation,
   unsafe code, or floating point
 - Runtime semantic metadata, units, provenance, or generated error reports
-- Host generation, CLI tooling, formula ingestion, or numerical fitting
+- Host generation or a CLI inside this runtime crate (those live in the
+  sibling `ph-surfaces-bake`; formula ingestion and numerical fitting remain
+  outside this repository)
 - Runtime-selectable strategies, runtime-generated indexes, or a direct
   coordinate-to-cell LUT. A direct LUT remains deferred unless a concrete
   firmware consumer supplies a coordinate domain and latency/jitter bound,
