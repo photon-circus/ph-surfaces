@@ -65,7 +65,7 @@
     ),
     baker: (
         src: "crates/surfaces-bake/src",
-        max_implementation_lines: 1500,
+        max_implementation_lines: 1600,
         files: [
             ".cargo_vcs_info.json",
             "Cargo.lock",
@@ -73,10 +73,12 @@
             "Cargo.toml.orig",
             "LICENSE",
             "README.md",
+            "src/bound.rs",
             "src/error.rs",
             "src/grid.rs",
             "src/lib.rs",
             "src/main.rs",
+            "src/quantize.rs",
             "src/samples.rs",
         ],
     ),

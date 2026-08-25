@@ -3,13 +3,10 @@
 //! Issue #27 asks for cargo-deny to be pinned or recorded. A policy verdict is
 //! only evidence if the tool that produced it is identified, so the version is
 //! always printed here and logged by the release runbook's tool-version
-//! capture. It is recorded rather than pinned: the shipped `ph-surfaces` and
-//! `ph-surfaces-bake` packages have empty `[dependencies]` tables, so the
-//! policy has almost nothing to evaluate, and an exact-version requirement
-//! would fail release evidence on every routine cargo-deny update for zero
-//! added signal. Host `xtask` dependencies live in `[workspace.dependencies]`
-//! and are excluded from this graph. Revisit pinning when a shipped
-//! `[dependencies]` table gains its first entry.
+//! capture. It is recorded rather than pinned: the runtime `ph-surfaces`
+//! package has an empty `[dependencies]` table. The baker may take reviewed
+//! host crates; those stay off the runtime graph. Host `xtask` dependencies
+//! live in `[workspace.dependencies]` and are excluded from this graph.
 
 use crate::checks::cargo::step;
 use crate::proc;

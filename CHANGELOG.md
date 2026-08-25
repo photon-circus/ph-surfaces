@@ -4,16 +4,41 @@
 
 ### Added
 
+- Host-side baker quantization in `ph-surfaces-bake`: fill each declared
+  grid node from on-knot samples, apply the caller-stated scale with
+  round-to-nearest (exact half-way away from zero; values just below a
+  half stay on the nearer integer), measure deviation of
+  the quantized table from every supplied sample in i32 value LSBs, and
+  emit the maximum as `pub const MAX_ERR_LSB: i32`. For samples whose
+  coordinates are exact `u16` values, the bound includes the runtime's
+  rounded X-then-Y path, not only unrounded host bilinear. `MAX_ERR_LSB`
+  is `ceil` of the exact rational residual (IEEE `f64` bit-patterns as
+  dyadics, bilinear as an exact ratio of the `i32` grid on the host, not a
+  host-`f64` lerp with ULP padding). `ceil` applies only to the finished
+  residual. A finite residual whose `ceil` does not fit in `i32` is
+  `BakeError::BoundOverflow`, not `NonFiniteDeviation`. Missing or
+  ambiguous nodes, a non-invertible scale, an NX×NY product above
+  1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
+  lookup is binary search on the ordered knot lists. The operator RMS
+  statistic scales before squaring so a representable tiny residual does
+  not underflow to 0, and converting the residual to `f64` keeps
+  subnormals through `2^-1074` finite. The bound is an
+  upper bound on deviation from the supplied samples, not a device or
+  accuracy claim. This is not a runtime API change.
+- Reviewed host crates on `ph-surfaces-bake` (`num-bigint`, `num-rational`,
+  `num-traits`) for exact residual arithmetic. They stay off the runtime
+  graph. This is not a runtime API change.
 - Host-side baker ingest in `ph-surfaces-bake`: delimited sample points
   (X, Y, value as host `f64`), an explicit per-axis grid (knot list or
-  uniform origin/step/count), and a caller-stated output scale that is
-  stored and not applied. Grid validation matches the runtime constructors
-  in the same vocabulary; samples outside the declared domain are reported;
+  uniform origin/step/count), and a caller-stated output scale stored at
+  ingest. Grid validation matches the runtime constructors in the same
+  vocabulary; samples outside the declared domain are reported;
   non-finite sample fields and scales are rejected; failures are a closed
   `BakeError` enum. No third-party parser. This is not a runtime API change.
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:
-  `[lib]` plus a thin CLI, zero third-party dependencies, a mechanically
-  checked 1,500-line implementation budget, and a packaged-file allowlist
+  `[lib]` plus a thin CLI, reviewed host crates for exact residual
+  arithmetic, a mechanically checked implementation-line budget, and a
+  packaged-file allowlist
   checked independently of the runtime `package *` family. This is not a
   runtime API change. The runtime crate cannot reach the baker through any
   dependency kind, feature, or `cfg`.

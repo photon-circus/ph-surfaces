@@ -8,7 +8,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use ph_surfaces_bake::{Axis, BakeError, BakeInput};
+use ph_surfaces_bake::{Axis, BakeError, BakeInput, QuantizedTable};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -46,7 +46,10 @@ fn ingest(args: &[String]) -> Result<String, (u8, String)> {
         )
     })?;
     match BakeInput::parse(&text, parsed.x, parsed.y, parsed.scale) {
-        Ok(input) => Ok(summary(&input)),
+        Ok(input) => match input.quantize() {
+            Ok(table) => Ok(summary(&input, &table)),
+            Err(error) => Err((1, bake_error(error))),
+        },
         Err(error) => Err((1, bake_error(error))),
     }
 }
@@ -163,14 +166,27 @@ fn axis_from_flags(
     }
 }
 
-fn summary(input: &BakeInput) -> String {
-    format!(
+fn summary(input: &BakeInput, table: &QuantizedTable) -> String {
+    let mut out = format!(
         "ingested {} samples; {}; {}; scale {}\n",
         input.samples().len(),
         axis_summary("x", input.x()),
         axis_summary("y", input.y()),
         input.scale()
-    )
+    );
+    out.push_str(&format!(
+        "deviation from supplied samples: MAX_ERR_LSB={} (i32 value LSBs, upper bound)\n",
+        table.max_err_lsb
+    ));
+    out.push_str(&format!(
+        "rms_lsb={} worst_sample=({}, {})\n",
+        table.rms_lsb, table.worst_x, table.worst_y
+    ));
+    out.push_str("per-knot residual (i32 value LSBs, row-major):\n");
+    for row in &table.per_knot_lsb {
+        out.push_str(&format!("  {row:?}\n"));
+    }
+    out
 }
 
 fn axis_summary(name: &str, axis: &Axis) -> String {
@@ -201,7 +217,7 @@ fn help() -> String {
      --y-knots      explicit Y knots as comma-separated u16 values\n\
      --x-uniform    X axis as origin,step,count (runtime UniformAxis)\n\
      --y-uniform    Y axis as origin,step,count (runtime UniformAxis)\n\
-     --scale        output scale for the i32 value domain (stored, not applied)\n\
+     --scale        output scale for the i32 value domain (applied at quantize)\n\
      --emit-rust    not implemented yet\n\
      --emit-golden  not implemented yet\n\
      \n\
@@ -316,8 +332,8 @@ mod tests {
 
     #[test]
     fn ingest_command_summarises_a_valid_file() {
-        let path = std::env::temp_dir().join("ph-surfaces-bake-s3-points.txt");
-        std::fs::write(&path, "0 0 1.5\n10 5 2\n").unwrap();
+        let path = std::env::temp_dir().join("ph-surfaces-bake-s4-points.txt");
+        std::fs::write(&path, "0 0 1.5\n10 0 2.5\n0 5 3.5\n10 5 4.5\n").unwrap();
         let args = [
             "--samples",
             path.to_str().unwrap(),
@@ -330,11 +346,35 @@ mod tests {
         ]
         .map(String::from);
         let out = dispatch(&args).unwrap();
-        assert!(out.contains("ingested 2 samples"));
+        assert!(out.contains("ingested 4 samples"));
         assert!(out.contains("x knots [0, 10]"));
         assert!(out.contains("y knots [0, 5]"));
         assert!(out.contains("scale 1000"));
-        assert!(!out.contains("1500"));
+        assert!(out.contains("MAX_ERR_LSB=0"));
+        assert!(out.contains("i32 value LSBs"));
+        assert!(out.contains("deviation from supplied samples"));
+        assert!(!out.contains("accuracy"));
+        assert!(!out.contains("device"));
+    }
+
+    #[test]
+    fn ingest_command_reports_missing_nodes() {
+        let path = std::env::temp_dir().join("ph-surfaces-bake-s4-missing.txt");
+        std::fs::write(&path, "0 0 1.5\n10 5 2\n").unwrap();
+        let args = [
+            "--samples",
+            path.to_str().unwrap(),
+            "--x-knots",
+            "0,10",
+            "--y-knots",
+            "0,5",
+            "--scale",
+            "1000",
+        ]
+        .map(String::from);
+        let err = dispatch(&args).unwrap_err();
+        assert_eq!(err.0, 1);
+        assert!(err.1.contains("grid node (10, 0) has no sample"));
     }
 
     #[test]

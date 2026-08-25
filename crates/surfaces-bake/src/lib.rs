@@ -8,15 +8,17 @@
 //! Sample points are host `f64` triples (X, Y, value) from delimited text.
 //! The grid is explicit: a knot list per axis, or a uniform origin/step/count
 //! matching the runtime `UniformAxis`. A caller-stated output scale is stored
-//! and not applied. The baker does not choose knots, parse expressions, or
-//! quantize values.
+//! at ingest and applied by [`BakeInput::quantize`] to produce a row-major
+//! `i32` grid. The baker does not choose knots or parse expressions.
 //!
 //! ```
-//! use ph_surfaces_bake::{Axis, BakeInput, Sample};
+//! use ph_surfaces_bake::{emit_max_err_lsb, Axis, BakeInput, Sample};
 //!
 //! let samples = vec![
 //!     Sample::new(0.0, 0.0, 1.5),
-//!     Sample::new(10.0, 5.0, 2.5),
+//!     Sample::new(10.0, 0.0, 2.5),
+//!     Sample::new(0.0, 5.0, 3.5),
+//!     Sample::new(10.0, 5.0, 4.5),
 //! ];
 //! let input = BakeInput::new(
 //!     samples,
@@ -27,21 +29,39 @@
 //! .unwrap();
 //! assert_eq!(input.scale(), 1000.0);
 //! assert_eq!(input.samples()[0].value, 1.5);
+//! let table = input.quantize().unwrap();
+//! assert_eq!(table.values[0][0], 1500);
+//! assert_eq!(table.max_err_lsb, 0);
+//! assert_eq!(
+//!     emit_max_err_lsb(table.max_err_lsb),
+//!     "pub const MAX_ERR_LSB: i32 = 0;\n"
+//! );
 //! ```
 //!
-//! Quantization and the emitted deviation bound: issue #40.
+//! `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
+//! `|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics;
+//! bilinear is an exact ratio of the `i32` grid, computed on the host with
+//! allocated integers. `ceil` applies only to the finished residual. A finite
+//! residual whose ceil does not fit in `i32` is [`BakeError::BoundOverflow`].
+//! Host `f64` lerp is not the bound oracle. For exact `u16` coordinates that
+//! includes the runtime-rounded X-then-Y path. It is not a typical error, and
+//! not a device, vendor, sensor, calibration, or accuracy claim.
+//!
 //! Rust emission and the checked-in generated-source drift gate: issue #41.
 //! Frozen golden vectors: issue #42.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod bound;
 mod error;
 mod grid;
+mod quantize;
 mod samples;
 
 pub use error::{AxisName, BakeError, SampleField};
-pub use grid::Axis;
+pub use grid::{Axis, MAX_GRID_CELLS};
+pub use quantize::{QuantizedTable, emit_max_err_lsb};
 pub use samples::{Sample, parse_samples};
 
 /// Validated ingest: samples, an explicit grid, and a stored output scale.
@@ -57,10 +77,10 @@ impl BakeInput {
     /// Validates `x` and `y` as the runtime constructors would, then rejects
     /// any sample whose X or Y falls outside that inclusive domain.
     ///
-    /// `scale` is retained and not applied to [`Sample::value`]. Both `scale`
-    /// and every sample field must be finite; the text parser already rejects
-    /// non-finite numbers, and this constructor is the same gate for library
-    /// callers.
+    /// `scale` is retained and not applied to [`Sample::value`] here;
+    /// [`BakeInput::quantize`] applies it. Both `scale` and every sample
+    /// field must be finite; the text parser already rejects non-finite
+    /// numbers, and this constructor is the same gate for library callers.
     ///
     /// # Errors
     ///
@@ -152,7 +172,7 @@ impl BakeInput {
         &self.y
     }
 
-    /// Caller-stated output scale. Stored; not applied.
+    /// Caller-stated output scale. Stored at ingest; applied by [`Self::quantize`].
     #[must_use]
     pub fn scale(&self) -> f64 {
         self.scale

@@ -3,13 +3,15 @@
 # Run with `cargo xtask ci`, or directly:
 #   cargo deny check
 #
-# The shipped graph is two packages, both with empty `[dependencies]` tables:
-# `ph-surfaces` (runtime) and `ph-surfaces-bake` (host baker). This file is a
+# The shipped graph is two packages. `ph-surfaces` (runtime) has an empty
+# `[dependencies]` table. `ph-surfaces-bake` (host baker) may take reviewed
+# host crates for exact arithmetic the firmware must not do; those crates
+# stay off the runtime graph. This file is a
 # ratchet: it fails as soon as an undiscussed crate, licence, or source appears.
 # `ph-curves` is banned by name so it cannot return as a direct, transitive,
 # optional, path, or Git dependency. Do not add `{ name = "ph-surfaces-bake" }`
 # to `[bans] deny`: that would deny the baker package itself. The baker stays
-# in this graph so its empty third-party tree is evidence. Host-only `xtask`
+# in this graph so its host dependencies are reviewed. Host-only `xtask`
 # dependencies live in `[workspace.dependencies]` and are excluded from this
 # graph; `publish_lock` classifies that member instead.
 
