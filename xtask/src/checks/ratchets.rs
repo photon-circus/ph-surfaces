@@ -256,7 +256,10 @@ fn metadata(ctx: &Ctx, no_deps: bool) -> Result<cargo_metadata::Metadata, String
     if no_deps {
         command.no_deps();
     } else {
-        command.other_options(vec!["--offline".into(), "--all-features".into()]);
+        // `--locked` (not `--offline`): the workspace lockfile includes xtask
+        // host crates, some of them target-specific, and those must be
+        // fetchable. The lockfile still pins every version.
+        command.other_options(vec!["--locked".into(), "--all-features".into()]);
     }
     command
         .exec()
