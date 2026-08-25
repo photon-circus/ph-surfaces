@@ -4,11 +4,20 @@
 
 ### Added
 
+- Host-side baker quantization in `ph-surfaces-bake`: fill each declared
+  grid node from on-knot samples, apply the caller-stated scale with
+  round-to-nearest (exact half-way away from zero), measure deviation of
+  the quantized table from every supplied sample in i32 value LSBs, and
+  emit the maximum as `pub const MAX_ERR_LSB: i32`. Missing or ambiguous
+  nodes, a non-invertible scale, and `i32` overflow are closed
+  `BakeError`s. The bound is an upper bound on deviation from the
+  supplied samples, not a device or accuracy claim. This is not a
+  runtime API change.
 - Host-side baker ingest in `ph-surfaces-bake`: delimited sample points
   (X, Y, value as host `f64`), an explicit per-axis grid (knot list or
-  uniform origin/step/count), and a caller-stated output scale that is
-  stored and not applied. Grid validation matches the runtime constructors
-  in the same vocabulary; samples outside the declared domain are reported;
+  uniform origin/step/count), and a caller-stated output scale stored at
+  ingest. Grid validation matches the runtime constructors in the same
+  vocabulary; samples outside the declared domain are reported;
   non-finite sample fields and scales are rejected; failures are a closed
   `BakeError` enum. No third-party parser. This is not a runtime API change.
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:

@@ -24,8 +24,8 @@ pub enum SampleField {
 
 /// Host bake failure.
 ///
-/// Closed: every ingest rejection class is a variant. This enum is not
-/// `#[non_exhaustive]`; exhaustive matching without a wildcard arm is
+/// Closed: every ingest and quantize rejection class is a variant. This enum
+/// is not `#[non_exhaustive]`; exhaustive matching without a wildcard arm is
 /// intended. Display strings for constructor failures copy the runtime
 /// panic messages exactly.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -98,6 +98,31 @@ pub enum BakeError {
     },
     /// The caller-stated output scale was NaN or infinite.
     NonFiniteScale,
+    /// The output scale has no finite reciprocal, so dequantization would blow up.
+    NonInvertibleScale,
+    /// No sample supplied an exact on-knot value for this declared node.
+    MissingNode {
+        /// Declared X knot of the empty node.
+        x: u16,
+        /// Declared Y knot of the empty node.
+        y: u16,
+    },
+    /// Two samples claimed the same declared node with different values.
+    AmbiguousNode {
+        /// Declared X knot of the conflicting node.
+        x: u16,
+        /// Declared Y knot of the conflicting node.
+        y: u16,
+    },
+    /// `round(value * scale)` at this node was outside `i32`.
+    QuantizeOverflow {
+        /// Declared X knot of the overflowing node.
+        x: u16,
+        /// Declared Y knot of the overflowing node.
+        y: u16,
+    },
+    /// A sample deviation was not a finite i32-value-LSB quantity.
+    NonFiniteDeviation,
 }
 
 impl Display for BakeError {
@@ -156,6 +181,19 @@ impl Display for BakeError {
                 SampleField::Value => f.write_str("sample value is not a finite f64"),
             },
             Self::NonFiniteScale => f.write_str("output scale is not a finite f64"),
+            Self::NonInvertibleScale => f.write_str("output scale must have a finite reciprocal"),
+            Self::MissingNode { x, y } => {
+                write!(f, "grid node ({x}, {y}) has no sample")
+            }
+            Self::AmbiguousNode { x, y } => {
+                write!(f, "grid node ({x}, {y}) has conflicting sample values")
+            }
+            Self::QuantizeOverflow { x, y } => {
+                write!(f, "quantized value at ({x}, {y}) does not fit in i32")
+            }
+            Self::NonFiniteDeviation => {
+                f.write_str("sample deviation is not a finite i32 value LSB")
+            }
         }
     }
 }
@@ -272,6 +310,26 @@ mod tests {
         assert_eq!(
             BakeError::NonFiniteScale.to_string(),
             "output scale is not a finite f64"
+        );
+        assert_eq!(
+            BakeError::NonInvertibleScale.to_string(),
+            "output scale must have a finite reciprocal"
+        );
+        assert_eq!(
+            BakeError::MissingNode { x: 10, y: 5 }.to_string(),
+            "grid node (10, 5) has no sample"
+        );
+        assert_eq!(
+            BakeError::AmbiguousNode { x: 0, y: 1 }.to_string(),
+            "grid node (0, 1) has conflicting sample values"
+        );
+        assert_eq!(
+            BakeError::QuantizeOverflow { x: 2, y: 3 }.to_string(),
+            "quantized value at (2, 3) does not fit in i32"
+        );
+        assert_eq!(
+            BakeError::NonFiniteDeviation.to_string(),
+            "sample deviation is not a finite i32 value LSB"
         );
     }
 

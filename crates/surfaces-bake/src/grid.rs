@@ -56,6 +56,37 @@ impl Axis {
             } => uniform_bounds(name, *origin, *step, *count),
         }
     }
+
+    /// Declared knot values, after the same validation as [`crate::BakeInput::new`].
+    ///
+    /// A uniform descriptor is expanded to `origin + i * step`. The baker does
+    /// not pick, adapt, or optimize knots.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`BakeError`] for an axis the runtime constructors would reject.
+    pub fn knot_list(&self, name: AxisName) -> Result<Vec<u16>, BakeError> {
+        match self {
+            Self::Knots(knots) => {
+                knot_bounds(name, knots)?;
+                Ok(knots.clone())
+            }
+            Self::Uniform {
+                origin,
+                step,
+                count,
+            } => {
+                uniform_bounds(name, *origin, *step, *count)?;
+                Ok(expand_uniform(*origin, *step, *count))
+            }
+        }
+    }
+}
+
+fn expand_uniform(origin: u16, step: u16, count: usize) -> Vec<u16> {
+    (0..count)
+        .map(|i| (u32::from(origin) + i as u32 * u32::from(step)) as u16)
+        .collect()
 }
 
 fn knot_bounds(name: AxisName, knots: &[u16]) -> Result<(u16, u16), BakeError> {
@@ -220,5 +251,11 @@ mod tests {
             BakeInput::new(Vec::new(), Axis::knots(vec![0]), Axis::knots(vec![0]), 1.0),
             Err(BakeError::XAxisTooShort)
         );
+    }
+
+    #[test]
+    fn uniform_knot_list_expands_origin_step_count() {
+        let axis = Axis::uniform(0, 10, 3);
+        assert_eq!(axis.knot_list(AxisName::X).unwrap(), vec![0, 10, 20]);
     }
 }
