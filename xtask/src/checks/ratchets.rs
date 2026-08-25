@@ -105,6 +105,13 @@ pub fn no_ph_curves(ctx: &Ctx) -> Outcome {
         if value_names_ph_curves(&value) {
             return Outcome::fail(format!("{relative} names ph-curves outside a comment."));
         }
+        // The baker package itself is named `ph-surfaces-bake`; only the
+        // runtime crate's manifest is forbidden from naming it.
+        if relative == CRATE_MANIFEST && value_names_ph_surfaces_bake(&value) {
+            return Outcome::fail(format!(
+                "{relative} names ph-surfaces-bake; the runtime crate must not reach the baker."
+            ));
+        }
     }
 
     let lock = match manifest(ctx, "Cargo.lock") {
@@ -113,6 +120,11 @@ pub fn no_ph_curves(ctx: &Ctx) -> Outcome {
     };
     if value_names_ph_curves(&lock) {
         return Outcome::fail("Cargo.lock mentions a ph-curves package or source.");
+    }
+    if runtime_lock_names_bake(&lock) {
+        return Outcome::fail(
+            "Cargo.lock records a ph-surfaces-bake dependency on the runtime package.",
+        );
     }
 
     let metadata = match metadata(ctx, false) {
@@ -125,6 +137,11 @@ pub fn no_ph_curves(ctx: &Ctx) -> Outcome {
         .any(|package| is_ph_curves(package.name.as_str()))
     {
         return Outcome::fail("cargo metadata declares or resolves a ph-curves package.");
+    }
+    if metadata_runtime_depends_on_bake(&metadata) {
+        return Outcome::fail(
+            "cargo metadata records a ph-surfaces-bake dependency on the runtime package.",
+        );
     }
     Outcome::Pass
 }
@@ -189,15 +206,25 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Err(error) => return Outcome::fail(error),
     };
     // Compare Cargo's resolved default set, not the TOML spelling: `["*"]`
-    // lists both shipped crates and host-only `xtask`.
-    if metadata
+    // lists both shipped crates and host-only `xtask`. Unqualified `test`,
+    // `clippy`, and `doc` follow this set, so every shipped package must stay
+    // in it and the gate must stay out.
+    let default_names: Vec<&str> = metadata
         .workspace_default_packages()
         .iter()
-        .any(|package| package.name.as_str() == "xtask")
-    {
+        .map(|package| package.name.as_str())
+        .collect();
+    if default_names.contains(&"xtask") {
         return Outcome::fail(
             "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
         );
+    }
+    for required in ["ph-surfaces", "ph-surfaces-bake"] {
+        if !default_names.contains(&required) {
+            return Outcome::fail(format!(
+                "Cargo.toml default-members must include `{required}` so unqualified cargo test, clippy, and doc cover every shipped package."
+            ));
+        }
     }
     let Some(crate_package) = metadata
         .packages
@@ -277,19 +304,76 @@ fn is_ph_curves(value: &str) -> bool {
     )
 }
 
-fn value_names_ph_curves(value: &Value) -> bool {
+fn is_ph_surfaces_bake(value: &str) -> bool {
+    matches!(
+        value.to_ascii_lowercase().as_str(),
+        "ph-surfaces-bake" | "ph_surfaces_bake"
+    )
+}
+
+fn value_names_token(value: &Value, is_name: fn(&str) -> bool) -> bool {
     match value {
         Value::String(value) => value
             .split(|character: char| {
                 !character.is_ascii_alphanumeric() && character != '-' && character != '_'
             })
-            .any(is_ph_curves),
-        Value::Array(values) => values.iter().any(value_names_ph_curves),
+            .any(is_name),
+        Value::Array(values) => values.iter().any(|value| value_names_token(value, is_name)),
         Value::Table(values) => values
             .iter()
-            .any(|(key, value)| is_ph_curves(key) || value_names_ph_curves(value)),
+            .any(|(key, value)| is_name(key) || value_names_token(value, is_name)),
         _ => false,
     }
+}
+
+fn value_names_ph_curves(value: &Value) -> bool {
+    value_names_token(value, is_ph_curves)
+}
+
+fn value_names_ph_surfaces_bake(value: &Value) -> bool {
+    value_names_token(value, is_ph_surfaces_bake)
+}
+
+fn runtime_lock_names_bake(lock: &Value) -> bool {
+    lock.get("package")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .any(|package| {
+            package.get("name").and_then(Value::as_str) == Some("ph-surfaces")
+                && package
+                    .get("dependencies")
+                    .is_some_and(value_names_ph_surfaces_bake)
+        })
+}
+
+fn metadata_runtime_depends_on_bake(metadata: &cargo_metadata::Metadata) -> bool {
+    let runtime = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == "ph-surfaces");
+    let Some(runtime) = runtime else {
+        return false;
+    };
+    if runtime
+        .dependencies
+        .iter()
+        .any(|dependency| is_ph_surfaces_bake(dependency.name.as_str()))
+    {
+        return true;
+    }
+    let Some(resolve) = metadata.resolve.as_ref() else {
+        return false;
+    };
+    resolve
+        .nodes
+        .iter()
+        .find(|node| node.id == runtime.id)
+        .is_some_and(|node| {
+            node.deps
+                .iter()
+                .any(|dep| is_ph_surfaces_bake(dep.name.as_str()))
+        })
 }
 
 #[cfg(test)]
@@ -302,5 +386,51 @@ mod tests {
         let allowed: Value = toml::from_str("[dependencies]\nph-curves-extra = \"1\"\n").unwrap();
         assert!(value_names_ph_curves(&banned));
         assert!(!value_names_ph_curves(&allowed));
+    }
+
+    #[test]
+    fn toml_value_scan_names_the_baker_only_as_an_exact_token() {
+        let banned: Value =
+            toml::from_str("[dependencies]\nph-surfaces-bake = { path = \"../surfaces-bake\" }\n")
+                .unwrap();
+        let underscored: Value =
+            toml::from_str("[dev-dependencies]\nph_surfaces_bake = \"1\"\n").unwrap();
+        let near: Value =
+            toml::from_str("[dependencies]\nph-surfaces-bake-extra = \"1\"\n").unwrap();
+        assert!(value_names_ph_surfaces_bake(&banned));
+        assert!(value_names_ph_surfaces_bake(&underscored));
+        assert!(!value_names_ph_surfaces_bake(&near));
+    }
+
+    #[test]
+    fn runtime_lock_entry_names_bake_only_on_the_runtime_package() {
+        let dependent: Value = toml::from_str(
+            r#"
+[[package]]
+name = "ph-surfaces"
+version = "0.1.0"
+dependencies = ["ph-surfaces-bake"]
+
+[[package]]
+name = "ph-surfaces-bake"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+        assert!(runtime_lock_names_bake(&dependent));
+
+        let member_only: Value = toml::from_str(
+            r#"
+[[package]]
+name = "ph-surfaces"
+version = "0.1.0"
+
+[[package]]
+name = "ph-surfaces-bake"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+        assert!(!runtime_lock_names_bake(&member_only));
     }
 }

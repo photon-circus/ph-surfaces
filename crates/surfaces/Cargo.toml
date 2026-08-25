@@ -37,9 +37,11 @@ targets = [
     "riscv32imac-unknown-none-elf",
 ]
 
-# Runtime, tests, and build scripts stay free of `ph-curves` and of any other
-# crate. Do not add optional, target-specific, path, or Git dependencies.
-# Do not take anything from `[workspace.dependencies]`.
+# Runtime, tests, and build scripts stay free of `ph-curves`, of
+# `ph-surfaces-bake`, and of any other crate. Do not add optional,
+# target-specific, path, or Git dependencies. Do not add a `gen` feature
+# that pulls the baker into this package. Do not take anything from
+# `[workspace.dependencies]`.
 [dependencies]
 
 [dev-dependencies]

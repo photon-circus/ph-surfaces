@@ -17,6 +17,7 @@ pub struct Config {
     pub package: Package,
     pub examples: Vec<String>,
     pub source_policy: SourcePolicy,
+    pub baker: Baker,
     pub targets: Vec<Target>,
     pub code_size: CodeSize,
     pub checks: Vec<CheckSpec>,
@@ -52,6 +53,14 @@ pub struct SourcePolicy {
     pub forbidden_example_types: Vec<String>,
     pub forbidden_example_macros: Vec<String>,
     pub dependency_manifests: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Baker {
+    pub src: String,
+    pub max_implementation_lines: usize,
+    pub files: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +110,8 @@ pub enum Action {
     NoStdUnconditional,
     IntegerOnly,
     NoPhCurves,
+    BakeLineBudget,
+    BakePackage,
     ManifestFloor,
     Fmt,
     Test,
@@ -130,6 +141,8 @@ impl Action {
             Self::NoStdUnconditional => "NoStdUnconditional",
             Self::IntegerOnly => "IntegerOnly",
             Self::NoPhCurves => "NoPhCurves",
+            Self::BakeLineBudget => "BakeLineBudget",
+            Self::BakePackage => "BakePackage",
             Self::ManifestFloor => "ManifestFloor",
             Self::Fmt => "Fmt",
             Self::Test => "Test",
@@ -186,6 +199,7 @@ impl Config {
         nonempty("package version", &self.package.version)?;
         unique("examples", &self.examples)?;
         unique("package files", &self.package.files)?;
+        unique("baker files", &self.baker.files)?;
         unique("non-consumer prefixes", &self.package.non_consumer_prefixes)?;
         unique("runtime roots", &self.source_policy.runtime_roots)?;
         unique("oracle roots", &self.source_policy.oracle_roots)?;
@@ -220,6 +234,8 @@ impl Config {
             .chain(self.source_policy.example_roots.iter())
             .chain([&self.source_policy.arithmetic_kernel])
             .chain(self.source_policy.dependency_manifests.iter())
+            .chain([&self.baker.src])
+            .chain(self.baker.files.iter())
             .chain([&self.code_size.snapshot])
         {
             relative_path(path)?;
@@ -321,6 +337,8 @@ impl Config {
             "NoStdUnconditional",
             "IntegerOnly",
             "NoPhCurves",
+            "BakeLineBudget",
+            "BakePackage",
             "ManifestFloor",
             "Fmt",
             "Test",

@@ -15,7 +15,8 @@ use crate::runner::{Ctx, Outcome};
 ///
 /// Clippy is per-target on purpose: host clippy lints host cfg resolution,
 /// and a lint that only fires under a bare-metal cfg would otherwise never be
-/// seen. Only the library builds here -- the Cargo examples are host
+/// seen. Only the runtime library builds here (`-p ph-surfaces`): the host
+/// baker is a default-member and requires `std`. The Cargo examples are host
 /// assertion harnesses; their fixtures are proven on these targets through
 /// the downstream consumer in `tools/consumer`.
 pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
@@ -31,10 +32,12 @@ pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
         }
         Err(error) => return Outcome::skip(format!("rustup is not available: {error}")),
     }
+    // The host baker is a default-member and requires `std`; name the runtime
+    // crate so these none-target builds cannot try to compile it.
     match step(
         ctx,
         &proc::cargo(),
-        &["build", "--target", target, "--locked"],
+        &["build", "-p", "ph-surfaces", "--target", target, "--locked"],
         &[],
     ) {
         Outcome::Pass | Outcome::PassWithNote(_) => {}
@@ -44,7 +47,15 @@ pub fn embedded_target(ctx: &Ctx, target: &str) -> Outcome {
         ctx,
         &proc::cargo(),
         &[
-            "clippy", "--target", target, "--locked", "--", "-D", "warnings",
+            "clippy",
+            "-p",
+            "ph-surfaces",
+            "--target",
+            target,
+            "--locked",
+            "--",
+            "-D",
+            "warnings",
         ],
         &[],
     )
@@ -82,8 +93,8 @@ pub fn core_only(ctx: &Ctx, target: &str) -> Outcome {
         Err(error) => return Outcome::skip(format!("rustup is not available: {error}")),
     }
 
-    // `rustup run` rather than `cargo +toolchain`, because CARGO may already
-    // point at a concrete toolchain binary that does not understand `+`.
+    // `-p ph-surfaces`: default-members also include the host baker, which
+    // requires `std` and must not be compiled for these none targets.
     step(
         ctx,
         "rustup",
@@ -93,6 +104,8 @@ pub fn core_only(ctx: &Ctx, target: &str) -> Outcome {
             "cargo",
             "build",
             "--locked",
+            "-p",
+            "ph-surfaces",
             "--target",
             target,
             "-Z",

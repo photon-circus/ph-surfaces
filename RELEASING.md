@@ -52,8 +52,13 @@ For the release commit:
 - regenerate the matching `version` line in `Cargo.lock` (for example with
   `cargo update --workspace`); a stale lockfile fails `cargo package -p ph-surfaces --locked`
   and `cargo publish -p ph-surfaces --locked`;
-- keep `publish = ["crates-io"]` on `ph-surfaces` and `publish = false` on
-  `xtask`; `publish_lock` classifies every workspace member;
+- keep `publish = ["crates-io"]` on `ph-surfaces` and on `ph-surfaces-bake`,
+  and `publish = false` on `xtask`; `publish_lock` classifies every workspace
+  member;
+- set `version = "0.1.0"` in `crates/surfaces-bake/Cargo.toml` in the same
+  commit as the runtime version bump;
+- update crate-relative `baker.files` in `xtask/config.ron` when the baker's
+  packaged file set changes;
 - inherit `edition`, `license`, `rust-version`, and `authors` from
   `[workspace.package]`; do not duplicate those fields on the shipped crate;
 - add `documentation = "https://docs.rs/ph-surfaces"`;
@@ -138,7 +143,9 @@ gitleaks git . --redact --log-opts=--all
 git fsck --full
 git-sizer --verbose
 cargo package -p ph-surfaces --locked
+cargo package -p ph-surfaces-bake --locked
 cargo publish -p ph-surfaces --dry-run --locked
+cargo publish -p ph-surfaces-bake --dry-run --locked
 ```
 
 The strict gate must prove the host suites, five examples, all sixteen strategy
@@ -146,9 +153,11 @@ pairings, both ordinary embedded targets, both core-only sysroots, package
 contents, packaged docs/doctests/examples, and a fresh downstream `#![no_std]`
 consumer.
 
-Inspect `target/package/ph-surfaces-<version>.crate` and require:
+Inspect `target/package/ph-surfaces-<version>.crate` and
+`target/package/ph-surfaces-bake-<version>.crate` and require each:
 
-- its file list equals the reviewed allowlist;
+- its file list equals the reviewed allowlist (`package.files` for the runtime,
+  `baker.files` for the baker);
 - its MIT license and manifest metadata are correct;
 - `git status --porcelain` is empty;
 - `.cargo_vcs_info.json` has `git.sha1` equal to `git rev-parse HEAD`;
@@ -182,6 +191,7 @@ short-lived token scoped as narrowly as crates.io permits:
 
 ```sh
 cargo publish -p ph-surfaces --locked
+cargo publish -p ph-surfaces-bake --locked
 ```
 
 Do not expose the token in history, issue/PR text, captured command arguments,
@@ -190,6 +200,7 @@ organization publisher team:
 
 ```sh
 cargo owner --add github:photon-circus:crate-publishers ph-surfaces
+cargo owner --add github:photon-circus:crate-publishers ph-surfaces-bake
 ```
 
 Verify the resulting owner list.
