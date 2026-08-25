@@ -19,13 +19,14 @@
 //! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
 //! `mixed_calibration_map`, `fail_safe_boundaries`, and
 //! `firmware_cost_budget`. Host table generation lives in the sibling crate
-//! `ph-surfaces-bake` (it quantizes a caller-stated grid and emits
-//! `MAX_ERR_LSB` as deviation from supplied samples) and is never linked
-//! into firmware. The repository also
+//! `ph-surfaces-bake` (it quantizes a caller-stated grid, emits static
+//! tables, and emits `MAX_ERR_LSB` as deviation from supplied samples) and
+//! is never linked into firmware. The repository also
 //! carries task-oriented guides that are not part of the crate artifact:
 //! [usage](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md),
 //! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md),
-//! and [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md).
+//! [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md),
+//! and [generating tables](https://github.com/photon-circus/ph-surfaces/blob/epic/36-surfaces-bake/docs/generating-tables.md).
 //!
 //! A `BilinearSurface` evaluates a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four

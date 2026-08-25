@@ -10,6 +10,26 @@ integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have. `ph-surfaces-bake` is the host-side baker: it requires `std`
 and `f64`, and must never be linked into target firmware.
 
+## Host / target split
+
+- Target crate: `crates/surfaces` (`ph-surfaces`). `no_std`, no-alloc, no
+  `f64`. It locates, interpolates, and reports.
+- Host crate: `crates/surfaces-bake` (`ph-surfaces-bake`). `std`, `f64`. It
+  quantizes, measures deviation, and emits.
+
+A PR that quantizes, fits, or computes a deviation figure on the target
+violates the repository architecture.
+
+Do not add a `gen` feature, optional dependency, or `cfg` on `ph-surfaces`
+that reaches the baker. That shape is used by other org crates and is
+forbidden here.
+
+Formula and equation authoring, symbolic definition, simplification, and
+fitting are outside this repository. The baker consumes sample points and
+never expressions. If a task requires understanding what an equation
+*means*, it is out of scope by construction. This is a boundary, not a
+roadmap: do not name a crate, a schedule, or an owner for that work.
+
 Baker `MAX_ERR_LSB` is `ceil` of an **exact** rational residual, owned by
 `crates/surfaces-bake/src/bound.rs`. The baker is host `std` with alloc: it
 does arithmetic the embedded runtime cannot. IEEE `f64` bit-patterns are
@@ -185,10 +205,12 @@ The repository is a virtual Cargo workspace: `crates/surfaces` (package
 `xtask` (the host gate). `default-members` includes the two shipped
 packages and omits the gate, so a bare `cargo build` at the root operates
 on shipped packages only. `[workspace.dependencies]` holds xtask host
-dependencies and nothing a shipped crate uses. `publish_lock` classifies
-every resolved workspace member — `ph-surfaces` and `ph-surfaces-bake`
-publish only to crates.io, `xtask` stays `publish = false`, and an
-unclassified member fails the gate. Declarative policy lives in
+crates and the baker path member xtask consumes with `workspace = true`.
+The runtime crate uses nothing from that table. The baker's own third-party
+host crates are declared in `crates/surfaces-bake/Cargo.toml`, not here.
+`publish_lock` classifies every resolved workspace member — `ph-surfaces`
+and `ph-surfaces-bake` publish only to crates.io, `xtask` stays
+`publish = false`, and an unclassified member fails the gate. Declarative policy lives in
 `xtask/config.ron`; reviewed host dependencies are locked in the root
 `Cargo.lock`. Those tooling dependencies may use `std` and allocation;
 they are isolated from the runtime crate by membership and publication
@@ -249,7 +271,7 @@ bounded hosted subset is not the complete release evidence.
 | New baker host dependency | `crates/surfaces-bake/Cargo.toml`, root `Cargo.lock`, `deny.toml` licences/bans, baker README. Must not appear on the runtime graph. xtask host deps stay in `[workspace.dependencies]`. |
 | New or changed public API item | `crates/surfaces/src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
 | Example map values (`ELEVATION`, `CORRECTION`) | `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `crates/surfaces/src/lib.rs` § Examples, `tools/consumer/src/lib.rs` |
-| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `crates/surfaces/examples/*.rs`, `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs`, and `examples` in `xtask/config.ron` when the Cargo example set changes |
+| Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `crates/surfaces/examples/*.rs`, `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md` / `generating-tables.md`, `tools/consumer/src/lib.rs`, and `examples` in `xtask/config.ron` when the Cargo example set changes |
 | Contract wording or acceptance claim | `README.md` "Contract", `crates/surfaces/src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
 | New workspace member | An explicit `publish_lock` classification (`ph-surfaces` and `ph-surfaces-bake` → crates.io, `xtask` → locked, anything else fails by name) |
 
