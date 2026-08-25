@@ -91,11 +91,11 @@ normative contract below.
    **[choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md)**.
 4. **Runnable examples** (host `main` is an assertion harness; the tables are
    `static` and `core`-only):
-   [`firmware_quickstart`](examples/firmware_quickstart.rs),
-   [`uniform_sensor_compensation`](examples/uniform_sensor_compensation.rs),
-   [`mixed_calibration_map`](examples/mixed_calibration_map.rs),
-   [`fail_safe_boundaries`](examples/fail_safe_boundaries.rs),
-   [`firmware_cost_budget`](examples/firmware_cost_budget.rs).
+   [`firmware_quickstart`](crates/surfaces/examples/firmware_quickstart.rs),
+   [`uniform_sensor_compensation`](crates/surfaces/examples/uniform_sensor_compensation.rs),
+   [`mixed_calibration_map`](crates/surfaces/examples/mixed_calibration_map.rs),
+   [`fail_safe_boundaries`](crates/surfaces/examples/fail_safe_boundaries.rs),
+   [`firmware_cost_budget`](crates/surfaces/examples/firmware_cost_budget.rs).
 
    ```sh
    cargo run --example firmware_quickstart
