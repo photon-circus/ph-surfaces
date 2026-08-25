@@ -45,10 +45,10 @@ impl Ratio {
 
     /// Approximate the ratio as `f64` for the RMS statistic only.
     ///
-    /// Take a 53-bit window of each limb and restore `2^{n_bits - d_bits}` so
-    /// `1 / 2^1074` (`f64::from_bits(1)`) stays the smallest subnormal instead
-    /// of becoming infinity. Independent limb conversion still overflows
-    /// around `2^1024` (`1 + 1e-300`). This is not the bound.
+    /// Take a 53-bit window of each limb and restore `2^{n_shift - d_shift}`
+    /// without first materializing `2^exp` when `exp` is below `-1022`:
+    /// `2.0.powi(-1075)` underflows even when `(nf / df) * 2^exp` is the
+    /// smallest subnormal. This is not the bound.
     pub(crate) fn to_f64(&self) -> f64 {
         if self.is_zero() {
             return 0.0;
@@ -71,7 +71,7 @@ impl Ratio {
             _ if n_shift > d_shift => return f64::INFINITY,
             _ => return 0.0,
         };
-        let x = (nf / df) * 2.0_f64.powi(exp);
+        let x = scale_by_pow2(nf / df, exp);
         if self.0.is_negative() { -x } else { x }
     }
 
@@ -89,6 +89,28 @@ impl Ratio {
         let one = BigInt::from(1);
         ((n + d - one) / d).to_i32()
     }
+}
+
+/// `x * 2^exp` without letting `2^exp` underflow before `x` is applied.
+fn scale_by_pow2(mut x: f64, mut exp: i32) -> f64 {
+    if x == 0.0 || !x.is_finite() || exp == 0 {
+        return x;
+    }
+    while exp <= -1022 {
+        x *= f64::MIN_POSITIVE;
+        exp += 1022;
+        if x == 0.0 {
+            return x;
+        }
+    }
+    while exp >= 1024 {
+        x *= 2.0_f64.powi(1023);
+        exp -= 1023;
+        if !x.is_finite() {
+            return x;
+        }
+    }
+    x * 2.0_f64.powi(exp)
 }
 
 pub(crate) fn ratio_from_f64(x: f64) -> Option<Ratio> {
@@ -189,5 +211,14 @@ mod tests {
         let x = r.to_f64();
         assert!(x.is_finite());
         assert_eq!(x, tiny);
+    }
+
+    #[test]
+    fn a_near_half_min_subnormal_times_scale_is_the_smallest_subnormal() {
+        let value = f64::from_bits(0x0c70_0000_0000_0001);
+        let scale = f64::from_bits(0x3040_0000_0000_0001);
+        let x = scaled_sample(value, scale).unwrap().to_f64();
+        assert!(x.is_finite());
+        assert_eq!(x, f64::from_bits(1));
     }
 }

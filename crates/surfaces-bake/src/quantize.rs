@@ -872,6 +872,30 @@ mod tests {
     }
 
     #[test]
+    fn a_scaled_near_half_min_subnormal_rms_is_not_zero() {
+        let value = f64::from_bits(0x0c70_0000_0000_0001);
+        let scale = f64::from_bits(0x3040_0000_0000_0001);
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, value),
+                Sample::new(1.0, 0.0, value),
+                Sample::new(0.0, 1.0, value),
+                Sample::new(1.0, 1.0, value),
+                Sample::new(0.5, 0.5, value),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            scale,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
+        assert_eq!(table.max_err_lsb, 1);
+        assert_eq!(table.rms_lsb, f64::from_bits(1));
+    }
+
+    #[test]
     fn a_finite_residual_too_wide_for_i32_is_bound_overflow() {
         let err = BakeInput::new(
             vec![
