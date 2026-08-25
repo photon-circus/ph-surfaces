@@ -65,7 +65,7 @@
     ),
     baker: (
         src: "crates/surfaces-bake/src",
-        max_implementation_lines: 1800,
+        max_implementation_lines: 1900,
         generated: "crates/surfaces-bake/generated/rounding.rs",
         files: [
             ".cargo_vcs_info.json",
@@ -77,6 +77,7 @@
             "src/bound.rs",
             "src/emit.rs",
             "src/error.rs",
+            "src/golden.rs",
             "src/grid.rs",
             "src/lib.rs",
             "src/main.rs",

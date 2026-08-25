@@ -26,6 +26,27 @@ Human-facing docs describe a public Active crate published at `0.1.0`. Version,
 belong to the release process in `RELEASING.md`; do not perform those actions
 in an implementation change.
 
+## Golden read-only rule
+
+`crates/surfaces/tests/conformance/golden/*.csv` are frozen inputs. A failing
+test is an implementation defect until proven otherwise with evidence. Editing
+a golden or a test to silence a failure violates the numeric policy; it is
+not a fix.
+
+Regenerating goldens is allowed only from a dedicated golden-freeze issue: one
+labelled commit, no implementation source in that commit, and a changelog
+justification.
+
+## Protected actions
+
+Do not perform these unless the user or maintainer explicitly requests that
+specific action:
+
+- publish either crate, create a Git tag, or create a GitHub Release
+- change repository visibility or lifecycle
+- alter registry or hosted-CI configuration
+- edit golden vectors to make tests pass
+
 `README.md` is packaged and every one of its Rust code blocks runs as a doctest
 (the `cfg(doctest)` module in `crates/surfaces/src/lib.rs` includes it), so a
 README example that stops compiling fails `cargo test`. Keep README code blocks
@@ -37,8 +58,10 @@ Unpackaged guides are linked from the README with GitHub URLs, not relative
 contract. It goes through `ph_surfaces::*` only and must never import a private
 module, add a dev-dependency, or use `ph-curves` or floating point as an
 oracle; its expected values come from the independent `i128` reference in
-`crates/surfaces/tests/conformance/reference.rs` or from hand computation shown
-in comments. Keep the crate's own unit tests in `crates/surfaces/src/`; do not
+`crates/surfaces/tests/conformance/reference.rs`, from hand computation shown
+in comments, or from frozen baker integer CSV under
+`crates/surfaces/tests/conformance/golden/` (not a float oracle). Keep the
+crate's own unit tests in `crates/surfaces/src/`; do not
 move them into the suite or duplicate them there.
 
 `crates/surfaces/src/interp.rs` owns the only rounding policy in the crate:

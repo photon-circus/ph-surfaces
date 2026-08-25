@@ -28,7 +28,12 @@ fn dispatch(args: &[String]) -> Result<String, (u8, String)> {
     match args {
         [] => Err((2, usage_error("missing args"))),
         [a] if a == "--help" || a == "-h" => Ok(help()),
-        [a] if a == "--emit-golden" => Err((1, not_implemented("--emit-golden"))),
+        [a] if a == "--emit-golden" => emit_golden(None),
+        [a, b] if a == "--emit-golden" && b == "--out" => {
+            Err((2, usage_error("missing --out value")))
+        }
+        [a, b, c] if a == "--emit-golden" && b == "--out" => emit_golden(Some(PathBuf::from(c))),
+        [a, ..] if a == "--emit-golden" => Err((2, usage_error("unknown args"))),
         _ => ingest(args),
     }
 }
@@ -257,6 +262,7 @@ fn help() -> String {
      ph-surfaces-bake --samples PATH --x-uniform ORIGIN,STEP,COUNT --y-uniform ORIGIN,STEP,COUNT --scale N\n\
      ph-surfaces-bake --emit-rust --samples PATH --x-knots LIST --y-knots LIST --scale N\n\
      ph-surfaces-bake --emit-golden\n\
+     ph-surfaces-bake --emit-golden --out DIR\n\
      \n\
      --samples      delimited text: one X Y value point per line (whitespace and/or comma)\n\
      --x-knots      explicit X knots as comma-separated u16 values\n\
@@ -267,19 +273,54 @@ fn help() -> String {
      --emit-rust    write static Rust tables to stdout (BinaryAxis × BinaryAxis)\n\
      --x-bucketed   emit X as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
      --y-bucketed   emit Y as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
-     --emit-golden  not implemented yet\n\
+     --emit-golden  write frozen CSV under crates/surfaces/tests/conformance/golden/\n\
+                    located from the working directory, or --out DIR\n\
      \n\
      Each axis takes either a knot list or a uniform descriptor, never both.\n\
      The baker does not choose a grid.\n"
         .to_string()
 }
 
-fn usage_error(detail: &str) -> String {
-    format!("ph-surfaces-bake: {detail}. Try --help\n")
+fn emit_golden(out: Option<PathBuf>) -> Result<String, (u8, String)> {
+    let dir = match out {
+        Some(dir) => dir,
+        None => golden_dir_from_cwd()?,
+    };
+    ph_surfaces_bake::write_goldens(&dir).map_err(|error| {
+        (
+            1,
+            format!(
+                "ph-surfaces-bake: could not write goldens under {}: {error}\n",
+                dir.display()
+            ),
+        )
+    })?;
+    Ok(format!("wrote goldens under {}\n", dir.display()))
 }
 
-fn not_implemented(flag: &str) -> String {
-    format!("ph-surfaces-bake: {flag} is not implemented yet\n")
+fn golden_dir_from_cwd() -> Result<PathBuf, (u8, String)> {
+    let mut dir = std::env::current_dir().map_err(|error| {
+        (
+            1,
+            format!("ph-surfaces-bake: could not read working directory: {error}\n"),
+        )
+    })?;
+    loop {
+        if dir.join("crates/surfaces/Cargo.toml").is_file() {
+            return Ok(dir.join("crates/surfaces/tests/conformance/golden"));
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    Err((
+        2,
+        usage_error("could not locate crates/surfaces from the working directory; pass --out DIR"),
+    ))
+}
+
+fn usage_error(detail: &str) -> String {
+    format!("ph-surfaces-bake: {detail}. Try --help\n")
 }
 
 fn bake_error(error: BakeError) -> String {
@@ -297,7 +338,7 @@ mod tests {
         assert!(text.contains("--samples"));
         assert!(text.contains("--scale"));
         assert!(text.contains("write static Rust tables to stdout"));
-        assert!(text.contains("--emit-golden  not implemented yet"));
+        assert!(text.contains("write frozen CSV under crates/surfaces/tests/conformance/golden/"));
         assert_eq!(dispatch(&["-h".to_string()]).unwrap(), text);
     }
 
@@ -316,10 +357,36 @@ mod tests {
     }
 
     #[test]
-    fn emit_golden_is_not_implemented_yet() {
-        let golden = dispatch(&["--emit-golden".to_string()]).unwrap_err();
-        assert_eq!(golden.0, 1);
-        assert!(golden.1.contains("not implemented yet"));
+    fn emit_golden_out_does_not_rewrite_the_freeze() {
+        let freeze = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../surfaces/tests/conformance/golden/rounding.csv");
+        let before = freeze
+            .is_file()
+            .then(|| std::fs::read_to_string(&freeze).unwrap());
+        let dir = std::env::temp_dir().join(format!(
+            "ph-surfaces-bake-cli-golden-{}",
+            std::process::id()
+        ));
+        let message = dispatch(&[
+            "--emit-golden".to_string(),
+            "--out".to_string(),
+            dir.display().to_string(),
+        ])
+        .unwrap();
+        assert!(message.contains("wrote goldens under"));
+        if let Some(before) = before {
+            let after = std::fs::read_to_string(&freeze).unwrap();
+            assert_eq!(before, after);
+        }
+        let written = std::fs::read_to_string(dir.join("rounding.csv")).unwrap();
+        assert_eq!(written, ph_surfaces_bake::rounding_csv());
+    }
+
+    #[test]
+    fn emit_golden_out_without_a_directory_is_usage() {
+        let err = dispatch(&["--emit-golden".to_string(), "--out".to_string()]).unwrap_err();
+        assert_eq!(err.0, 2);
+        assert!(err.1.contains("missing --out value"));
     }
 
     #[test]

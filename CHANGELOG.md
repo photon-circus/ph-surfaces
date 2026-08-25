@@ -17,6 +17,15 @@
   `run cargo xtask generate` when it drifts. The bound is an i32 value LSB
   of sample deviation, not a device or accuracy claim. This is not a
   runtime API change.
+- Host-side baker golden vectors in `ph-surfaces-bake`: `--emit-golden`
+  writes frozen integer CSV under `crates/surfaces/tests/conformance/golden/`,
+  located from the working directory or `--out DIR`. Packaged tests write
+  only to a temporary directory and do not rewrite the freeze; they also do
+  not `unwrap` the unpackaged runtime golden path. The runtime
+  conformance suite consumes them through `ph_surfaces::*` only.
+  Those files are read-only: a failing test is an implementation defect
+  until proven otherwise; regenerating them is a dedicated freeze commit
+  with no implementation source. This is not a runtime API change.
 - Host-side baker quantization in `ph-surfaces-bake`: fill each declared
   grid node from on-knot samples, apply the caller-stated scale with
   round-to-nearest (exact half-way away from zero; values just below a
