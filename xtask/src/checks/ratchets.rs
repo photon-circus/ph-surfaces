@@ -168,11 +168,6 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
             "Cargo.toml workspace.default-members must be present so a bare cargo build cannot default to including xtask.",
         );
     }
-    if workspace_lists_xtask_as_default_member(workspace) {
-        return Outcome::fail(
-            "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
-        );
-    }
     if root.get("package").is_some() {
         return Outcome::fail(
             "root Cargo.toml must be a virtual workspace: it must not contain [package].",
@@ -210,6 +205,17 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Ok(metadata) => metadata,
         Err(error) => return Outcome::fail(error),
     };
+    // Compare Cargo's resolved default set, not the TOML spelling: `["*"]`
+    // lists both shipped crates and host-only `xtask`.
+    if metadata
+        .workspace_default_packages()
+        .iter()
+        .any(|package| package.name.as_str() == "xtask")
+    {
+        return Outcome::fail(
+            "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
+        );
+    }
     let Some(crate_package) = metadata
         .packages
         .iter()
@@ -260,19 +266,6 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Ok(_) => Outcome::fail("LICENSE must be the MIT License."),
         Err(error) => Outcome::fail(format!("LICENSE is unreadable: {error}")),
     }
-}
-
-fn workspace_lists_xtask_as_default_member(workspace: &toml::map::Map<String, Value>) -> bool {
-    workspace
-        .get("default-members")
-        .and_then(Value::as_array)
-        .is_some_and(|members| {
-            members.iter().any(|member| {
-                member
-                    .as_str()
-                    .is_some_and(|path| path == "xtask" || path.ends_with("/xtask"))
-            })
-        })
 }
 
 fn metadata(ctx: &Ctx, no_deps: bool) -> Result<cargo_metadata::Metadata, String> {

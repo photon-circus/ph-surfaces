@@ -291,15 +291,41 @@ fn a_manifest_floor_change_is_rejected() {
 fn a_missing_default_members_list_is_rejected() {
     let root = tracked_copy("missing-default-members");
     rewrite(&root.join("Cargo.toml"), |text| {
-        const LINE: &str = "default-members = [\"crates/surfaces\", \"crates/surfaces-bake\"]\n";
-        assert!(
-            text.contains(LINE),
-            "expected a default-members line to remove"
-        );
-        text.replace(LINE, "")
+        let next: String = text
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("default-members"))
+            .flat_map(|line| [line, "\n"])
+            .collect();
+        assert_ne!(text, next, "expected a default-members line to remove");
+        next
     });
     assert_fires(
         "missing-default-members",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_glob_default_members_list_including_xtask_is_rejected() {
+    let root = tracked_copy("glob-default-members");
+    rewrite(&root.join("Cargo.toml"), |text| {
+        let next: String = text
+            .lines()
+            .map(|line| {
+                if line.trim_start().starts_with("default-members") {
+                    "default-members = [\"*\"]".to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .flat_map(|line| [line, "\n".to_string()])
+            .collect();
+        assert_ne!(text, next, "expected a default-members line to rewrite");
+        next
+    });
+    assert_fires(
+        "glob-default-members",
         "manifest floor",
         ratchets::manifest_floor(&ctx(&root, Profile::Full)),
     );
