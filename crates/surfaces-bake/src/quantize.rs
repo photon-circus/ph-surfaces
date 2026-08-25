@@ -42,11 +42,11 @@ impl QuantizedTable {
     /// Host `f64` bilinear of the quantized grid, X then Y, then `/ scale`.
     ///
     /// Interpolation runs on `i32 as f64` so endpoint differences stay in
-    /// range; the result is then divided by scale. Samples whose coordinates
-    /// are exact `u16` values also contribute the runtime-rounded path via
-    /// [`Self::evaluate_u16`]; `MAX_ERR_LSB` is the max of both. Fractional
-    /// coordinates cannot call runtime `evaluate`, so they use this
-    /// reconstruction only.
+    /// range; the result is then divided by scale. This is a host
+    /// diagnostic. `MAX_ERR_LSB` for exact `u16` coordinates uses the
+    /// rational bilinear of the `i32` grid and [`Self::evaluate_u16`], not
+    /// only this `f64` lerp. Fractional coordinates cannot call runtime
+    /// `evaluate`, so they use this reconstruction plus an outward envelope.
     ///
     /// `x` and `y` must lie in the inclusive declared domain.
     #[must_use]
@@ -85,10 +85,11 @@ impl BakeInput {
     /// half-way values away from zero — the same policy as runtime
     /// interpolation, implemented here for `f64` rather than imported from
     /// the integer kernel. Samples whose coordinates are exact `u16` values
-    /// also measure the runtime-rounded X-then-Y path; `max_err_lsb` is an
-    /// upper bound of both. A nonzero computed magnitude is stepped one ULP
-    /// before `ceil` so a downward-rounded residual cannot understate an
-    /// integer; exact-zero tables stay 0.
+    /// also measure the unrounded rational bilinear of the `i32` grid and the
+    /// runtime-rounded X-then-Y path; `max_err_lsb` is an upper bound of
+    /// those. A nonzero computed magnitude is stepped one ULP before `ceil`
+    /// so a downward-rounded residual cannot understate an integer;
+    /// exact-zero tables stay 0.
     ///
     /// # Errors
     ///
@@ -215,7 +216,10 @@ fn deviation(
     let mut worst_y = samples[0].y;
     for sample in samples {
         let lsb = sample_lsb(&x, &y, &values, scale, sample)?;
-        let abs = lsb.abs();
+        let mut abs = lsb.abs();
+        if exact_u16(sample.x).is_none() || exact_u16(sample.y).is_none() {
+            abs += reconstruction_envelope(&x, &y, &values, sample.x, sample.y);
+        }
         if abs > max_abs {
             max_abs = abs;
             worst_x = sample.x;
@@ -249,6 +253,11 @@ fn sample_lsb(
         return Err(BakeError::NonFiniteDeviation);
     }
     if let (Some(px), Some(py)) = (exact_u16(sample.x), exact_u16(sample.y)) {
+        let (num, den) = bilinear_rational(x, y, values, px, py);
+        let rational = lsb_from_rational(sample.value, scale, num, den)?;
+        if rational.abs() > lsb.abs() {
+            lsb = rational;
+        }
         let runtime = evaluate_u16(x, y, values, px, py);
         let runtime_lsb = sample.value.mul_add(scale, -f64::from(runtime));
         if !runtime_lsb.is_finite() {
@@ -259,6 +268,77 @@ fn sample_lsb(
         }
     }
     Ok(lsb)
+}
+
+/// Unrounded X-then-Y bilinear of the `i32` grid as `num / den`.
+fn bilinear_rational(
+    x_knots: &[u16],
+    y_knots: &[u16],
+    values: &[Vec<i32>],
+    x: u16,
+    y: u16,
+) -> (i128, i128) {
+    let xi = segment(x_knots, f64::from(x));
+    let yi = segment(y_knots, f64::from(y));
+    let x0 = i128::from(x_knots[xi]);
+    let x1 = i128::from(x_knots[xi + 1]);
+    let y0 = i128::from(y_knots[yi]);
+    let y1 = i128::from(y_knots[yi + 1]);
+    let dx = i128::from(x) - x0;
+    let dy = i128::from(y) - y0;
+    let sx = x1 - x0;
+    let sy = y1 - y0;
+    let v00 = i128::from(values[yi][xi]);
+    let v10 = i128::from(values[yi][xi + 1]);
+    let v01 = i128::from(values[yi + 1][xi]);
+    let v11 = i128::from(values[yi + 1][xi + 1]);
+    let num =
+        v00 * (sx - dx) * (sy - dy) + v10 * dx * (sy - dy) + v01 * (sx - dx) * dy + v11 * dx * dy;
+    (num, sx * sy)
+}
+
+fn lsb_from_rational(value: f64, scale: f64, num: i128, den: i128) -> Result<f64, BakeError> {
+    if den <= 0 {
+        return Err(BakeError::NonFiniteDeviation);
+    }
+    let q = num / den;
+    let r = num % den;
+    let Ok(q) = i32::try_from(q) else {
+        return Err(BakeError::NonFiniteDeviation);
+    };
+    let reconstruct = f64::from(q) + r as f64 / den as f64;
+    let lsb = value.mul_add(scale, -reconstruct);
+    if lsb.is_finite() {
+        Ok(lsb)
+    } else {
+        Err(BakeError::NonFiniteDeviation)
+    }
+}
+
+/// Outward f64-lerp envelope for coordinates that are not exact `u16`.
+fn reconstruction_envelope(
+    x_knots: &[u16],
+    y_knots: &[u16],
+    values: &[Vec<i32>],
+    x: f64,
+    y: f64,
+) -> f64 {
+    let xi = segment(x_knots, x);
+    let yi = segment(y_knots, y);
+    let mag = u64::from(values[yi][xi].unsigned_abs())
+        .saturating_add(u64::from(values[yi][xi + 1].unsigned_abs()))
+        .saturating_add(u64::from(values[yi + 1][xi].unsigned_abs()))
+        .saturating_add(u64::from(values[yi + 1][xi + 1].unsigned_abs()));
+    if mag == 0 { 0.0 } else { 8.0 * ulp(mag as f64) }
+}
+
+fn ulp(x: f64) -> f64 {
+    let a = x.abs();
+    if !a.is_finite() || a == 0.0 {
+        0.0
+    } else {
+        a.next_up() - a
+    }
 }
 
 #[allow(clippy::float_cmp)] // exact u16 means f64::from(n) equals the sample coordinate
@@ -602,6 +682,35 @@ mod tests {
         let computed = value.mul_add(scale, -bilinear);
         // Exact scaled deviation is 1 + 2^-53 - 2^-105, but `mul_add` is 1.0.
         assert_eq!(computed.abs(), 1.0);
+        assert_eq!(table.max_err_lsb, 2);
+    }
+
+    #[test]
+    fn max_err_lsb_covers_bilinear_lerp_rounding() {
+        // Exact bilinear of the i32 grid at (1, 1) is 286/9; the sample is the
+        // f64 32.77777777777778, whose real value is slightly above 295/9, so
+        // the exact residual is slightly greater than 1 LSB. Three f64 lerps
+        // round the reconstruction up and the computed residual under 1.
+        let value = 32.77777777777778;
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 4.0),
+                Sample::new(3.0, 0.0, 13.0),
+                Sample::new(0.0, 3.0, 75.0),
+                Sample::new(3.0, 3.0, 94.0),
+                Sample::new(1.0, 1.0, value),
+            ],
+            Axis::knots(vec![0, 3]),
+            Axis::knots(vec![0, 3]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![4, 13], vec![75, 94]]);
+        let lerp_lsb = value.mul_add(1.0, -table.reconstruct(1.0, 1.0));
+        assert!(lerp_lsb.abs() < 1.0);
+        assert_eq!(lerp_lsb.abs().next_up().ceil(), 1.0);
         assert_eq!(table.max_err_lsb, 2);
     }
 

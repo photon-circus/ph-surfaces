@@ -18,7 +18,8 @@ parse expressions.
 `MAX_ERR_LSB` is an i32 value LSB: an upper bound on the maximum absolute
 deviation between the supplied samples and the table built from them. For
 samples whose X and Y are exact `u16` values, that includes the runtime's
-rounded X-then-Y path, not only unrounded host bilinear. A nonzero
+rounded X-then-Y path and the unrounded rational bilinear of the i32 grid,
+not only unrounded host `f64` lerps. A nonzero
 computed magnitude is stepped one ULP before `ceil` so a residual that
 rounded downward onto an integer cannot understate; exact-zero tables
 stay 0. It is not a typical error. It is not a device, vendor, sensor,
