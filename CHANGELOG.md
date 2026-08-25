@@ -6,7 +6,8 @@
 
 - Host-side baker quantization in `ph-surfaces-bake`: fill each declared
   grid node from on-knot samples, apply the caller-stated scale with
-  round-to-nearest (exact half-way away from zero), measure deviation of
+  round-to-nearest (exact half-way away from zero; values just below a
+  half stay on the nearer integer), measure deviation of
   the quantized table from every supplied sample in i32 value LSBs, and
   emit the maximum as `pub const MAX_ERR_LSB: i32`. For samples whose
   coordinates are exact `u16` values, the bound includes the runtime's

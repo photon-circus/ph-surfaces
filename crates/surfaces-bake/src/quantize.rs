@@ -166,14 +166,19 @@ fn quantize_grid(
 }
 
 /// Round to nearest; exact half-way values away from zero. Host `f64` helper.
+///
+/// Do not use `x ± 0.5` then `floor`/`ceil`: the `f64` immediately below
+/// `0.5` becomes `1.0` after that add, which would quantize to `1`.
 fn round_to_i32(value: f64) -> Option<i32> {
     if !value.is_finite() {
         return None;
     }
-    let rounded = if value >= 0.0 {
-        (value + 0.5).floor()
+    let trunc = value.trunc();
+    let frac = value - trunc;
+    let rounded = if frac.abs() >= 0.5 {
+        trunc + frac.signum()
     } else {
-        (value - 0.5).ceil()
+        trunc
     };
     if rounded > f64::from(i32::MAX) || rounded < f64::from(i32::MIN) {
         return None;
@@ -381,6 +386,11 @@ mod tests {
         assert_eq!(round_to_i32(f64::from(i32::MIN)), Some(i32::MIN));
         assert_eq!(round_to_i32(f64::from(i32::MAX) + 0.5), None);
         assert_eq!(round_to_i32(f64::INFINITY), None);
+        let just_below_half = 0.5_f64.next_down();
+        assert_eq!(round_to_i32(just_below_half), Some(0));
+        assert_eq!(round_to_i32(-just_below_half), Some(0));
+        assert_eq!(round_to_i32(1.5_f64.next_down()), Some(1));
+        assert_eq!(round_to_i32((-1.5_f64).next_up()), Some(-1));
     }
 
     #[test]
