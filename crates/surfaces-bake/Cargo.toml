@@ -23,4 +23,4 @@ name = "ph-surfaces-bake"
 path = "src/main.rs"
 
 [dev-dependencies]
-ph-surfaces = { path = "../surfaces" }
+ph-surfaces = { path = "../surfaces", version = "0.1.0" }
