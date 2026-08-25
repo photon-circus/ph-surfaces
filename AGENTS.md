@@ -10,6 +10,16 @@ integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
 nice-to-have. `ph-surfaces-bake` is the host-side baker: it requires `std`
 and `f64`, and must never be linked into target firmware.
 
+Baker `MAX_ERR_LSB` is `ceil` of an **exact** rational residual, owned by
+`crates/surfaces-bake/src/bound.rs`. IEEE `f64` bit-patterns are dyadics
+with a stored binary exponent; bilinear is a ratio of the `i32` grid at
+every coordinate, not only exact `u16` knots. Do not implement the bound as
+a host `f64` lerp, `next_up` / one-ULP padding before ceil, an 8-ULP
+envelope, or unreduced `i128` `n/d` without a binary exponent. Ordinary
+decimals overflow 127 bits; `1e-300` needs a `2^1048` integer if the
+exponent is expanded into the denominator. `NonFiniteDeviation` is for a
+true non-finite residual, not the width of a too-narrow integer.
+
 Human-facing docs describe a public Active crate published at `0.1.0`. Version,
 `publish`, changelog close-out, GitHub visibility, and the crates.io upload
 belong to the release process in `RELEASING.md`; do not perform those actions

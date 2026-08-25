@@ -4,6 +4,7 @@
 //! off-knot samples participate only in the deviation measurement.
 
 use crate::BakeInput;
+use crate::bound::{Ratio, lerp_ratio, ratio_from_f64, scaled_sample};
 use crate::error::{AxisName, BakeError};
 use crate::samples::Sample;
 
@@ -116,167 +117,6 @@ impl BakeInput {
         let values = quantize_grid(&filled, &x, &y, self.scale())?;
         deviation(self.samples(), x, y, filled, values, self.scale())
     }
-}
-
-/// Exact rational `n/d` with `d > 0`. Host bound arithmetic; not a runtime type.
-#[derive(Clone, Copy, Debug)]
-struct Ratio {
-    n: i128,
-    d: i128,
-}
-
-impl Ratio {
-    fn new(n: i128, d: i128) -> Option<Self> {
-        if d == 0 {
-            return None;
-        }
-        let (n, d) = if d < 0 { (-n, -d) } else { (n, d) };
-        Some(Self { n, d }.reduce())
-    }
-
-    fn from_i128(n: i128) -> Self {
-        Self { n, d: 1 }
-    }
-
-    fn reduce(self) -> Self {
-        let g = gcd(self.n, self.d);
-        Self {
-            n: self.n / g,
-            d: self.d / g,
-        }
-    }
-
-    fn add(self, other: Self) -> Option<Self> {
-        let g = gcd(self.d, other.d);
-        let d1 = other.d / g;
-        let n = self
-            .n
-            .checked_mul(d1)?
-            .checked_add(other.n.checked_mul(self.d / g)?)?;
-        Self::new(n, self.d.checked_mul(d1)?)
-    }
-
-    fn sub(self, other: Self) -> Option<Self> {
-        self.add(Self {
-            n: other.n.checked_neg()?,
-            d: other.d,
-        })
-    }
-
-    fn mul(self, other: Self) -> Option<Self> {
-        let g1 = gcd(self.n, other.d);
-        let g2 = gcd(other.n, self.d);
-        Self::new(
-            (self.n / g1).checked_mul(other.n / g2)?,
-            (self.d / g2).checked_mul(other.d / g1)?,
-        )
-    }
-
-    fn div(self, other: Self) -> Option<Self> {
-        if other.n == 0 {
-            return None;
-        }
-        self.mul(Self {
-            n: other.d,
-            d: other.n,
-        })
-    }
-
-    fn to_f64(self) -> f64 {
-        (self.n as f64) / (self.d as f64)
-    }
-
-    fn abs_gt(self, other: Self) -> Option<bool> {
-        let left = self.n.unsigned_abs().checked_mul(other.d as u128)?;
-        let right = other.n.unsigned_abs().checked_mul(self.d as u128)?;
-        Some(left > right)
-    }
-
-    fn ceil_abs(self) -> Option<i32> {
-        if self.n == 0 {
-            return Some(0);
-        }
-        let n = self.n.unsigned_abs();
-        let d = self.d as u128;
-        let ceil = n.div_ceil(d);
-        i32::try_from(ceil).ok()
-    }
-}
-
-fn gcd(a: i128, b: i128) -> i128 {
-    let mut x = a.unsigned_abs();
-    let mut y = b.unsigned_abs();
-    while y != 0 {
-        let t = y;
-        y = x % y;
-        x = t;
-    }
-    if x == 0 || x > i128::MAX as u128 {
-        1
-    } else {
-        x as i128
-    }
-}
-
-fn pow2(exp: i32) -> Option<i128> {
-    if !(0..=126).contains(&exp) {
-        return None;
-    }
-    Some(1i128 << exp)
-}
-
-fn decode_f64(x: f64) -> Option<(i128, i32)> {
-    if !x.is_finite() {
-        return None;
-    }
-    if x == 0.0 {
-        return Some((0, 0));
-    }
-    let bits = x.to_bits();
-    let sign = if bits >> 63 == 0 { 1i128 } else { -1 };
-    let exp_bits = ((bits >> 52) & 0x7ff) as i32;
-    let frac = (bits & 0x000f_ffff_ffff_ffff) as i128;
-    let (mant, exp) = if exp_bits == 0 {
-        (frac, -1074)
-    } else {
-        (frac + (1i128 << 52), exp_bits - 1075)
-    };
-    Some((sign * mant, exp))
-}
-
-fn ratio_from_f64(x: f64) -> Option<Ratio> {
-    let (m, e) = decode_f64(x)?;
-    ratio_from_dyadic(m, e)
-}
-
-fn ratio_from_dyadic(m: i128, e: i32) -> Option<Ratio> {
-    if m == 0 {
-        return Ratio::new(0, 1);
-    }
-    if e >= 0 {
-        Ratio::new(m.checked_mul(pow2(e)?)?, 1)
-    } else if let Some(den) = pow2(-e) {
-        Ratio::new(m, den)
-    } else {
-        // e <= -127: |m| * 2^e <= 2^{-74} < |m| / 2^126 < 1. Keep a
-        // conservative tiny stand-in so ceil stays 1 rather than failing.
-        Ratio::new(m, pow2(126)?)
-    }
-}
-
-/// Exact `value * scale` from the two IEEE bit-patterns, not `f64` multiply.
-fn scaled_sample(value: f64, scale: f64) -> Option<Ratio> {
-    let (m0, e0) = decode_f64(value)?;
-    let (m1, e1) = decode_f64(scale)?;
-    ratio_from_dyadic(m0.checked_mul(m1)?, e0.checked_add(e1)?)
-}
-
-fn lerp_ratio(t: Ratio, t0: Ratio, t1: Ratio, v0: Ratio, v1: Ratio) -> Option<Ratio> {
-    let span = t1.sub(t0)?;
-    if span.n == 0 {
-        return None;
-    }
-    v0.mul(t1.sub(t)?)?.add(v1.mul(t.sub(t0)?)?)?.div(span)
 }
 
 fn reconstruct_ratio(
@@ -815,6 +655,47 @@ mod tests {
     }
 
     #[test]
+    fn decimal_off_knot_coordinates_do_not_overflow_i128() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 1.0),
+                Sample::new(1.0, 0.0, 2.0),
+                Sample::new(0.0, 1.0, 3.0),
+                Sample::new(1.0, 1.0, 7.0),
+                Sample::new(0.1, 0.1, 0.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![1, 2], vec![3, 7]]);
+        assert!(table.max_err_lsb >= 1);
+    }
+
+    #[test]
+    fn tiny_finite_off_knot_sample_emits_a_bound() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, 0.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, 0.0),
+                Sample::new(0.1, 0.1, 1e-300),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.max_err_lsb, 1);
+    }
+
+    #[test]
     fn x_then_y_host_bilinear_matches_the_evaluate_order_fixture() {
         // Same numbers as evaluate.rs: X-then-Y at (1, 1) is 1.
         let table = BakeInput::parse(
@@ -894,47 +775,5 @@ mod tests {
         assert_eq!(table.values[0][nx - 1], (nx - 1) as i32);
         assert_eq!(table.values[1][nx - 1], (nx - 1 + 1000) as i32);
         assert_eq!(table.max_err_lsb, 0);
-    }
-
-    #[test]
-    fn decimal_off_knot_coordinates_do_not_overflow_ratio_arithmetic() {
-        let table = BakeInput::new(
-            vec![
-                Sample::new(0.0, 0.0, 1.0),
-                Sample::new(1.0, 0.0, 2.0),
-                Sample::new(0.0, 1.0, 3.0),
-                Sample::new(1.0, 1.0, 7.0),
-                Sample::new(0.1, 0.1, 1.0),
-            ],
-            Axis::knots(vec![0, 1]),
-            Axis::knots(vec![0, 1]),
-            1.0,
-        )
-        .unwrap()
-        .quantize()
-        .unwrap();
-        assert_eq!(table.values, vec![vec![1, 2], vec![3, 7]]);
-        assert!(table.max_err_lsb >= 1);
-    }
-
-    #[test]
-    fn a_tiny_finite_sample_still_emits_a_bound() {
-        let table = BakeInput::new(
-            vec![
-                Sample::new(0.0, 0.0, 0.0),
-                Sample::new(1.0, 0.0, 0.0),
-                Sample::new(0.0, 1.0, 0.0),
-                Sample::new(1.0, 1.0, 0.0),
-                Sample::new(0.1, 0.1, 1e-300),
-            ],
-            Axis::knots(vec![0, 1]),
-            Axis::knots(vec![0, 1]),
-            1.0,
-        )
-        .unwrap()
-        .quantize()
-        .unwrap();
-        assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
-        assert_eq!(table.max_err_lsb, 1);
     }
 }

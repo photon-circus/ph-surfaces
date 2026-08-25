@@ -13,11 +13,8 @@
   coordinates are exact `u16` values, the bound includes the runtime's
   rounded X-then-Y path, not only unrounded host bilinear. `MAX_ERR_LSB`
   is `ceil` of the exact rational residual (IEEE `f64` bit-patterns as
-  dyadics, bilinear as a ratio of the `i32` grid), not a host-`f64` lerp
-  with ULP padding. Ratio add/mul cancel common factors before
-  cross-multiplying; a dyadic whose denominator exceeds `2^126` keeps a
-  conservative tiny stand-in so a finite residual still emits a bound.
-  Missing or
+  dyadics with a stored binary exponent and a 256-bit numerator, not a
+  host-`f64` lerp with ULP padding). Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
   lookup is binary search on the ordered knot lists. The bound is an

@@ -39,12 +39,11 @@
 //! ```
 //!
 //! `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
-//! `|sample*scale − reconstruct|` (IEEE `f64` bit-patterns as dyadics,
-//! bilinear as a ratio of the `i32` grid). Ratio arithmetic cancels common
-//! factors before cross-multiplying; a dyadic smaller than `2^{-126}` keeps
-//! a conservative tiny stand-in. For exact `u16` coordinates that
-//! includes the runtime-rounded X-then-Y path. Host `f64` lerp is not the
-//! bound oracle. It is not a typical error, and not a device, vendor,
+//! `|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics with
+//! a stored binary exponent; bilinear uses a 256-bit numerator so ordinary
+//! decimal coordinates do not overflow. Host `f64` lerp is not the bound
+//! oracle. For exact `u16` coordinates that includes the runtime-rounded
+//! X-then-Y path. It is not a typical error, and not a device, vendor,
 //! sensor, calibration, or accuracy claim.
 //!
 //! Rust emission and the checked-in generated-source drift gate: issue #41.
@@ -53,6 +52,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+mod bound;
 mod error;
 mod grid;
 mod quantize;

@@ -73,6 +73,7 @@
             "Cargo.toml.orig",
             "LICENSE",
             "README.md",
+            "src/bound.rs",
             "src/error.rs",
             "src/grid.rs",
             "src/lib.rs",
