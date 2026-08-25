@@ -39,15 +39,13 @@
 //! ```
 //!
 //! `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
-//! `|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics with
-//! a stored binary exponent; bilinear uses a 256-bit numerator so ordinary
-//! decimal coordinates do not overflow. Unaligned addends stay as a
-//! second term through bilinear reconstruction; `ceil` of that residual
-//! must not understate. A finite residual whose ceil does not fit in `i32` is
-//! [`BakeError::BoundOverflow`]. Host `f64` lerp is not the bound
-//! oracle. For exact `u16` coordinates that includes the
-//! runtime-rounded X-then-Y path. It is not a typical error, and not a
-//! device, vendor, sensor, calibration, or accuracy claim.
+//! `|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics;
+//! bilinear is an exact ratio of the `i32` grid, computed on the host with
+//! allocated integers. `ceil` applies only to the finished residual. A finite
+//! residual whose ceil does not fit in `i32` is [`BakeError::BoundOverflow`].
+//! Host `f64` lerp is not the bound oracle. For exact `u16` coordinates that
+//! includes the runtime-rounded X-then-Y path. It is not a typical error, and
+//! not a device, vendor, sensor, calibration, or accuracy claim.
 //!
 //! Rust emission and the checked-in generated-source drift gate: issue #41.
 //! Frozen golden vectors: issue #42.

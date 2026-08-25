@@ -13,18 +13,18 @@
   coordinates are exact `u16` values, the bound includes the runtime's
   rounded X-then-Y path, not only unrounded host bilinear. `MAX_ERR_LSB`
   is `ceil` of the exact rational residual (IEEE `f64` bit-patterns as
-  dyadics with a stored binary exponent and a 256-bit numerator, not a
-  host-`f64` lerp with ULP padding). A finite residual whose `ceil` does
-  not fit in `i32` is `BakeError::BoundOverflow`, not
-  `NonFiniteDeviation`. Subtracting a tiny dyadic from an ordinary
-  reconstruction does not expand a 1e3-bit exponent gap into the
-  numerator; unaligned addends stay as a second term through bilinear
-  so `ceil` does not understate. Missing or
+  dyadics, bilinear as an exact ratio of the `i32` grid on the host, not a
+  host-`f64` lerp with ULP padding). `ceil` applies only to the finished
+  residual. A finite residual whose `ceil` does not fit in `i32` is
+  `BakeError::BoundOverflow`, not `NonFiniteDeviation`. Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
   lookup is binary search on the ordered knot lists. The bound is an
   upper bound on deviation from the supplied samples, not a device or
   accuracy claim. This is not a runtime API change.
+- Reviewed host crates on `ph-surfaces-bake` (`num-bigint`, `num-rational`,
+  `num-traits`) for exact residual arithmetic. They stay off the runtime
+  graph. This is not a runtime API change.
 - Host-side baker ingest in `ph-surfaces-bake`: delimited sample points
   (X, Y, value as host `f64`), an explicit per-axis grid (knot list or
   uniform origin/step/count), and a caller-stated output scale stored at
@@ -33,8 +33,9 @@
   non-finite sample fields and scales are rejected; failures are a closed
   `BakeError` enum. No third-party parser. This is not a runtime API change.
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:
-  `[lib]` plus a thin CLI, zero third-party dependencies, a mechanically
-  checked 1,600-line implementation budget, and a packaged-file allowlist
+  `[lib]` plus a thin CLI, reviewed host crates for exact residual
+  arithmetic, a mechanically checked implementation-line budget, and a
+  packaged-file allowlist
   checked independently of the runtime `package *` family. This is not a
   runtime API change. The runtime crate cannot reach the baker through any
   dependency kind, feature, or `cfg`.

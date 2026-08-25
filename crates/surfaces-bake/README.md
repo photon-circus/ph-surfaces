@@ -16,17 +16,17 @@ per-knot residual print on the CLI. The baker does not choose knots or
 parse expressions.
 
 `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
-`|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics with
-a stored binary exponent; bilinear uses a 256-bit numerator so ordinary
-decimal coordinates do not overflow. Subtracting a tiny dyadic from an
-ordinary reconstruction does not expand the exponent gap into the
-numerator. Unaligned addends stay as a second term through bilinear
-reconstruction; `ceil` of that residual must not understate, and a
-finite residual whose ceil does not fit in `i32` is
-`BakeError::BoundOverflow`. Host `f64` lerp is not the bound oracle. For
-samples whose X and Y are exact `u16` values, that includes the runtime's
-rounded X-then-Y path. It is not a typical error. It is not a device,
-vendor, sensor, calibration, accuracy, timing, flash, or WCET claim.
+`|sample*scale − reconstruct|`. IEEE `f64` bit-patterns are dyadics;
+bilinear is an exact ratio of the `i32` grid, computed on the host with
+allocated integers. `ceil` applies only to the finished residual. A finite
+residual whose ceil does not fit in `i32` is `BakeError::BoundOverflow`.
+Host `f64` lerp is not the bound oracle. For samples whose X and Y are
+exact `u16` values, that includes the runtime's rounded X-then-Y path. It
+is not a typical error. It is not a device, vendor, sensor, calibration,
+accuracy, timing, flash, or WCET claim.
+
+Residual arithmetic uses `num-bigint` and `num-rational`. Those crates stay
+off the runtime graph.
 
 The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
 `emit_max_err_lsb` for the const fragment.
@@ -39,8 +39,9 @@ ph-surfaces-bake --samples points.txt --x-knots 0,10 --y-knots 0,5 --scale 1
 ph-surfaces-bake --samples points.txt --x-uniform 0,10,3 --y-uniform 0,5,3 --scale 1
 ```
 
-Rust emission and goldens are later issues. The crate has zero third-party
-dependencies and a 1,600-line implementation budget.
+Rust emission and goldens are later issues. The baker may take reviewed host
+crates for exact residual arithmetic. A declared implementation-line budget
+keeps it from growing without bound.
 
 ## License
 

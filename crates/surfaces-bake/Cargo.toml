@@ -33,3 +33,10 @@ path = "src/main.rs"
 
 [dev-dependencies]
 ph-surfaces = { path = "../surfaces", version = "0.1.0" }
+
+[dependencies]
+# Stay on 0.4 with `num-rational` 0.4 so cargo-deny does not see two
+# `num-bigint` majors on the baker graph.
+num-bigint = "0.4.8"
+num-rational = { version = "0.4.2", features = ["num-bigint"] }
+num-traits = "0.2.19"

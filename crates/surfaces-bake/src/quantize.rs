@@ -136,9 +136,9 @@ fn reconstruct_ratio(
     let xr = ratio_from_f64(x)?;
     let yr = ratio_from_f64(y)?;
     let q = |row: usize, col: usize| Ratio::from_i128(i128::from(values[row][col]));
-    let lower = lerp_ratio(xr, x0, x1, q(yi, xi), q(yi, xi + 1))?;
-    let upper = lerp_ratio(xr, x0, x1, q(yi + 1, xi), q(yi + 1, xi + 1))?;
-    lerp_ratio(yr, y0, y1, lower, upper)
+    let lower = lerp_ratio(&xr, &x0, &x1, &q(yi, xi), &q(yi, xi + 1))?;
+    let upper = lerp_ratio(&xr, &x0, &x1, &q(yi + 1, xi), &q(yi + 1, xi + 1))?;
+    lerp_ratio(&yr, &y0, &y1, &lower, &upper)
 }
 
 #[allow(clippy::float_cmp)] // exact f64 equality is the specified node and duplicate test
@@ -240,8 +240,11 @@ fn deviation(
         if ceil > max_err_lsb {
             max_err_lsb = ceil;
         }
-        if max_ratio.is_none_or(|m| residual.abs_gt(m) == Some(true)) {
-            max_ratio = Some(residual);
+        if max_ratio
+            .as_ref()
+            .is_none_or(|m| residual.abs_gt(m) == Some(true))
+        {
+            max_ratio = Some(residual.clone());
             worst_x = sample.x;
             worst_y = sample.y;
         }
@@ -274,11 +277,11 @@ fn sample_residual(
     let scaled = scaled_sample(sample.value, scale).ok_or(BakeError::NonFiniteDeviation)?;
     let bilinear =
         reconstruct_ratio(x, y, values, sample.x, sample.y).ok_or(BakeError::NonFiniteDeviation)?;
-    let mut residual = scaled.sub(bilinear).ok_or(BakeError::NonFiniteDeviation)?;
+    let mut residual = scaled.sub(&bilinear).ok_or(BakeError::NonFiniteDeviation)?;
     if let (Some(px), Some(py)) = (exact_u16(sample.x), exact_u16(sample.y)) {
         let runtime = Ratio::from_i128(i128::from(evaluate_u16(x, y, values, px, py)));
-        let runtime_residual = scaled.sub(runtime).ok_or(BakeError::NonFiniteDeviation)?;
-        if runtime_residual.abs_gt(residual) == Some(true) {
+        let runtime_residual = scaled.sub(&runtime).ok_or(BakeError::NonFiniteDeviation)?;
+        if runtime_residual.abs_gt(&residual) == Some(true) {
             residual = runtime_residual;
         }
     }

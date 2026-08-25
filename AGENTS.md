@@ -11,17 +11,15 @@ nice-to-have. `ph-surfaces-bake` is the host-side baker: it requires `std`
 and `f64`, and must never be linked into target firmware.
 
 Baker `MAX_ERR_LSB` is `ceil` of an **exact** rational residual, owned by
-`crates/surfaces-bake/src/bound.rs`. IEEE `f64` bit-patterns are dyadics
-with a stored binary exponent; bilinear is a ratio of the `i32` grid at
-every coordinate, not only exact `u16` knots. Do not implement the bound as
-a host `f64` lerp, `next_up` / one-ULP padding before ceil, an 8-ULP
-envelope, or unreduced `i128` `n/d` without a binary exponent. Ordinary
-decimals overflow 127 bits; `1e-300` needs a `2^1048` integer if the
-exponent is expanded into the denominator. A shift that does not fit in
-256 bits keeps the addend as a second term through bilinear reconstruction;
-`ceil` of that two-term residual must not understate. Do not use `ceil_abs`
-as an intermediate arithmetic step. `NonFiniteDeviation` is for a true
-non-finite residual, not the width of a too-narrow integer.
+`crates/surfaces-bake/src/bound.rs`. The baker is host `std` with alloc: it
+does arithmetic the embedded runtime cannot. IEEE `f64` bit-patterns are
+dyadics; bilinear is an exact ratio of the `i32` grid at every coordinate,
+not only exact `u16` knots. `ceil` applies only to the finished residual.
+Do not implement the bound as a host `f64` lerp, `next_up` / one-ULP padding
+before ceil, an 8-ULP envelope, unreduced `i128` `n/d`, a fixed-width
+integer with a ceil shortcut inside add, or a stand-in dyadic.
+`NonFiniteDeviation` is for a true non-finite residual.
+`BoundOverflow` is a finite ceil that does not fit `i32`.
 
 Human-facing docs describe a public Active crate published at `0.1.0`. Version,
 `publish`, changelog close-out, GitHub visibility, and the crates.io upload
@@ -92,7 +90,8 @@ dependency kind (including optional, path, Git, target-specific, or
 dev/build). The runtime package's `Cargo.lock` entry and `cargo metadata`
 graph must not resolve it. Do not add `{ name = "ph-surfaces-bake" }` to
 `deny.toml` `[bans] deny`: that would deny the baker package itself. The
-baker stays in the deny graph so its empty third-party tree is evidence.
+baker stays in the deny graph so its host dependencies are reviewed. The
+runtime package's third-party tree stays empty.
 
 Do not add a `gen` feature, optional dependency, or `cfg` on `ph-surfaces`
 that reaches the baker. That shape is used by other org crates and is
@@ -174,10 +173,14 @@ policy, not by a second lockfile. There is no shell script and no
 PowerShell twin. `tools/consumer` and `tools/code-size` keep empty
 `[workspace]` tables so they do not join the root workspace.
 
-`crates/surfaces-bake/src` is capped at 1,600 lines of implementation,
-excluding `#[cfg(test)]` tails (the same exemption as the integer-only
-scanner), fixtures, and generated output directories. Exceeding the budget
-is a FAIL, not a quiet raise.
+`crates/surfaces-bake/src` has a declared implementation-line budget in
+`xtask/config.ron` (`max_implementation_lines`), excluding `#[cfg(test)]`
+tails (the same exemption as the integer-only scanner), fixtures, and
+generated output directories. The first figure (1,500) was a guess before
+the baker existed. The cap exists to prevent unbounded growth, not to freeze
+a constant: raise the declared number in `config.ron` (and the mutation
+fixture that names it) when a real kernel needs room. Exceeding the current
+declared cap without that bump is a FAIL.
 
 `cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD` is the
 release-evidence mode: every check must run, a would-be `SKIP` is recorded as
@@ -215,7 +218,8 @@ bounded hosted subset is not the complete release evidence.
 | New guard in `xtask` | An `Action` variant and required-handler entry in `xtask/src/config.rs`, dispatch in `xtask/src/checks/mod.rs`, a row in `xtask/config.ron`, and a mutation case in `xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `crates/surfaces/src/lib.rs` crate docs, `crates/surfaces/src/surface.rs` / `evaluate.rs` / `axis/` item docs, `README.md` "Resource accounting and cost" |
 | New or changed axis strategy | `crates/surfaces/src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `tools/consumer/src/lib.rs`, `docs/v0.1-traceability.md` |
-| New runtime/dev/build dependency in the shipped crate | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR. Host-only xtask dependencies stay in `[workspace.dependencies]` and must not appear on the shipped graph. |
+| New runtime/dev/build dependency in the runtime crate | `deny.toml`, the no-`ph-curves` check, and an explicit reason in the PR. The runtime graph stays empty of third-party crates. |
+| New baker host dependency | `crates/surfaces-bake/Cargo.toml`, root `Cargo.lock`, `deny.toml` licences/bans, baker README. Must not appear on the runtime graph. xtask host deps stay in `[workspace.dependencies]`. |
 | New or changed public API item | `crates/surfaces/src/lib.rs` module docs, `README.md` status sections, `CHANGELOG.md`, `docs/v0.1-traceability.md` |
 | Example map values (`ELEVATION`, `CORRECTION`) | `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `crates/surfaces/src/lib.rs` § Examples, `tools/consumer/src/lib.rs` |
 | Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `crates/surfaces/examples/*.rs`, `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs`, and `examples` in `xtask/config.ron` when the Cargo example set changes |
