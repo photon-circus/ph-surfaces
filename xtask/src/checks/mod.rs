@@ -5,6 +5,7 @@ pub mod cargo;
 pub mod code_size;
 pub mod deny;
 pub mod embedded;
+pub mod generated;
 pub mod history;
 pub mod line_endings;
 pub mod package;
@@ -22,6 +23,7 @@ pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
         Action::NoPhCurves => ratchets::no_ph_curves(ctx),
         Action::BakeLineBudget => bake::baker_line_budget(ctx),
         Action::BakePackage => bake::baker_package(ctx),
+        Action::GeneratedSource => generated::generated_source(ctx),
         Action::ManifestFloor => ratchets::manifest_floor(ctx),
         Action::Fmt => cargo::fmt(ctx),
         Action::Test => cargo::test(ctx),

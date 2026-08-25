@@ -180,7 +180,10 @@ generated output directories. The first figure (1,500) was a guess before
 the baker existed. The cap exists to prevent unbounded growth, not to freeze
 a constant: raise the declared number in `config.ron` (and the mutation
 fixture that names it) when a real kernel needs room. Exceeding the current
-declared cap without that bump is a FAIL.
+declared cap without that bump is a FAIL. `cargo xtask generate` writes the
+checked-in baker generated module declared by `baker.generated`; the
+`generated source` check re-renders it in memory and compares through
+`text::read_text`.
 
 `cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD` is the
 release-evidence mode: every check must run, a would-be `SKIP` is recorded as
@@ -215,6 +218,7 @@ bounded hosted subset is not the complete release evidence.
 | Version or crate `publish` setting | Release process (`RELEASING.md`): root `Cargo.lock`, changelog heading date, `package.version` and `package.manifest.publish` in `xtask/config.ron`, and GitHub `Lifecycle`. README and crate-doc status already describe published `0.1.0` Active; do not revert them to incubating. Pin unpackaged guide URLs (README, `crates/surfaces/src/lib.rs`, `crates/surfaces/examples/*.rs`) from `main` to the release tag. |
 | New packaged file | `include` in `crates/surfaces/Cargo.toml`, and crate-relative `package.files` in `xtask/config.ron` |
 | New baker packaged file | `include` in `crates/surfaces-bake/Cargo.toml`, and crate-relative `baker.files` in `xtask/config.ron` |
+| Baker generated artifact | path in `baker.generated` (`xtask/config.ron`); rewrite with `cargo xtask generate`. Not a runtime packaged file. |
 | New guard in `xtask` | An `Action` variant and required-handler entry in `xtask/src/config.rs`, dispatch in `xtask/src/checks/mod.rs`, a row in `xtask/config.ron`, and a mutation case in `xtask/tests/mutation.rs` showing it fails |
 | Storage or cost wording | `crates/surfaces/src/lib.rs` crate docs, `crates/surfaces/src/surface.rs` / `evaluate.rs` / `axis/` item docs, `README.md` "Resource accounting and cost" |
 | New or changed axis strategy | `crates/surfaces/src/lib.rs` re-exports and § Contract, `README.md` "Per-axis lookup strategies" table, the sixteen-pairing consumer in `tools/consumer/src/lib.rs`, `docs/v0.1-traceability.md` |

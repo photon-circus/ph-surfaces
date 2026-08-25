@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
-use xtask::checks::{bake, history, line_endings, package, publish_lock, ratchets};
+use xtask::checks::{bake, generated, history, line_endings, package, publish_lock, ratchets};
 use xtask::config::{Action, CheckSpec, Config};
 use xtask::runner::{Ctx, Outcome, Profile};
 
@@ -261,7 +261,7 @@ fn exceeding_the_baker_line_budget_is_rejected() {
     let root = tracked_copy("baker-line-budget");
     rewrite(&root.join("xtask/config.ron"), |text| {
         text.replace(
-            "max_implementation_lines: 1600",
+            "max_implementation_lines: 1800",
             "max_implementation_lines: 1",
         )
     });
@@ -299,6 +299,37 @@ fn a_baker_packaged_file_set_mismatch_is_rejected() {
         "baker-package-files",
         "baker package",
         bake::baker_package(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_stale_generated_source_is_rejected() {
+    let root = tracked_copy("generated-source");
+    rewrite(
+        &root.join("crates/surfaces-bake/generated/rounding.rs"),
+        |text| {
+            text.replace(
+                "pub const MAX_ERR_LSB: i32 = 1;",
+                "pub const MAX_ERR_LSB: i32 = 99;",
+            )
+        },
+    );
+    assert_fires(
+        "generated-source",
+        "generated source",
+        generated::generated_source(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_missing_generated_source_is_rejected() {
+    let root = tracked_copy("generated-source-missing");
+    fs::remove_file(root.join("crates/surfaces-bake/generated/rounding.rs"))
+        .expect("could not delete the generated artifact");
+    assert_fires(
+        "generated-source-missing",
+        "generated source",
+        generated::generated_source(&ctx(&root, Profile::Full)),
     );
 }
 

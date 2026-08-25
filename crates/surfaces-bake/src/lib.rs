@@ -12,7 +12,7 @@
 //! `i32` grid. The baker does not choose knots or parse expressions.
 //!
 //! ```
-//! use ph_surfaces_bake::{emit_max_err_lsb, Axis, BakeInput, Sample};
+//! use ph_surfaces_bake::{emit_max_err_lsb, emit_rust, Axis, BakeInput, Sample};
 //!
 //! let samples = vec![
 //!     Sample::new(0.0, 0.0, 1.5),
@@ -36,6 +36,9 @@
 //!     emit_max_err_lsb(table.max_err_lsb),
 //!     "pub const MAX_ERR_LSB: i32 = 0;\n"
 //! );
+//! let src = emit_rust(&table);
+//! assert!(src.contains("pub const PAYLOAD_BYTES: usize = 24;"));
+//! assert!(src.contains("pub const MAX_ERR_LSB: i32 = 0;"));
 //! ```
 //!
 //! `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
@@ -47,18 +50,24 @@
 //! includes the runtime-rounded X-then-Y path. It is not a typical error, and
 //! not a device, vendor, sensor, calibration, or accuracy claim.
 //!
-//! Rust emission and the checked-in generated-source drift gate: issue #41.
-//! Frozen golden vectors: issue #42.
+//! [`emit_rust`] writes BinaryAxis × BinaryAxis static tables, `PAYLOAD_BYTES`,
+//! and `MAX_ERR_LSB` as source text. [`emit_rust_with`] is the same for an
+//! explicit pairing and returns [`BakeError::InvalidBucketCount`] when a
+//! bucketed axis is outside `1..=65_536`. The baker prints that text on
+//! stdout; `cargo xtask generate` places the checked-in copy. Frozen golden
+//! vectors: issue #42.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
 mod bound;
+mod emit;
 mod error;
 mod grid;
 mod quantize;
 mod samples;
 
+pub use emit::{EmitAxis, checked_in_source, emit_rust, emit_rust_with};
 pub use error::{AxisName, BakeError, SampleField};
 pub use grid::{Axis, MAX_GRID_CELLS};
 pub use quantize::{QuantizedTable, emit_max_err_lsb};

@@ -37,11 +37,18 @@ The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
 ph-surfaces-bake --help
 ph-surfaces-bake --samples points.txt --x-knots 0,10 --y-knots 0,5 --scale 1
 ph-surfaces-bake --samples points.txt --x-uniform 0,10,3 --y-uniform 0,5,3 --scale 1
+ph-surfaces-bake --emit-rust --samples points.txt --x-knots 0,10 --y-knots 0,5 --scale 1
 ```
 
-Rust emission and goldens are later issues. The baker may take reviewed host
-crates for exact residual arithmetic. A declared implementation-line budget
-keeps it from growing without bound.
+`--emit-rust` writes Rust source on stdout. The baker does not own the
+destination path; `cargo xtask generate` places the checked-in copy. The
+emitted `MAX_ERR_LSB` is an i32 value LSB: deviation between the supplied
+samples and the table built from them. It is not a device, accuracy, timing,
+or flash claim. `--emit-golden` is not implemented yet.
+
+The baker may take reviewed host crates for exact residual arithmetic. A
+declared implementation-line budget keeps it from growing without bound. The
+generated fixture under `generated/` is not part of the packaged crate.
 
 ## License
 

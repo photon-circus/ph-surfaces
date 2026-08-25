@@ -60,6 +60,7 @@ pub struct SourcePolicy {
 pub struct Baker {
     pub src: String,
     pub max_implementation_lines: usize,
+    pub generated: String,
     pub files: Vec<String>,
 }
 
@@ -112,6 +113,7 @@ pub enum Action {
     NoPhCurves,
     BakeLineBudget,
     BakePackage,
+    GeneratedSource,
     ManifestFloor,
     Fmt,
     Test,
@@ -143,6 +145,7 @@ impl Action {
             Self::NoPhCurves => "NoPhCurves",
             Self::BakeLineBudget => "BakeLineBudget",
             Self::BakePackage => "BakePackage",
+            Self::GeneratedSource => "GeneratedSource",
             Self::ManifestFloor => "ManifestFloor",
             Self::Fmt => "Fmt",
             Self::Test => "Test",
@@ -216,6 +219,7 @@ impl Config {
             "dependency manifests",
             &self.source_policy.dependency_manifests,
         )?;
+        nonempty("baker generated", &self.baker.generated)?;
         nonempty("code-size snapshot", &self.code_size.snapshot)?;
         nonempty("kernel symbol", &self.code_size.kernel_symbol)?;
         nonempty("kernel path fragment", &self.code_size.kernel_path_fragment)?;
@@ -234,7 +238,7 @@ impl Config {
             .chain(self.source_policy.example_roots.iter())
             .chain([&self.source_policy.arithmetic_kernel])
             .chain(self.source_policy.dependency_manifests.iter())
-            .chain([&self.baker.src])
+            .chain([&self.baker.src, &self.baker.generated])
             .chain(self.baker.files.iter())
             .chain([&self.code_size.snapshot])
         {
@@ -339,6 +343,7 @@ impl Config {
             "NoPhCurves",
             "BakeLineBudget",
             "BakePackage",
+            "GeneratedSource",
             "ManifestFloor",
             "Fmt",
             "Test",

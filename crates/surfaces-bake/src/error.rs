@@ -132,6 +132,13 @@ pub enum BakeError {
         /// Declared Y knot count.
         ny: usize,
     },
+    /// A bucketed emit axis declared `B` outside the runtime `1..=65_536` range.
+    InvalidBucketCount {
+        /// Which axis the illegal bucket count was requested for.
+        axis: AxisName,
+        /// The rejected bucket count.
+        buckets: usize,
+    },
 }
 
 impl Display for BakeError {
@@ -212,6 +219,12 @@ impl Display for BakeError {
                     "declared grid is {nx} by {ny} cells; the baker accepts at most {}",
                     crate::MAX_GRID_CELLS
                 )
+            }
+            Self::InvalidBucketCount { buckets: 0, .. } => {
+                f.write_str("a bucket index must declare at least one bucket")
+            }
+            Self::InvalidBucketCount { .. } => {
+                f.write_str("a bucket index declares at most 65_536 buckets")
             }
         }
     }
@@ -361,6 +374,22 @@ mod tests {
             }
             .to_string(),
             "declared grid is 65536 by 65536 cells; the baker accepts at most 1048576"
+        );
+        assert_eq!(
+            BakeError::InvalidBucketCount {
+                axis: AxisName::X,
+                buckets: 0
+            }
+            .to_string(),
+            "a bucket index must declare at least one bucket"
+        );
+        assert_eq!(
+            BakeError::InvalidBucketCount {
+                axis: AxisName::Y,
+                buckets: 65_537
+            }
+            .to_string(),
+            "a bucket index declares at most 65_536 buckets"
         );
     }
 
