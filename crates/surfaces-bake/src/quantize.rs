@@ -147,12 +147,13 @@ impl Ratio {
     }
 
     fn add(self, other: Self) -> Option<Self> {
+        let g = gcd(self.d, other.d);
+        let d1 = other.d / g;
         let n = self
             .n
-            .checked_mul(other.d)?
-            .checked_add(other.n.checked_mul(self.d)?)?;
-        let d = self.d.checked_mul(other.d)?;
-        Self::new(n, d)
+            .checked_mul(d1)?
+            .checked_add(other.n.checked_mul(self.d / g)?)?;
+        Self::new(n, self.d.checked_mul(d1)?)
     }
 
     fn sub(self, other: Self) -> Option<Self> {
@@ -163,11 +164,22 @@ impl Ratio {
     }
 
     fn mul(self, other: Self) -> Option<Self> {
-        Self::new(self.n.checked_mul(other.n)?, self.d.checked_mul(other.d)?)
+        let g1 = gcd(self.n, other.d);
+        let g2 = gcd(other.n, self.d);
+        Self::new(
+            (self.n / g1).checked_mul(other.n / g2)?,
+            (self.d / g2).checked_mul(other.d / g1)?,
+        )
     }
 
     fn div(self, other: Self) -> Option<Self> {
-        Self::new(self.n.checked_mul(other.d)?, self.d.checked_mul(other.n)?)
+        if other.n == 0 {
+            return None;
+        }
+        self.mul(Self {
+            n: other.d,
+            d: other.n,
+        })
     }
 
     fn to_f64(self) -> f64 {
@@ -238,10 +250,17 @@ fn ratio_from_f64(x: f64) -> Option<Ratio> {
 }
 
 fn ratio_from_dyadic(m: i128, e: i32) -> Option<Ratio> {
+    if m == 0 {
+        return Ratio::new(0, 1);
+    }
     if e >= 0 {
         Ratio::new(m.checked_mul(pow2(e)?)?, 1)
+    } else if let Some(den) = pow2(-e) {
+        Ratio::new(m, den)
     } else {
-        Ratio::new(m, pow2(-e)?)
+        // e <= -127: |m| * 2^e <= 2^{-74} < |m| / 2^126 < 1. Keep a
+        // conservative tiny stand-in so ceil stays 1 rather than failing.
+        Ratio::new(m, pow2(126)?)
     }
 }
 
@@ -875,5 +894,47 @@ mod tests {
         assert_eq!(table.values[0][nx - 1], (nx - 1) as i32);
         assert_eq!(table.values[1][nx - 1], (nx - 1 + 1000) as i32);
         assert_eq!(table.max_err_lsb, 0);
+    }
+
+    #[test]
+    fn decimal_off_knot_coordinates_do_not_overflow_ratio_arithmetic() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 1.0),
+                Sample::new(1.0, 0.0, 2.0),
+                Sample::new(0.0, 1.0, 3.0),
+                Sample::new(1.0, 1.0, 7.0),
+                Sample::new(0.1, 0.1, 1.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![1, 2], vec![3, 7]]);
+        assert!(table.max_err_lsb >= 1);
+    }
+
+    #[test]
+    fn a_tiny_finite_sample_still_emits_a_bound() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, 0.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, 0.0),
+                Sample::new(0.1, 0.1, 1e-300),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
+        assert_eq!(table.max_err_lsb, 1);
     }
 }

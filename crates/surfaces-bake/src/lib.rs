@@ -40,7 +40,9 @@
 //!
 //! `MAX_ERR_LSB` is an i32 value LSB: `ceil` of the exact rational
 //! `|sample*scale − reconstruct|` (IEEE `f64` bit-patterns as dyadics,
-//! bilinear as a ratio of the `i32` grid). For exact `u16` coordinates that
+//! bilinear as a ratio of the `i32` grid). Ratio arithmetic cancels common
+//! factors before cross-multiplying; a dyadic smaller than `2^{-126}` keeps
+//! a conservative tiny stand-in. For exact `u16` coordinates that
 //! includes the runtime-rounded X-then-Y path. Host `f64` lerp is not the
 //! bound oracle. It is not a typical error, and not a device, vendor,
 //! sensor, calibration, or accuracy claim.
