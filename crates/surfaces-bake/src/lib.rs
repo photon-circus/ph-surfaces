@@ -306,8 +306,30 @@ mod tests {
     }
 
     #[test]
-    fn non_finite_sample_value_is_rejected() {
+    fn non_finite_sample_fields_are_rejected() {
         let (x, y) = explicit();
+        assert_eq!(
+            BakeInput::new(
+                vec![Sample::new(f64::NAN, 0.0, 1.0)],
+                x.clone(),
+                y.clone(),
+                1.0
+            ),
+            Err(BakeError::NonFiniteSample {
+                field: SampleField::X
+            })
+        );
+        assert_eq!(
+            BakeInput::new(
+                vec![Sample::new(0.0, f64::INFINITY, 1.0)],
+                x.clone(),
+                y.clone(),
+                1.0
+            ),
+            Err(BakeError::NonFiniteSample {
+                field: SampleField::Y
+            })
+        );
         assert_eq!(
             BakeInput::new(vec![Sample::new(0.0, 0.0, f64::NAN)], x, y, 1.0),
             Err(BakeError::NonFiniteSample {

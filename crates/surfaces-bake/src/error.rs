@@ -250,6 +250,20 @@ mod tests {
     fn non_finite_variants_name_the_field() {
         assert_eq!(
             BakeError::NonFiniteSample {
+                field: SampleField::X
+            }
+            .to_string(),
+            "sample x is not a finite f64"
+        );
+        assert_eq!(
+            BakeError::NonFiniteSample {
+                field: SampleField::Y
+            }
+            .to_string(),
+            "sample y is not a finite f64"
+        );
+        assert_eq!(
+            BakeError::NonFiniteSample {
                 field: SampleField::Value
             }
             .to_string(),
