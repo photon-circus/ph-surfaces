@@ -11,10 +11,10 @@
   the quantized table from every supplied sample in i32 value LSBs, and
   emit the maximum as `pub const MAX_ERR_LSB: i32`. For samples whose
   coordinates are exact `u16` values, the bound includes the runtime's
-  rounded X-then-Y path and the unrounded rational bilinear of the i32
-  grid, not only f64 lerps. A nonzero computed magnitude is stepped one
-  ULP before `ceil` so a downward-rounded residual cannot understate an
-  integer; exact-zero tables stay 0. Missing or
+  rounded X-then-Y path, not only unrounded host bilinear. `MAX_ERR_LSB`
+  is `ceil` of the exact rational residual (IEEE `f64` bit-patterns as
+  dyadics, bilinear as a ratio of the `i32` grid), not a host-`f64` lerp
+  with ULP padding. Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
   lookup is binary search on the ordered knot lists. The bound is an

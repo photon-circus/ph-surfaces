@@ -23,10 +23,7 @@ pub struct QuantizedTable {
     pub values: Vec<Vec<i32>>,
     /// Caller-stated output scale applied during quantization.
     pub scale: f64,
-    /// Durable bound: ceil of the maximum absolute sample deviation in LSBs.
-    /// A nonzero computed magnitude is stepped one ULP before `ceil` so a
-    /// residual that rounded downward onto an integer cannot understate;
-    /// exact-zero tables stay 0.
+    /// Durable bound: ceil of the exact rational `|sample*scale − reconstruct|`.
     pub max_err_lsb: i32,
     /// RMS of sample deviations in i32 value LSBs. Operator statistic.
     pub rms_lsb: f64,
@@ -42,11 +39,11 @@ impl QuantizedTable {
     /// Host `f64` bilinear of the quantized grid, X then Y, then `/ scale`.
     ///
     /// Interpolation runs on `i32 as f64` so endpoint differences stay in
-    /// range; the result is then divided by scale. This is a host
-    /// diagnostic. `MAX_ERR_LSB` for exact `u16` coordinates uses the
-    /// rational bilinear of the `i32` grid and [`Self::evaluate_u16`], not
-    /// only this `f64` lerp. Fractional coordinates cannot call runtime
-    /// `evaluate`, so they use this reconstruction plus an outward envelope.
+    /// range; the result is then divided by scale. Samples whose coordinates
+    /// are exact `u16` values also contribute the runtime-rounded path via
+    /// [`Self::evaluate_u16`]. `MAX_ERR_LSB` is `ceil` of the exact rational
+    /// residual, not this `f64` reconstruction. Fractional coordinates
+    /// cannot call runtime `evaluate`; this method stays a host `f64` view.
     ///
     /// `x` and `y` must lie in the inclusive declared domain.
     #[must_use]
@@ -85,11 +82,10 @@ impl BakeInput {
     /// half-way values away from zero — the same policy as runtime
     /// interpolation, implemented here for `f64` rather than imported from
     /// the integer kernel. Samples whose coordinates are exact `u16` values
-    /// also measure the unrounded rational bilinear of the `i32` grid and the
-    /// runtime-rounded X-then-Y path; `max_err_lsb` is an upper bound of
-    /// those. A nonzero computed magnitude is stepped one ULP before `ceil`
-    /// so a downward-rounded residual cannot understate an integer;
-    /// exact-zero tables stay 0.
+    /// also measure the runtime-rounded X-then-Y path; `max_err_lsb` is
+    /// `ceil` of the exact rational residual of both (IEEE `f64` bit-patterns
+    /// as dyadics, bilinear as a ratio of the `i32` grid). Host `f64` lerp is
+    /// not the bound oracle.
     ///
     /// # Errors
     ///
@@ -120,6 +116,169 @@ impl BakeInput {
         let values = quantize_grid(&filled, &x, &y, self.scale())?;
         deviation(self.samples(), x, y, filled, values, self.scale())
     }
+}
+
+/// Exact rational `n/d` with `d > 0`. Host bound arithmetic; not a runtime type.
+#[derive(Clone, Copy, Debug)]
+struct Ratio {
+    n: i128,
+    d: i128,
+}
+
+impl Ratio {
+    fn new(n: i128, d: i128) -> Option<Self> {
+        if d == 0 {
+            return None;
+        }
+        let (n, d) = if d < 0 { (-n, -d) } else { (n, d) };
+        Some(Self { n, d }.reduce())
+    }
+
+    fn from_i128(n: i128) -> Self {
+        Self { n, d: 1 }
+    }
+
+    fn reduce(self) -> Self {
+        let g = gcd(self.n, self.d);
+        Self {
+            n: self.n / g,
+            d: self.d / g,
+        }
+    }
+
+    fn add(self, other: Self) -> Option<Self> {
+        let n = self
+            .n
+            .checked_mul(other.d)?
+            .checked_add(other.n.checked_mul(self.d)?)?;
+        let d = self.d.checked_mul(other.d)?;
+        Self::new(n, d)
+    }
+
+    fn sub(self, other: Self) -> Option<Self> {
+        self.add(Self {
+            n: other.n.checked_neg()?,
+            d: other.d,
+        })
+    }
+
+    fn mul(self, other: Self) -> Option<Self> {
+        Self::new(self.n.checked_mul(other.n)?, self.d.checked_mul(other.d)?)
+    }
+
+    fn div(self, other: Self) -> Option<Self> {
+        Self::new(self.n.checked_mul(other.d)?, self.d.checked_mul(other.n)?)
+    }
+
+    fn to_f64(self) -> f64 {
+        (self.n as f64) / (self.d as f64)
+    }
+
+    fn abs_gt(self, other: Self) -> Option<bool> {
+        let left = self.n.unsigned_abs().checked_mul(other.d as u128)?;
+        let right = other.n.unsigned_abs().checked_mul(self.d as u128)?;
+        Some(left > right)
+    }
+
+    fn ceil_abs(self) -> Option<i32> {
+        if self.n == 0 {
+            return Some(0);
+        }
+        let n = self.n.unsigned_abs();
+        let d = self.d as u128;
+        let ceil = n.div_ceil(d);
+        i32::try_from(ceil).ok()
+    }
+}
+
+fn gcd(a: i128, b: i128) -> i128 {
+    let mut x = a.unsigned_abs();
+    let mut y = b.unsigned_abs();
+    while y != 0 {
+        let t = y;
+        y = x % y;
+        x = t;
+    }
+    if x == 0 || x > i128::MAX as u128 {
+        1
+    } else {
+        x as i128
+    }
+}
+
+fn pow2(exp: i32) -> Option<i128> {
+    if !(0..=126).contains(&exp) {
+        return None;
+    }
+    Some(1i128 << exp)
+}
+
+fn decode_f64(x: f64) -> Option<(i128, i32)> {
+    if !x.is_finite() {
+        return None;
+    }
+    if x == 0.0 {
+        return Some((0, 0));
+    }
+    let bits = x.to_bits();
+    let sign = if bits >> 63 == 0 { 1i128 } else { -1 };
+    let exp_bits = ((bits >> 52) & 0x7ff) as i32;
+    let frac = (bits & 0x000f_ffff_ffff_ffff) as i128;
+    let (mant, exp) = if exp_bits == 0 {
+        (frac, -1074)
+    } else {
+        (frac + (1i128 << 52), exp_bits - 1075)
+    };
+    Some((sign * mant, exp))
+}
+
+fn ratio_from_f64(x: f64) -> Option<Ratio> {
+    let (m, e) = decode_f64(x)?;
+    ratio_from_dyadic(m, e)
+}
+
+fn ratio_from_dyadic(m: i128, e: i32) -> Option<Ratio> {
+    if e >= 0 {
+        Ratio::new(m.checked_mul(pow2(e)?)?, 1)
+    } else {
+        Ratio::new(m, pow2(-e)?)
+    }
+}
+
+/// Exact `value * scale` from the two IEEE bit-patterns, not `f64` multiply.
+fn scaled_sample(value: f64, scale: f64) -> Option<Ratio> {
+    let (m0, e0) = decode_f64(value)?;
+    let (m1, e1) = decode_f64(scale)?;
+    ratio_from_dyadic(m0.checked_mul(m1)?, e0.checked_add(e1)?)
+}
+
+fn lerp_ratio(t: Ratio, t0: Ratio, t1: Ratio, v0: Ratio, v1: Ratio) -> Option<Ratio> {
+    let span = t1.sub(t0)?;
+    if span.n == 0 {
+        return None;
+    }
+    v0.mul(t1.sub(t)?)?.add(v1.mul(t.sub(t0)?)?)?.div(span)
+}
+
+fn reconstruct_ratio(
+    x_knots: &[u16],
+    y_knots: &[u16],
+    values: &[Vec<i32>],
+    x: f64,
+    y: f64,
+) -> Option<Ratio> {
+    let xi = segment(x_knots, x);
+    let yi = segment(y_knots, y);
+    let x0 = Ratio::from_i128(i128::from(x_knots[xi]));
+    let x1 = Ratio::from_i128(i128::from(x_knots[xi + 1]));
+    let y0 = Ratio::from_i128(i128::from(y_knots[yi]));
+    let y1 = Ratio::from_i128(i128::from(y_knots[yi + 1]));
+    let xr = ratio_from_f64(x)?;
+    let yr = ratio_from_f64(y)?;
+    let q = |row: usize, col: usize| Ratio::from_i128(i128::from(values[row][col]));
+    let lower = lerp_ratio(xr, x0, x1, q(yi, xi), q(yi, xi + 1))?;
+    let upper = lerp_ratio(xr, x0, x1, q(yi + 1, xi), q(yi + 1, xi + 1))?;
+    lerp_ratio(yr, y0, y1, lower, upper)
 }
 
 #[allow(clippy::float_cmp)] // exact f64 equality is the specified node and duplicate test
@@ -211,19 +370,24 @@ fn deviation(
         }
     }
     let mut sum_sq = 0.0;
-    let mut max_abs = 0.0;
+    let mut max_ratio: Option<Ratio> = None;
+    let mut max_err_lsb = 0i32;
     let mut worst_x = samples[0].x;
     let mut worst_y = samples[0].y;
     for sample in samples {
-        let lsb = sample_lsb(&x, &y, &values, scale, sample)?;
-        let mut abs = lsb.abs();
-        if exact_u16(sample.x).is_none() || exact_u16(sample.y).is_none() {
-            abs += reconstruction_envelope(&x, &y, &values, sample.x, sample.y);
+        let residual = sample_residual(&x, &y, &values, scale, sample)?;
+        let ceil = residual.ceil_abs().ok_or(BakeError::NonFiniteDeviation)?;
+        if ceil > max_err_lsb {
+            max_err_lsb = ceil;
         }
-        if abs > max_abs {
-            max_abs = abs;
+        if max_ratio.is_none_or(|m| residual.abs_gt(m) == Some(true)) {
+            max_ratio = Some(residual);
             worst_x = sample.x;
             worst_y = sample.y;
+        }
+        let lsb = residual.to_f64();
+        if !lsb.is_finite() {
+            return Err(BakeError::NonFiniteDeviation);
         }
         sum_sq += lsb * lsb;
     }
@@ -232,7 +396,7 @@ fn deviation(
         y,
         values,
         scale,
-        max_err_lsb: ceil_abs_lsb(max_abs)?,
+        max_err_lsb,
         rms_lsb: (sum_sq / samples.len() as f64).sqrt(),
         worst_x,
         worst_y,
@@ -240,105 +404,25 @@ fn deviation(
     })
 }
 
-fn sample_lsb(
+fn sample_residual(
     x: &[u16],
     y: &[u16],
     values: &[Vec<i32>],
     scale: f64,
     sample: &Sample,
-) -> Result<f64, BakeError> {
-    let bilinear = reconstruct_i32(x, y, values, sample.x, sample.y);
-    let mut lsb = sample.value.mul_add(scale, -bilinear);
-    if !lsb.is_finite() {
-        return Err(BakeError::NonFiniteDeviation);
-    }
+) -> Result<Ratio, BakeError> {
+    let scaled = scaled_sample(sample.value, scale).ok_or(BakeError::NonFiniteDeviation)?;
+    let bilinear =
+        reconstruct_ratio(x, y, values, sample.x, sample.y).ok_or(BakeError::NonFiniteDeviation)?;
+    let mut residual = scaled.sub(bilinear).ok_or(BakeError::NonFiniteDeviation)?;
     if let (Some(px), Some(py)) = (exact_u16(sample.x), exact_u16(sample.y)) {
-        let (num, den) = bilinear_rational(x, y, values, px, py);
-        let rational = lsb_from_rational(sample.value, scale, num, den)?;
-        if rational.abs() > lsb.abs() {
-            lsb = rational;
-        }
-        let runtime = evaluate_u16(x, y, values, px, py);
-        let runtime_lsb = sample.value.mul_add(scale, -f64::from(runtime));
-        if !runtime_lsb.is_finite() {
-            return Err(BakeError::NonFiniteDeviation);
-        }
-        if runtime_lsb.abs() > lsb.abs() {
-            lsb = runtime_lsb;
+        let runtime = Ratio::from_i128(i128::from(evaluate_u16(x, y, values, px, py)));
+        let runtime_residual = scaled.sub(runtime).ok_or(BakeError::NonFiniteDeviation)?;
+        if runtime_residual.abs_gt(residual) == Some(true) {
+            residual = runtime_residual;
         }
     }
-    Ok(lsb)
-}
-
-/// Unrounded X-then-Y bilinear of the `i32` grid as `num / den`.
-fn bilinear_rational(
-    x_knots: &[u16],
-    y_knots: &[u16],
-    values: &[Vec<i32>],
-    x: u16,
-    y: u16,
-) -> (i128, i128) {
-    let xi = segment(x_knots, f64::from(x));
-    let yi = segment(y_knots, f64::from(y));
-    let x0 = i128::from(x_knots[xi]);
-    let x1 = i128::from(x_knots[xi + 1]);
-    let y0 = i128::from(y_knots[yi]);
-    let y1 = i128::from(y_knots[yi + 1]);
-    let dx = i128::from(x) - x0;
-    let dy = i128::from(y) - y0;
-    let sx = x1 - x0;
-    let sy = y1 - y0;
-    let v00 = i128::from(values[yi][xi]);
-    let v10 = i128::from(values[yi][xi + 1]);
-    let v01 = i128::from(values[yi + 1][xi]);
-    let v11 = i128::from(values[yi + 1][xi + 1]);
-    let num =
-        v00 * (sx - dx) * (sy - dy) + v10 * dx * (sy - dy) + v01 * (sx - dx) * dy + v11 * dx * dy;
-    (num, sx * sy)
-}
-
-fn lsb_from_rational(value: f64, scale: f64, num: i128, den: i128) -> Result<f64, BakeError> {
-    if den <= 0 {
-        return Err(BakeError::NonFiniteDeviation);
-    }
-    let q = num / den;
-    let r = num % den;
-    let Ok(q) = i32::try_from(q) else {
-        return Err(BakeError::NonFiniteDeviation);
-    };
-    let reconstruct = f64::from(q) + r as f64 / den as f64;
-    let lsb = value.mul_add(scale, -reconstruct);
-    if lsb.is_finite() {
-        Ok(lsb)
-    } else {
-        Err(BakeError::NonFiniteDeviation)
-    }
-}
-
-/// Outward f64-lerp envelope for coordinates that are not exact `u16`.
-fn reconstruction_envelope(
-    x_knots: &[u16],
-    y_knots: &[u16],
-    values: &[Vec<i32>],
-    x: f64,
-    y: f64,
-) -> f64 {
-    let xi = segment(x_knots, x);
-    let yi = segment(y_knots, y);
-    let mag = u64::from(values[yi][xi].unsigned_abs())
-        .saturating_add(u64::from(values[yi][xi + 1].unsigned_abs()))
-        .saturating_add(u64::from(values[yi + 1][xi].unsigned_abs()))
-        .saturating_add(u64::from(values[yi + 1][xi + 1].unsigned_abs()));
-    if mag == 0 { 0.0 } else { 8.0 * ulp(mag as f64) }
-}
-
-fn ulp(x: f64) -> f64 {
-    let a = x.abs();
-    if !a.is_finite() || a == 0.0 {
-        0.0
-    } else {
-        a.next_up() - a
-    }
+    Ok(residual)
 }
 
 #[allow(clippy::float_cmp)] // exact u16 means f64::from(n) equals the sample coordinate
@@ -377,24 +461,6 @@ fn div_round_half_away_from_zero(numerator: i64, denominator: i64) -> i64 {
     } else {
         (numerator - half) / denominator
     }
-}
-
-fn ceil_abs_lsb(max_abs: f64) -> Result<i32, BakeError> {
-    if !max_abs.is_finite() || max_abs < 0.0 {
-        return Err(BakeError::NonFiniteDeviation);
-    }
-    // `mul_add` can round a residual slightly above an integer onto that
-    // integer. Step a nonzero magnitude one ULP before `ceil` so that case
-    // emits n+1. Leave exact zero alone: `0.0.next_up()` would ceil to 1.
-    let ceil = if max_abs > 0.0 {
-        max_abs.next_up().ceil()
-    } else {
-        0.0
-    };
-    if ceil > f64::from(i32::MAX) {
-        return Err(BakeError::NonFiniteDeviation);
-    }
-    Ok(ceil as i32)
 }
 
 fn reconstruct_i32(x_knots: &[u16], y_knots: &[u16], values: &[Vec<i32>], x: f64, y: f64) -> f64 {
@@ -506,9 +572,7 @@ mod tests {
         .unwrap();
         let table = input.quantize().unwrap();
         assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
-        // Measured residual is exactly 1 LSB; a nonzero integer magnitude
-        // takes `next_up` before `ceil`, so the emitted bound is 2.
-        assert_eq!(table.max_err_lsb, 2);
+        assert_eq!(table.max_err_lsb, 1);
         assert_eq!(table.worst_x, 5.0);
         assert_eq!(table.worst_y, 5.0);
         let rms = (1.0_f64 / 5.0).sqrt();
@@ -612,8 +676,7 @@ mod tests {
         .unwrap();
         let table = input.quantize().unwrap();
         assert_eq!(table.values, vec![vec![0, 10], vec![0, 10]]);
-        // Measured residual is 95 LSB; integer magnitudes emit n+1.
-        assert_eq!(table.max_err_lsb, 96);
+        assert_eq!(table.max_err_lsb, 95);
 
         static X: [u16; 2] = [0, 10];
         static Y: [u16; 2] = [0, 10];
@@ -649,8 +712,7 @@ mod tests {
         assert_eq!(table.values, vec![vec![0, 1], vec![1, 2]]);
         assert_eq!(table.reconstruct(1.0, 1.0), 1.0);
         assert_eq!(table.evaluate_u16(1, 1), 2);
-        // Exact 1 LSB residual inflates by 1 ULP before ceil, so the bound is 2.
-        assert_eq!(table.max_err_lsb, 2);
+        assert_eq!(table.max_err_lsb, 1);
         static AXIS: [u16; 2] = [0, 2];
         static VALUES: [[i32; 2]; 2] = [[0, 1], [1, 2]];
         static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
@@ -680,37 +742,8 @@ mod tests {
         .unwrap();
         let bilinear = table.reconstruct(1.0, 1.0) * table.scale;
         let computed = value.mul_add(scale, -bilinear);
-        // Exact scaled deviation is 1 + 2^-53 - 2^-105, but `mul_add` is 1.0.
+        // Host `mul_add` rounds onto 1.0; the exact product is slightly above 1.
         assert_eq!(computed.abs(), 1.0);
-        assert_eq!(table.max_err_lsb, 2);
-    }
-
-    #[test]
-    fn max_err_lsb_covers_bilinear_lerp_rounding() {
-        // Exact bilinear of the i32 grid at (1, 1) is 286/9; the sample is the
-        // f64 32.77777777777778, whose real value is slightly above 295/9, so
-        // the exact residual is slightly greater than 1 LSB. Three f64 lerps
-        // round the reconstruction up and the computed residual under 1.
-        let value = 32.77777777777778;
-        let table = BakeInput::new(
-            vec![
-                Sample::new(0.0, 0.0, 4.0),
-                Sample::new(3.0, 0.0, 13.0),
-                Sample::new(0.0, 3.0, 75.0),
-                Sample::new(3.0, 3.0, 94.0),
-                Sample::new(1.0, 1.0, value),
-            ],
-            Axis::knots(vec![0, 3]),
-            Axis::knots(vec![0, 3]),
-            1.0,
-        )
-        .unwrap()
-        .quantize()
-        .unwrap();
-        assert_eq!(table.values, vec![vec![4, 13], vec![75, 94]]);
-        let lerp_lsb = value.mul_add(1.0, -table.reconstruct(1.0, 1.0));
-        assert!(lerp_lsb.abs() < 1.0);
-        assert_eq!(lerp_lsb.abs().next_up().ceil(), 1.0);
         assert_eq!(table.max_err_lsb, 2);
     }
 
@@ -733,6 +766,32 @@ mod tests {
         .quantize()
         .unwrap();
         assert!(value < 2.0);
+        assert_eq!(table.max_err_lsb, 2);
+    }
+
+    #[test]
+    fn max_err_lsb_uses_exact_bilinear_not_host_lerp() {
+        // Host lerp at (1,1) is slightly above 286/9, so the f64 residual
+        // is just under 1 and a one-ULP ceil still emits 1. Exact 286/9
+        // against 32.77777777777778 is slightly above 1.
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 4.0),
+                Sample::new(3.0, 0.0, 13.0),
+                Sample::new(0.0, 3.0, 75.0),
+                Sample::new(3.0, 3.0, 94.0),
+                Sample::new(1.0, 1.0, 32.77777777777778),
+            ],
+            Axis::knots(vec![0, 3]),
+            Axis::knots(vec![0, 3]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![4, 13], vec![75, 94]]);
+        let host = (32.77777777777778 - table.reconstruct(1.0, 1.0)).abs();
+        assert!(host < 1.0, "host lerp residual {host} would understate");
         assert_eq!(table.max_err_lsb, 2);
     }
 
