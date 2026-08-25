@@ -11,10 +11,10 @@
   emit the maximum as `pub const MAX_ERR_LSB: i32`. For samples whose
   coordinates are exact `u16` values, the bound includes the runtime's
   rounded X-then-Y path, not only unrounded host bilinear. Missing or
-  ambiguous nodes, a non-invertible scale, and `i32` overflow are closed
-  `BakeError`s. The bound is an upper bound on deviation from the
-  supplied samples, not a device or accuracy claim. This is not a
-  runtime API change.
+  ambiguous nodes, a non-invertible scale, an NX×NY product above
+  1_048_576 cells, and `i32` overflow are closed `BakeError`s. The bound
+  is an upper bound on deviation from the supplied samples, not a device
+  or accuracy claim. This is not a runtime API change.
 - Host-side baker ingest in `ph-surfaces-bake`: delimited sample points
   (X, Y, value as host `f64`), an explicit per-axis grid (knot list or
   uniform origin/step/count), and a caller-stated output scale stored at

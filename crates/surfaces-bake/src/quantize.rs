@@ -36,25 +36,19 @@ pub struct QuantizedTable {
 }
 
 impl QuantizedTable {
-    /// Host `f64` bilinear of the dequantized grid, X then Y.
+    /// Host `f64` bilinear of the quantized grid, X then Y, then `/ scale`.
     ///
-    /// Grid nodes convert as `i32 as f64 / scale`. Each step is ordinary
-    /// `f64` interpolation with no integer rounding. Samples whose
-    /// coordinates are exact `u16` values also contribute the
-    /// runtime-rounded path via [`Self::evaluate_u16`]; `MAX_ERR_LSB` is
-    /// the max of both. Fractional coordinates cannot call runtime
-    /// `evaluate`, so they use this reconstruction only.
+    /// Interpolation runs on `i32 as f64` so endpoint differences stay in
+    /// range; the result is then divided by scale. Samples whose coordinates
+    /// are exact `u16` values also contribute the runtime-rounded path via
+    /// [`Self::evaluate_u16`]; `MAX_ERR_LSB` is the max of both. Fractional
+    /// coordinates cannot call runtime `evaluate`, so they use this
+    /// reconstruction only.
     ///
     /// `x` and `y` must lie in the inclusive declared domain.
     #[must_use]
     pub fn reconstruct(&self, x: f64, y: f64) -> f64 {
-        reconstruct(
-            &self.x,
-            &self.y,
-            &dequantize(&self.values, self.scale),
-            x,
-            y,
-        )
+        reconstruct_i32(&self.x, &self.y, &self.values, x, y) / self.scale
     }
 
     /// Runtime-equivalent X-then-Y evaluation of the quantized `i32` grid.
@@ -93,16 +87,28 @@ impl BakeInput {
     /// # Errors
     ///
     /// Returns [`BakeError::NonInvertibleScale`] when `1 / scale` is not
-    /// finite, [`BakeError::MissingNode`] or [`BakeError::AmbiguousNode`]
-    /// for the declared grid, [`BakeError::QuantizeOverflow`] when a
-    /// rounded value leaves `i32`, or [`BakeError::NonFiniteDeviation`]
-    /// when a residual is not a finite LSB quantity.
+    /// finite, [`BakeError::GridTooLarge`] when `NX * NY` exceeds
+    /// [`crate::MAX_GRID_CELLS`], [`BakeError::MissingNode`] or
+    /// [`BakeError::AmbiguousNode`] for the declared grid,
+    /// [`BakeError::QuantizeOverflow`] when a rounded value leaves `i32`,
+    /// or [`BakeError::NonFiniteDeviation`] when a residual is not a
+    /// finite LSB quantity.
     pub fn quantize(&self) -> Result<QuantizedTable, BakeError> {
         if !(1.0 / self.scale()).is_finite() {
             return Err(BakeError::NonInvertibleScale);
         }
         let x = self.x().knot_list(AxisName::X)?;
         let y = self.y().knot_list(AxisName::Y)?;
+        let cells = x
+            .len()
+            .checked_mul(y.len())
+            .filter(|&n| n <= crate::MAX_GRID_CELLS);
+        if cells.is_none() {
+            return Err(BakeError::GridTooLarge {
+                nx: x.len(),
+                ny: y.len(),
+            });
+        }
         let filled = fill_nodes(self.samples(), &x, &y)?;
         let values = quantize_grid(&filled, &x, &y, self.scale())?;
         deviation(self.samples(), x, y, filled, values, self.scale())
@@ -176,13 +182,6 @@ fn round_to_i32(value: f64) -> Option<i32> {
     Some(rounded as i32)
 }
 
-fn dequantize(values: &[Vec<i32>], scale: f64) -> Vec<Vec<f64>> {
-    values
-        .iter()
-        .map(|row| row.iter().map(|&v| f64::from(v) / scale).collect())
-        .collect()
-}
-
 fn deviation(
     samples: &[Sample],
     x: Vec<u16>,
@@ -191,11 +190,10 @@ fn deviation(
     values: Vec<Vec<i32>>,
     scale: f64,
 ) -> Result<QuantizedTable, BakeError> {
-    let host = dequantize(&values, scale);
     let mut per_knot_lsb = vec![vec![0.0; x.len()]; y.len()];
     for yi in 0..y.len() {
         for xi in 0..x.len() {
-            per_knot_lsb[yi][xi] = (filled[yi][xi] - host[yi][xi]) * scale;
+            per_knot_lsb[yi][xi] = filled[yi][xi].mul_add(scale, -f64::from(values[yi][xi]));
             if !per_knot_lsb[yi][xi].is_finite() {
                 return Err(BakeError::NonFiniteDeviation);
             }
@@ -206,7 +204,7 @@ fn deviation(
     let mut worst_x = samples[0].x;
     let mut worst_y = samples[0].y;
     for sample in samples {
-        let lsb = sample_lsb(&x, &y, &host, &values, scale, sample)?;
+        let lsb = sample_lsb(&x, &y, &values, scale, sample)?;
         let abs = lsb.abs();
         if abs > max_abs {
             max_abs = abs;
@@ -231,19 +229,18 @@ fn deviation(
 fn sample_lsb(
     x: &[u16],
     y: &[u16],
-    host: &[Vec<f64>],
     values: &[Vec<i32>],
     scale: f64,
     sample: &Sample,
 ) -> Result<f64, BakeError> {
-    let reconstructed = reconstruct(x, y, host, sample.x, sample.y);
-    let mut lsb = (sample.value - reconstructed) * scale;
+    let bilinear = reconstruct_i32(x, y, values, sample.x, sample.y);
+    let mut lsb = sample.value.mul_add(scale, -bilinear);
     if !lsb.is_finite() {
         return Err(BakeError::NonFiniteDeviation);
     }
     if let (Some(px), Some(py)) = (exact_u16(sample.x), exact_u16(sample.y)) {
         let runtime = evaluate_u16(x, y, values, px, py);
-        let runtime_lsb = (sample.value - f64::from(runtime) / scale) * scale;
+        let runtime_lsb = sample.value.mul_add(scale, -f64::from(runtime));
         if !runtime_lsb.is_finite() {
             return Err(BakeError::NonFiniteDeviation);
         }
@@ -303,15 +300,27 @@ fn ceil_abs_lsb(max_abs: f64) -> Result<i32, BakeError> {
     Ok(ceil as i32)
 }
 
-fn reconstruct(x_knots: &[u16], y_knots: &[u16], host: &[Vec<f64>], x: f64, y: f64) -> f64 {
+fn reconstruct_i32(x_knots: &[u16], y_knots: &[u16], values: &[Vec<i32>], x: f64, y: f64) -> f64 {
     let xi = segment(x_knots, x);
     let yi = segment(y_knots, y);
     let x0 = f64::from(x_knots[xi]);
     let x1 = f64::from(x_knots[xi + 1]);
     let y0 = f64::from(y_knots[yi]);
     let y1 = f64::from(y_knots[yi + 1]);
-    let lower = lerp(x, x0, x1, host[yi][xi], host[yi][xi + 1]);
-    let upper = lerp(x, x0, x1, host[yi + 1][xi], host[yi + 1][xi + 1]);
+    let lower = lerp(
+        x,
+        x0,
+        x1,
+        f64::from(values[yi][xi]),
+        f64::from(values[yi][xi + 1]),
+    );
+    let upper = lerp(
+        x,
+        x0,
+        x1,
+        f64::from(values[yi + 1][xi]),
+        f64::from(values[yi + 1][xi + 1]),
+    );
     lerp(y, y0, y1, lower, upper)
 }
 
@@ -327,7 +336,8 @@ fn segment(knots: &[u16], coord: f64) -> usize {
 }
 
 fn lerp(t: f64, t0: f64, t1: f64, v0: f64, v1: f64) -> f64 {
-    v0 + (v1 - v0) * ((t - t0) / (t1 - t0))
+    let u = (t - t0) / (t1 - t0);
+    v0.mul_add(1.0 - u, v1 * u)
 }
 
 #[cfg(test)]
@@ -560,5 +570,50 @@ mod tests {
         static VALUES: [[i32; 2]; 2] = [[0, 0], [1, 3]];
         static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
         assert_eq!(SURFACE.evaluate(1, 1), Ok(1));
+    }
+
+    #[test]
+    fn extreme_scale_does_not_nan_on_endpoint_differences() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, -1e308),
+                Sample::new(2.0, 0.0, 1e308),
+                Sample::new(0.0, 2.0, -1e308),
+                Sample::new(2.0, 2.0, 1e308),
+            ],
+            Axis::knots(vec![0, 2]),
+            Axis::knots(vec![0, 2]),
+            2e-299,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(
+            table.values,
+            vec![
+                vec![-2_000_000_000, 2_000_000_000],
+                vec![-2_000_000_000, 2_000_000_000]
+            ]
+        );
+        assert!(table.reconstruct(0.0, 0.0).is_finite());
+        assert!(table.reconstruct(1.0, 0.0).is_finite());
+    }
+
+    #[test]
+    fn oversized_grid_product_is_rejected_before_allocation() {
+        let input = BakeInput::new(
+            Vec::new(),
+            Axis::uniform(0, 1, 65_536),
+            Axis::uniform(0, 1, 65_536),
+            1.0,
+        )
+        .unwrap();
+        assert_eq!(
+            input.quantize(),
+            Err(BakeError::GridTooLarge {
+                nx: 65_536,
+                ny: 65_536
+            })
+        );
     }
 }

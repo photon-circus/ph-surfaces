@@ -123,6 +123,13 @@ pub enum BakeError {
     },
     /// A sample deviation was not a finite i32-value-LSB quantity.
     NonFiniteDeviation,
+    /// The declared NX × NY product exceeds [`crate::MAX_GRID_CELLS`].
+    GridTooLarge {
+        /// Declared X knot count.
+        nx: usize,
+        /// Declared Y knot count.
+        ny: usize,
+    },
 }
 
 impl Display for BakeError {
@@ -193,6 +200,13 @@ impl Display for BakeError {
             }
             Self::NonFiniteDeviation => {
                 f.write_str("sample deviation is not a finite i32 value LSB")
+            }
+            Self::GridTooLarge { nx, ny } => {
+                write!(
+                    f,
+                    "declared grid is {nx} by {ny} cells; the baker accepts at most {}",
+                    crate::MAX_GRID_CELLS
+                )
             }
         }
     }
@@ -330,6 +344,14 @@ mod tests {
         assert_eq!(
             BakeError::NonFiniteDeviation.to_string(),
             "sample deviation is not a finite i32 value LSB"
+        );
+        assert_eq!(
+            BakeError::GridTooLarge {
+                nx: 65_536,
+                ny: 65_536
+            }
+            .to_string(),
+            "declared grid is 65536 by 65536 cells; the baker accepts at most 1048576"
         );
     }
 

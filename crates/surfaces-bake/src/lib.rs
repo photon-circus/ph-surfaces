@@ -56,7 +56,7 @@ mod quantize;
 mod samples;
 
 pub use error::{AxisName, BakeError, SampleField};
-pub use grid::Axis;
+pub use grid::{Axis, MAX_GRID_CELLS};
 pub use quantize::{QuantizedTable, emit_max_err_lsb};
 pub use samples::{Sample, parse_samples};
 

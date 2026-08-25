@@ -8,6 +8,13 @@ use crate::error::{AxisName, BakeError};
 /// is not named here as a rustdoc link.
 const MAX_UNIFORM_KNOTS: usize = 65_536;
 
+/// Maximum `NX * NY` the baker will materialize.
+///
+/// This is a host allocation limit, not a runtime payload or flash figure.
+/// Two valid 65_536-knot axes would otherwise allocate tens of gigabytes
+/// before any missing-node error could be reported.
+pub const MAX_GRID_CELLS: usize = 1_048_576;
+
 /// One declared axis of a bake grid.
 ///
 /// This is a host-only specification, not a firmware lookup strategy. The
