@@ -43,9 +43,15 @@ The durable bound is `MAX_ERR_LSB`.
 
 ## 2. Quantize and bound
 
-On-knot samples fill declared nodes. The stored scale is applied with
-round-to-nearest, exact half-way away from zero. Off-knot samples participate
-only in the bound.
+Every declared grid node requires an exact, non-conflicting on-knot sample
+(X and Y equal that knot). A missing intersection is
+`BakeError::MissingNode`; two different values at the same node are
+`BakeError::AmbiguousNode`. Off-knot samples cannot fill a node; they
+participate only in the bound after every node is filled. Scattered
+measurements without those intersections will not bake.
+
+The stored scale is applied with round-to-nearest, exact half-way away from
+zero.
 
 `MAX_ERR_LSB` is `ceil` of the exact rational residual. IEEE `f64`
 bit-patterns are dyadics; bilinear is an exact ratio of the `i32` grid on
@@ -71,14 +77,18 @@ Check the emitted `static` tables into firmware. Evaluate them through
 `ph-surfaces` only. `cargo xtask generate` writes the baker-owned checked-in
 fixture used by the drift gate; that file is not the firmware table.
 
-## 4. Freeze goldens when the numeric path is settled
+## 4. Repository golden freeze (maintainers)
 
-`--emit-golden` writes integer CSV under
+This is not a freeze of the table emitted above. `--emit-golden` accepts no
+ingest flags. It always writes the repository's checked-in rounding fixture,
+not the caller's samples. Firmware adopters skip this command.
+
+`--emit-golden` writes that fixture as integer CSV under
 `crates/surfaces/tests/conformance/golden/`, located from the working
 directory, or `--out DIR`. Those files are frozen inputs. A failing test is
-an implementation defect until proven otherwise. Regenerating them is a
-dedicated freeze commit: no implementation source in that commit, and a
-changelog justification.
+an implementation defect until proven otherwise. Regenerating them requires
+a dedicated golden-freeze issue: one labelled commit, no implementation
+source, and a changelog justification.
 
 The runtime suite consumes the CSV through `ph_surfaces::*` only. It is not
 a floating-point oracle. The runtime `i128` reference in

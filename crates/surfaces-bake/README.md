@@ -50,10 +50,13 @@ ph-surfaces-bake --emit-golden
 destination path; `cargo xtask generate` places the checked-in copy. The
 emitted `MAX_ERR_LSB` is an i32 value LSB: deviation between the supplied
 samples and the table built from them. It is not a device, accuracy, timing,
-or flash claim. `--emit-golden` writes frozen integer CSV under
+or flash claim. `--emit-golden` writes the repository's checked-in rounding
+fixture as frozen integer CSV under
 `crates/surfaces/tests/conformance/golden/`, located from the working
-directory (or `--out DIR`). Those files are read-only inputs: a failing test
-is an implementation defect until proven otherwise.
+directory (or `--out DIR`). It does not ingest the caller's samples.
+Those files are read-only inputs: a failing test is an implementation defect
+until proven otherwise. Regenerating them belongs in a dedicated golden-freeze
+issue.
 
 The baker may take reviewed host crates for exact residual arithmetic. A
 declared implementation-line budget keeps it from growing without bound. The
