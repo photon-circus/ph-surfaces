@@ -15,12 +15,17 @@ durable `MAX_ERR_LSB` const fragment; RMS, worst-sample coordinate, and
 per-knot residual print on the CLI. The baker does not choose knots or
 parse expressions.
 
-`MAX_ERR_LSB` is an i32 value LSB: the maximum absolute deviation between
-the supplied samples and the table built from them. For samples whose X
-and Y are exact `u16` values, that includes the runtime's rounded
-X-then-Y path, not only unrounded host bilinear. It is an upper bound,
-not a typical error. It is not a device, vendor, sensor, calibration,
-accuracy, timing, flash, or WCET claim.
+`MAX_ERR_LSB` is an i32 value LSB: an upper bound on the maximum absolute
+deviation between the supplied samples and the table built from them. For
+samples whose X and Y are exact `u16` values, that includes the runtime's
+rounded X-then-Y path, not only unrounded host bilinear. A nonzero
+computed magnitude is stepped one ULP before `ceil` so a residual that
+rounded downward onto an integer cannot understate; exact-zero tables
+stay 0. It is not a typical error. It is not a device, vendor, sensor,
+calibration, accuracy, timing, flash, or WCET claim.
+
+The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
+`emit_max_err_lsb` for the const fragment.
 
 **Model conformance: N/A. Physical evidence: N/A.**
 

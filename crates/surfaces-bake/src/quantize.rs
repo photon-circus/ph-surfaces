@@ -9,10 +9,10 @@ use crate::samples::Sample;
 
 /// Quantized row-major grid plus deviation of that table from the samples.
 ///
-/// `max_err_lsb` is an i32 value LSB (not a color LSB). It is the maximum
-/// absolute deviation between the supplied samples and the table built from
-/// them: an upper bound, not a typical error, and not a device, vendor,
-/// sensor, calibration, accuracy, timing, flash, or WCET claim.
+/// `max_err_lsb` is an i32 value LSB (not a color LSB). It is an upper
+/// bound on the maximum absolute deviation between the supplied samples
+/// and the table built from them, not a typical error, and not a device,
+/// vendor, sensor, calibration, accuracy, timing, flash, or WCET claim.
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuantizedTable {
     /// Declared X knots, expanded if the axis was uniform.
@@ -24,6 +24,9 @@ pub struct QuantizedTable {
     /// Caller-stated output scale applied during quantization.
     pub scale: f64,
     /// Durable bound: ceil of the maximum absolute sample deviation in LSBs.
+    /// A nonzero computed magnitude is stepped one ULP before `ceil` so a
+    /// residual that rounded downward onto an integer cannot understate;
+    /// exact-zero tables stay 0.
     pub max_err_lsb: i32,
     /// RMS of sample deviations in i32 value LSBs. Operator statistic.
     pub rms_lsb: f64,
@@ -64,8 +67,9 @@ impl QuantizedTable {
 
 /// Source fragment so later emission can take the bound as an argument.
 ///
-/// Emits `pub const MAX_ERR_LSB: i32 = …;` — an i32 value LSB, the maximum
-/// absolute deviation between supplied samples and the table built from them.
+/// Emits `pub const MAX_ERR_LSB: i32 = …;` — an i32 value LSB, an upper
+/// bound on the maximum absolute deviation between supplied samples and
+/// the table built from them.
 #[must_use]
 pub fn emit_max_err_lsb(max_err_lsb: i32) -> String {
     format!("pub const MAX_ERR_LSB: i32 = {max_err_lsb};\n")
@@ -82,7 +86,9 @@ impl BakeInput {
     /// interpolation, implemented here for `f64` rather than imported from
     /// the integer kernel. Samples whose coordinates are exact `u16` values
     /// also measure the runtime-rounded X-then-Y path; `max_err_lsb` is an
-    /// upper bound of both.
+    /// upper bound of both. A nonzero computed magnitude is stepped one ULP
+    /// before `ceil` so a downward-rounded residual cannot understate an
+    /// integer; exact-zero tables stay 0.
     ///
     /// # Errors
     ///
@@ -294,10 +300,17 @@ fn div_round_half_away_from_zero(numerator: i64, denominator: i64) -> i64 {
 }
 
 fn ceil_abs_lsb(max_abs: f64) -> Result<i32, BakeError> {
-    if !max_abs.is_finite() {
+    if !max_abs.is_finite() || max_abs < 0.0 {
         return Err(BakeError::NonFiniteDeviation);
     }
-    let ceil = max_abs.ceil();
+    // `mul_add` can round a residual slightly above an integer onto that
+    // integer. Step a nonzero magnitude one ULP before `ceil` so that case
+    // emits n+1. Leave exact zero alone: `0.0.next_up()` would ceil to 1.
+    let ceil = if max_abs > 0.0 {
+        max_abs.next_up().ceil()
+    } else {
+        0.0
+    };
     if ceil > f64::from(i32::MAX) {
         return Err(BakeError::NonFiniteDeviation);
     }
@@ -413,7 +426,9 @@ mod tests {
         .unwrap();
         let table = input.quantize().unwrap();
         assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
-        assert_eq!(table.max_err_lsb, 1);
+        // Measured residual is exactly 1 LSB; a nonzero integer magnitude
+        // takes `next_up` before `ceil`, so the emitted bound is 2.
+        assert_eq!(table.max_err_lsb, 2);
         assert_eq!(table.worst_x, 5.0);
         assert_eq!(table.worst_y, 5.0);
         let rms = (1.0_f64 / 5.0).sqrt();
@@ -517,7 +532,8 @@ mod tests {
         .unwrap();
         let table = input.quantize().unwrap();
         assert_eq!(table.values, vec![vec![0, 10], vec![0, 10]]);
-        assert_eq!(table.max_err_lsb, 95);
+        // Measured residual is 95 LSB; integer magnitudes emit n+1.
+        assert_eq!(table.max_err_lsb, 96);
 
         static X: [u16; 2] = [0, 10];
         static Y: [u16; 2] = [0, 10];
@@ -553,13 +569,62 @@ mod tests {
         assert_eq!(table.values, vec![vec![0, 1], vec![1, 2]]);
         assert_eq!(table.reconstruct(1.0, 1.0), 1.0);
         assert_eq!(table.evaluate_u16(1, 1), 2);
-        assert_eq!(table.max_err_lsb, 1);
+        // Exact 1 LSB residual inflates by 1 ULP before ceil, so the bound is 2.
+        assert_eq!(table.max_err_lsb, 2);
         static AXIS: [u16; 2] = [0, 2];
         static VALUES: [[i32; 2]; 2] = [[0, 1], [1, 2]];
         static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
         assert_eq!(SURFACE.evaluate(1, 1), Ok(2));
         let runtime_lsb = 1.0 - f64::from(SURFACE.evaluate(1, 1).unwrap());
         assert!(runtime_lsb.abs() <= f64::from(table.max_err_lsb));
+    }
+
+    #[test]
+    fn max_err_lsb_does_not_understate_a_residual_rounded_onto_an_integer() {
+        let value = 1.0 + f64::EPSILON;
+        let scale = 1.0_f64.next_down();
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(2.0, 0.0, 0.0),
+                Sample::new(0.0, 2.0, 0.0),
+                Sample::new(2.0, 2.0, 0.0),
+                Sample::new(1.0, 1.0, value),
+            ],
+            Axis::knots(vec![0, 2]),
+            Axis::knots(vec![0, 2]),
+            scale,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        let bilinear = table.reconstruct(1.0, 1.0) * table.scale;
+        let computed = value.mul_add(scale, -bilinear);
+        // Exact scaled deviation is 1 + 2^-53 - 2^-105, but `mul_add` is 1.0.
+        assert_eq!(computed.abs(), 1.0);
+        assert_eq!(table.max_err_lsb, 2);
+    }
+
+    #[test]
+    fn ceil_of_a_residual_just_below_an_integer_does_not_jump_an_extra_lsb() {
+        let value = 2.0_f64.next_down();
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(2.0, 0.0, 0.0),
+                Sample::new(0.0, 2.0, 0.0),
+                Sample::new(2.0, 2.0, 0.0),
+                Sample::new(1.0, 1.0, value),
+            ],
+            Axis::knots(vec![0, 2]),
+            Axis::knots(vec![0, 2]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert!(value < 2.0);
+        assert_eq!(table.max_err_lsb, 2);
     }
 
     #[test]
