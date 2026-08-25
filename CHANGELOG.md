@@ -8,8 +8,10 @@
   grid node from on-knot samples, apply the caller-stated scale with
   round-to-nearest (exact half-way away from zero), measure deviation of
   the quantized table from every supplied sample in i32 value LSBs, and
-  emit the maximum as `pub const MAX_ERR_LSB: i32`. Missing or ambiguous
-  nodes, a non-invertible scale, and `i32` overflow are closed
+  emit the maximum as `pub const MAX_ERR_LSB: i32`. For samples whose
+  coordinates are exact `u16` values, the bound includes the runtime's
+  rounded X-then-Y path, not only unrounded host bilinear. Missing or
+  ambiguous nodes, a non-invertible scale, and `i32` overflow are closed
   `BakeError`s. The bound is an upper bound on deviation from the
   supplied samples, not a device or accuracy claim. This is not a
   runtime API change.

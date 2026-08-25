@@ -39,10 +39,11 @@ impl QuantizedTable {
     /// Host `f64` bilinear of the dequantized grid, X then Y.
     ///
     /// Grid nodes convert as `i32 as f64 / scale`. Each step is ordinary
-    /// `f64` interpolation with no integer rounding: this reconstructs the
-    /// quantized table as a host surface, and is not a second copy of
-    /// runtime `evaluate`. Off-knot samples use this comparison because
-    /// runtime evaluation takes `u16` coordinates.
+    /// `f64` interpolation with no integer rounding. Samples whose
+    /// coordinates are exact `u16` values also contribute the
+    /// runtime-rounded path via [`Self::evaluate_u16`]; `MAX_ERR_LSB` is
+    /// the max of both. Fractional coordinates cannot call runtime
+    /// `evaluate`, so they use this reconstruction only.
     ///
     /// `x` and `y` must lie in the inclusive declared domain.
     #[must_use]
@@ -54,6 +55,16 @@ impl QuantizedTable {
             x,
             y,
         )
+    }
+
+    /// Runtime-equivalent X-then-Y evaluation of the quantized `i32` grid.
+    ///
+    /// Each scalar step rounds to nearest, exact half-way away from zero,
+    /// matching `BilinearSurface::evaluate`. `x` and `y` must lie in the
+    /// inclusive declared domain.
+    #[must_use]
+    pub fn evaluate_u16(&self, x: u16, y: u16) -> i32 {
+        evaluate_u16(&self.x, &self.y, &self.values, x, y)
     }
 }
 
@@ -75,7 +86,9 @@ impl BakeInput {
     /// Off-knot samples do not fill a node. Rounding is nearest, with exact
     /// half-way values away from zero — the same policy as runtime
     /// interpolation, implemented here for `f64` rather than imported from
-    /// the integer kernel.
+    /// the integer kernel. Samples whose coordinates are exact `u16` values
+    /// also measure the runtime-rounded X-then-Y path; `max_err_lsb` is an
+    /// upper bound of both.
     ///
     /// # Errors
     ///
@@ -193,11 +206,7 @@ fn deviation(
     let mut worst_x = samples[0].x;
     let mut worst_y = samples[0].y;
     for sample in samples {
-        let reconstructed = reconstruct(&x, &y, &host, sample.x, sample.y);
-        let lsb = (sample.value - reconstructed) * scale;
-        if !lsb.is_finite() {
-            return Err(BakeError::NonFiniteDeviation);
-        }
+        let lsb = sample_lsb(&x, &y, &host, &values, scale, sample)?;
         let abs = lsb.abs();
         if abs > max_abs {
             max_abs = abs;
@@ -217,6 +226,70 @@ fn deviation(
         worst_y,
         per_knot_lsb,
     })
+}
+
+fn sample_lsb(
+    x: &[u16],
+    y: &[u16],
+    host: &[Vec<f64>],
+    values: &[Vec<i32>],
+    scale: f64,
+    sample: &Sample,
+) -> Result<f64, BakeError> {
+    let reconstructed = reconstruct(x, y, host, sample.x, sample.y);
+    let mut lsb = (sample.value - reconstructed) * scale;
+    if !lsb.is_finite() {
+        return Err(BakeError::NonFiniteDeviation);
+    }
+    if let (Some(px), Some(py)) = (exact_u16(sample.x), exact_u16(sample.y)) {
+        let runtime = evaluate_u16(x, y, values, px, py);
+        let runtime_lsb = (sample.value - f64::from(runtime) / scale) * scale;
+        if !runtime_lsb.is_finite() {
+            return Err(BakeError::NonFiniteDeviation);
+        }
+        if runtime_lsb.abs() > lsb.abs() {
+            lsb = runtime_lsb;
+        }
+    }
+    Ok(lsb)
+}
+
+#[allow(clippy::float_cmp)] // exact u16 means f64::from(n) equals the sample coordinate
+fn exact_u16(coord: f64) -> Option<u16> {
+    if !coord.is_finite() || coord < 0.0 || coord > f64::from(u16::MAX) {
+        return None;
+    }
+    let n = coord as u16;
+    (f64::from(n) == coord).then_some(n)
+}
+
+fn evaluate_u16(x_knots: &[u16], y_knots: &[u16], values: &[Vec<i32>], x: u16, y: u16) -> i32 {
+    let xi = segment(x_knots, f64::from(x));
+    let yi = segment(y_knots, f64::from(y));
+    let x0 = x_knots[xi];
+    let x1 = x_knots[xi + 1];
+    let y0 = y_knots[yi];
+    let y1 = y_knots[yi + 1];
+    let lower = interpolate_i32(x, x0, x1, values[yi][xi], values[yi][xi + 1]);
+    let upper = interpolate_i32(x, x0, x1, values[yi + 1][xi], values[yi + 1][xi + 1]);
+    interpolate_i32(y, y0, y1, lower, upper)
+}
+
+/// Host copy of the runtime scalar interpolator for bound measurement.
+fn interpolate_i32(x: u16, x0: u16, x1: u16, y0: i32, y1: i32) -> i32 {
+    let span = i64::from(x1) - i64::from(x0);
+    let offset = i64::from(x) - i64::from(x0);
+    let numerator = i64::from(y0) * (span - offset) + i64::from(y1) * offset;
+    div_round_half_away_from_zero(numerator, span) as i32
+}
+
+fn div_round_half_away_from_zero(numerator: i64, denominator: i64) -> i64 {
+    let half = denominator / 2;
+    if numerator >= 0 {
+        (numerator + half) / denominator
+    } else {
+        (numerator - half) / denominator
+    }
 }
 
 fn ceil_abs_lsb(max_abs: f64) -> Result<i32, BakeError> {
@@ -435,18 +508,39 @@ mod tests {
         for sample in input.samples() {
             let host_lsb = (sample.value - table.reconstruct(sample.x, sample.y)) * table.scale;
             assert!(host_lsb.abs() <= f64::from(table.max_err_lsb));
-            if let (Some(xi), Some(yi)) = (
-                super::knot_index(&table.x, sample.x),
-                super::knot_index(&table.y, sample.y),
-            ) {
-                let runtime = SURFACE.evaluate(table.x[xi], table.y[yi]).unwrap();
+            if let (Some(px), Some(py)) = (super::exact_u16(sample.x), super::exact_u16(sample.y)) {
+                let runtime = SURFACE.evaluate(px, py).unwrap();
+                assert_eq!(runtime, table.evaluate_u16(px, py));
                 let runtime_lsb = (sample.value - f64::from(runtime) / table.scale) * table.scale;
                 assert!(runtime_lsb.abs() <= f64::from(table.max_err_lsb));
-                assert_eq!(runtime, table.values[yi][xi]);
             }
         }
-        // Off-knot (5, 5) is a u16 but not a declared knot: host bilinear, not evaluate.
         assert_eq!(table.reconstruct(5.0, 5.0), 5.0);
+        assert_eq!(SURFACE.evaluate(5, 5), Ok(5));
+    }
+
+    #[test]
+    fn max_err_lsb_covers_runtime_rounding_on_u16_off_knot_samples() {
+        // Host f64 bilinear at (1, 1) is 1; runtime X-then-Y rounds to 2.
+        let table = BakeInput::parse(
+            "0 0 0\n2 0 1\n0 2 1\n2 2 2\n1 1 1\n",
+            Axis::knots(vec![0, 2]),
+            Axis::knots(vec![0, 2]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, 1], vec![1, 2]]);
+        assert_eq!(table.reconstruct(1.0, 1.0), 1.0);
+        assert_eq!(table.evaluate_u16(1, 1), 2);
+        assert_eq!(table.max_err_lsb, 1);
+        static AXIS: [u16; 2] = [0, 2];
+        static VALUES: [[i32; 2]; 2] = [[0, 1], [1, 2]];
+        static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&AXIS, &AXIS, &VALUES);
+        assert_eq!(SURFACE.evaluate(1, 1), Ok(2));
+        let runtime_lsb = 1.0 - f64::from(SURFACE.evaluate(1, 1).unwrap());
+        assert!(runtime_lsb.abs() <= f64::from(table.max_err_lsb));
     }
 
     #[test]

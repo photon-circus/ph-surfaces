@@ -39,9 +39,10 @@
 //! ```
 //!
 //! `MAX_ERR_LSB` is an i32 value LSB: the maximum absolute deviation between
-//! the supplied samples and the table built from them. It is an upper bound,
-//! not a typical error, and not a device, vendor, sensor, calibration, or
-//! accuracy claim.
+//! the supplied samples and the table built from them. For exact `u16`
+//! coordinates that includes the runtime-rounded X-then-Y path. It is an
+//! upper bound, not a typical error, and not a device, vendor, sensor,
+//! calibration, or accuracy claim.
 //!
 //! Rust emission and the checked-in generated-source drift gate: issue #41.
 //! Frozen golden vectors: issue #42.

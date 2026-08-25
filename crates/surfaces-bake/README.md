@@ -16,7 +16,9 @@ per-knot residual print on the CLI. The baker does not choose knots or
 parse expressions.
 
 `MAX_ERR_LSB` is an i32 value LSB: the maximum absolute deviation between
-the supplied samples and the table built from them. It is an upper bound,
+the supplied samples and the table built from them. For samples whose X
+and Y are exact `u16` values, that includes the runtime's rounded
+X-then-Y path, not only unrounded host bilinear. It is an upper bound,
 not a typical error. It is not a device, vendor, sensor, calibration,
 accuracy, timing, flash, or WCET claim.
 
