@@ -1,6 +1,7 @@
 //! Frozen integer golden vectors for the runtime conformance suite.
 //!
-//! `--emit-golden` writes CSV under `crates/surfaces/tests/conformance/golden/`.
+//! `--emit-golden` writes CSV under `crates/surfaces/tests/conformance/golden/`
+//! from the working directory, or `--out DIR`.
 //! Those files are frozen inputs: a failing test is an implementation defect
 //! until proven otherwise. Regenerating them belongs in a dedicated freeze
 //! commit with no implementation source. This is not `MAX_ERR_LSB`.
@@ -60,6 +61,14 @@ mod tests {
         assert_eq!(rounding_csv(), rounding_csv());
         assert!(rounding_csv().starts_with("x,y,expected\n"));
         assert!(rounding_csv().contains("1,1,2\n"));
+    }
+
+    #[test]
+    fn tracked_rounding_csv_matches_the_generator_without_rewriting() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../surfaces/tests/conformance/golden/rounding.csv");
+        let on_disk = std::fs::read_to_string(path).unwrap();
+        assert_eq!(on_disk, rounding_csv());
     }
 
     #[test]

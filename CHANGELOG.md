@@ -18,8 +18,10 @@
   of sample deviation, not a device or accuracy claim. This is not a
   runtime API change.
 - Host-side baker golden vectors in `ph-surfaces-bake`: `--emit-golden`
-  writes frozen integer CSV under `crates/surfaces/tests/conformance/golden/`.
-  The runtime conformance suite consumes them through `ph_surfaces::*` only.
+  writes frozen integer CSV under `crates/surfaces/tests/conformance/golden/`,
+  located from the working directory or `--out DIR`. Packaged tests write
+  only to a temporary directory and do not rewrite the freeze. The runtime
+  conformance suite consumes them through `ph_surfaces::*` only.
   Those files are read-only: a failing test is an implementation defect
   until proven otherwise; regenerating them is a dedicated freeze commit
   with no implementation source. This is not a runtime API change.

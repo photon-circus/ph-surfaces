@@ -45,8 +45,9 @@ destination path; `cargo xtask generate` places the checked-in copy. The
 emitted `MAX_ERR_LSB` is an i32 value LSB: deviation between the supplied
 samples and the table built from them. It is not a device, accuracy, timing,
 or flash claim. `--emit-golden` writes frozen integer CSV under
-`crates/surfaces/tests/conformance/golden/`. Those files are read-only inputs:
-a failing test is an implementation defect until proven otherwise.
+`crates/surfaces/tests/conformance/golden/`, located from the working
+directory (or `--out DIR`). Those files are read-only inputs: a failing test
+is an implementation defect until proven otherwise.
 
 The baker may take reviewed host crates for exact residual arithmetic. A
 declared implementation-line budget keeps it from growing without bound. The

@@ -261,7 +261,7 @@ fn exceeding_the_baker_line_budget_is_rejected() {
     let root = tracked_copy("baker-line-budget");
     rewrite(&root.join("xtask/config.ron"), |text| {
         text.replace(
-            "max_implementation_lines: 1800",
+            "max_implementation_lines: 1900",
             "max_implementation_lines: 1",
         )
     });
