@@ -47,11 +47,18 @@ impl Ratio {
     ///
     /// Independent `numer`/`denom` conversions overflow around `2^1024` even
     /// when the reduced ratio is ordinary (`1 + 1e-300`). Shift both limbs
-    /// into the finite exponent range first. This is not the bound.
+    /// into the finite exponent range, but never farther than the smaller
+    /// limb can survive: `1 / 2^1023` must not become `0`. This is not the
+    /// bound.
     pub(crate) fn to_f64(&self) -> f64 {
         let n = self.0.numer();
         let d = self.0.denom();
-        let shift = n.bits().max(d.bits()).saturating_sub(1023) as usize;
+        let n_bits = n.bits();
+        let d_bits = d.bits();
+        let shift = n_bits
+            .max(d_bits)
+            .saturating_sub(1023)
+            .min(n_bits.min(d_bits).saturating_sub(1)) as usize;
         match ((n >> shift).to_f64(), (d >> shift).to_f64()) {
             (Some(n), Some(d)) if d != 0.0 => n / d,
             _ if self.0.is_negative() => f64::NEG_INFINITY,
@@ -155,5 +162,14 @@ mod tests {
         let x = one.add(&tiny).unwrap().to_f64();
         assert!(x.is_finite());
         assert!((x - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_power_of_two_subnormal_to_f64_is_nonzero() {
+        let r = scaled_sample(f64::MIN_POSITIVE / 2.0, 1.0).unwrap();
+        let x = r.to_f64();
+        assert!(x > 0.0);
+        assert!(x.is_finite());
+        assert_eq!(x, f64::MIN_POSITIVE / 2.0);
     }
 }

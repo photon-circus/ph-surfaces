@@ -825,6 +825,29 @@ mod tests {
     }
 
     #[test]
+    fn rms_of_a_power_of_two_subnormal_does_not_become_zero() {
+        let sample = f64::MIN_POSITIVE / 2.0;
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, 0.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, 0.0),
+                Sample::new(0.5, 0.5, sample),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        let expected = sample / 5.0_f64.sqrt();
+        assert!(table.rms_lsb > 0.0);
+        assert!((table.rms_lsb - expected).abs() / expected < 1e-9);
+    }
+
+    #[test]
     fn a_finite_residual_too_wide_for_i32_is_bound_overflow() {
         let err = BakeInput::new(
             vec![
