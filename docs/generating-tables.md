@@ -47,11 +47,14 @@ On-knot samples fill declared nodes. The stored scale is applied with
 round-to-nearest, exact half-way away from zero. Off-knot samples participate
 only in the bound.
 
-`MAX_ERR_LSB` is `ceil` of the exact rational `|sample*scale − reconstruct|`.
-IEEE `f64` bit-patterns are dyadics; bilinear is an exact ratio of the `i32`
-grid on the host. `ceil` applies only to the finished residual. A finite ceil
-that does not fit `i32` is `BakeError::BoundOverflow`. Host `f64` lerp is not
-the oracle.
+`MAX_ERR_LSB` is `ceil` of the exact rational residual. IEEE `f64`
+bit-patterns are dyadics; bilinear is an exact ratio of the `i32` grid on
+the host. For samples whose X and Y are exact `u16` values, the baker also
+measures the runtime-rounded X-then-Y path and keeps the larger of that
+residual and the unrounded bilinear residual before `ceil`. Host bilinear
+alone can be zero LSB at a cell centre while `MAX_ERR_LSB` is one. `ceil`
+applies only to the finished residual. A finite ceil that does not fit
+`i32` is `BakeError::BoundOverflow`. Host `f64` lerp is not the oracle.
 
 ## 3. Emit Rust
 

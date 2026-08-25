@@ -26,7 +26,7 @@
 //! [usage](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md),
 //! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md),
 //! [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md),
-//! and [generating tables](https://github.com/photon-circus/ph-surfaces/blob/epic/36-surfaces-bake/docs/generating-tables.md).
+//! and [generating tables](https://github.com/photon-circus/ph-surfaces/blob/main/docs/generating-tables.md).
 //!
 //! A `BilinearSurface` evaluates a static rectilinear `u16 × u16 → i32`
 //! bilinear surface with deterministic X-then-Y interpolation and four

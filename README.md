@@ -105,7 +105,7 @@ normative contract below.
    ```
 
 5. **Host tables** live in `ph-surfaces-bake`, not this crate:
-   **[generating tables](https://github.com/photon-circus/ph-surfaces/blob/epic/36-surfaces-bake/docs/generating-tables.md)**
+   **[generating tables](https://github.com/photon-circus/ph-surfaces/blob/main/docs/generating-tables.md)**
    — samples and an explicit grid to a checked-in static table. Firmware
    never links the baker.
 
