@@ -44,6 +44,5 @@ jobs:
         with:
           workspaces: |
             .
-            tools/xtask
       - name: Run the canonical gate
         run: cargo xtask ci

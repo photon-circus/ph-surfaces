@@ -360,7 +360,9 @@ pub fn list(checks: &[CheckSpec]) {
 pub fn find_root(start: &Path) -> Option<PathBuf> {
     let mut cursor = Some(start);
     while let Some(directory) = cursor {
-        if directory.join("Cargo.toml").is_file() && directory.join("src/lib.rs").is_file() {
+        if directory.join("xtask/config.ron").is_file()
+            && directory.join("crates/surfaces/Cargo.toml").is_file()
+        {
             return Some(directory.to_path_buf());
         }
         cursor = directory.parent();
@@ -420,8 +422,7 @@ mod tests {
     fn coverage_is_opt_in_but_only_selects_it_explicitly() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .and_then(Path::parent)
-            .unwrap()
+            .expect("xtask sits one level below the repository root")
             .to_path_buf();
         let config = Arc::new(Config::load(&root).unwrap());
         let coverage = config

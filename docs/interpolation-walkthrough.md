@@ -2,7 +2,7 @@
 
 A firmware correction map, walked in the exact production order. This is not
 a generalized formula first: it is one query on one invented table. The same
-fixture is `examples/firmware_quickstart.rs` and the README quickstart.
+fixture is `crates/surfaces/examples/firmware_quickstart.rs` and the README quickstart.
 
 X and Y are quantized operating inputs. The grid is a signed correction.
 Units stay with the application.
@@ -152,7 +152,7 @@ assert_eq!(
 );
 ```
 
-`examples/fail_safe_boundaries.rs` names all four sides on a firmware-style
+`crates/surfaces/examples/fail_safe_boundaries.rs` names all four sides on a firmware-style
 policy.
 
 ## Boundary outcome table

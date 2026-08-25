@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Changed
+
+- Adopt a virtual Cargo workspace: the runtime crate lives in
+  `crates/surfaces`, the verification gate in `xtask/`, and `publish_lock`
+  classifies every workspace member. The packaged `ph-surfaces` file set is
+  unchanged.
+
 ## 0.1.0 - 2026-08-23
 
 Evaluate a static rectilinear `u16 × u16 → i32` surface on embedded firmware

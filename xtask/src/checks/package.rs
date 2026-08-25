@@ -52,7 +52,7 @@ fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
 
     // Cargo's own verify step unpacks the archive and builds it, so a source
     // file missing from `include` fails right here.
-    let mut args = vec!["package", "--locked"];
+    let mut args = vec!["package", "-p", "ph-surfaces", "--locked"];
     if !ctx.strict() {
         args.push("--allow-dirty");
     }
@@ -112,7 +112,7 @@ pub fn package_list(ctx: &Ctx) -> Outcome {
         return Outcome::Fail(message);
     }
 
-    let mut args = vec!["package", "--locked", "--list"];
+    let mut args = vec!["package", "-p", "ph-surfaces", "--locked", "--list"];
     if !ctx.strict() {
         args.push("--allow-dirty");
     }
@@ -497,7 +497,7 @@ fn copy_consumer(ctx: &Ctx, destination: &Path, unpacked: &Path) -> Result<(), S
         .map_err(|error| format!("tools/consumer/Cargo.toml is unreadable: {error}"))?;
     let vendored = unpacked.display().to_string().replace('\\', "/");
     let manifest = manifest.replace(
-        "ph-surfaces = { path = \"../..\" }",
+        "ph-surfaces = { path = \"../../crates/surfaces\" }",
         &format!("ph-surfaces = {{ path = \"{vendored}\" }}"),
     );
     fs::write(destination.join("Cargo.toml"), manifest)

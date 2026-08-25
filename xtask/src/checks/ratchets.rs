@@ -21,21 +21,28 @@ fn manifest(ctx: &Ctx, relative: &str) -> Result<Value, String> {
     toml::from_str(&source).map_err(|error| format!("{relative} is invalid TOML: {error}"))
 }
 
+const CRATE_LIB: &str = "crates/surfaces/src/lib.rs";
+const CRATE_MANIFEST: &str = "crates/surfaces/Cargo.toml";
+
 pub fn no_std_unconditional(ctx: &Ctx) -> Outcome {
-    let lib = match text::read_text(&ctx.path("src/lib.rs")) {
+    let lib = match text::read_text(&ctx.path(CRATE_LIB)) {
         Ok(text) => text,
-        Err(error) => return Outcome::fail(format!("src/lib.rs is unreadable: {error}")),
+        Err(error) => return Outcome::fail(format!("{CRATE_LIB} is unreadable: {error}")),
     };
     if !lib.lines().any(|line| line == "#![no_std]") {
-        return Outcome::fail("src/lib.rs must declare an unconditional #![no_std].");
+        return Outcome::fail(format!(
+            "{CRATE_LIB} must declare an unconditional #![no_std]."
+        ));
     }
 
-    let root_manifest = match manifest(ctx, "Cargo.toml") {
+    let crate_manifest = match manifest(ctx, CRATE_MANIFEST) {
         Ok(manifest) => manifest,
         Err(error) => return Outcome::fail(error),
     };
-    if root_manifest.get("features").is_some() {
-        return Outcome::fail("Cargo.toml declares a [features] table; none exists on this crate.");
+    if crate_manifest.get("features").is_some() {
+        return Outcome::fail(format!(
+            "{CRATE_MANIFEST} declares a [features] table; none exists on this crate."
+        ));
     }
 
     match text::source_findings(
@@ -45,7 +52,7 @@ pub fn no_std_unconditional(ctx: &Ctx) -> Outcome {
         Scan::FeatureCfg,
     ) {
         Ok(hits) => findings(
-            "src: a cfg names a feature, but this crate declares none.",
+            "crates/surfaces/src: a cfg names a feature, but this crate declares none.",
             hits,
         ),
         Err(error) => Outcome::fail(error),
@@ -78,10 +85,10 @@ pub fn integer_only(ctx: &Ctx) -> Outcome {
         }
     }
 
-    match text::read_text(&ctx.path("src/lib.rs")) {
+    match text::read_text(&ctx.path(CRATE_LIB)) {
         Ok(lib) if lib.lines().any(|line| line == "#![forbid(unsafe_code)]") => Outcome::Pass,
-        Ok(_) => Outcome::fail("src/lib.rs must declare #![forbid(unsafe_code)]."),
-        Err(error) => Outcome::fail(format!("src/lib.rs is unreadable: {error}")),
+        Ok(_) => Outcome::fail(format!("{CRATE_LIB} must declare #![forbid(unsafe_code)].")),
+        Err(error) => Outcome::fail(format!("{CRATE_LIB} is unreadable: {error}")),
     }
 }
 
@@ -127,31 +134,52 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Ok(root) => root,
         Err(error) => return Outcome::fail(error),
     };
-    if root.get("workspace").is_some() {
+    let Some(workspace) = root.get("workspace").and_then(Value::as_table) else {
+        return Outcome::fail("Cargo.toml must declare the workspace.");
+    };
+    if workspace.get("members").is_none() {
+        return Outcome::fail("Cargo.toml workspace.members must be present.");
+    }
+    // A missing `default-members` list is not "omit the gate": Cargo then
+    // defaults a root build to every member, including host-only `xtask`.
+    if workspace
+        .get("default-members")
+        .and_then(Value::as_array)
+        .is_none()
+    {
         return Outcome::fail(
-            "Cargo.toml must not declare a workspace before a second package exists.",
+            "Cargo.toml workspace.default-members must be present so a bare cargo build cannot default to including xtask.",
         );
     }
-    let Some(package) = root.get("package").and_then(Value::as_table) else {
-        return Outcome::fail("Cargo.toml must contain [package].");
+    if root.get("package").is_some() {
+        return Outcome::fail(
+            "root Cargo.toml must be a virtual workspace: it must not contain [package].",
+        );
+    }
+
+    let crate_manifest = match manifest(ctx, CRATE_MANIFEST) {
+        Ok(manifest) => manifest,
+        Err(error) => return Outcome::fail(error),
+    };
+    let Some(package) = crate_manifest.get("package").and_then(Value::as_table) else {
+        return Outcome::fail(format!("{CRATE_MANIFEST} must contain [package]."));
     };
     let expected = &ctx.config.package;
     for (field, wanted) in [
         ("name", expected.name.as_str()),
         ("version", expected.version.as_str()),
-        ("license", expected.manifest.license.as_str()),
-        ("edition", expected.manifest.edition.as_str()),
-        ("rust-version", expected.manifest.rust_version.as_str()),
     ] {
         if package.get(field).and_then(Value::as_str) != Some(wanted) {
-            return Outcome::fail(format!("Cargo.toml package.{field} must be `{wanted}`."));
+            return Outcome::fail(format!(
+                "{CRATE_MANIFEST} package.{field} must be `{wanted}`."
+            ));
         }
     }
     if package.get("publish").map(Value::to_string).as_deref()
         != Some(expected.manifest.publish.as_str())
     {
         return Outcome::fail(format!(
-            "Cargo.toml package.publish must be `{}`.",
+            "{CRATE_MANIFEST} package.publish must be `{}`.",
             expected.manifest.publish
         ));
     }
@@ -160,10 +188,49 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Ok(metadata) => metadata,
         Err(error) => return Outcome::fail(error),
     };
-    let Some(root_package) = metadata.root_package() else {
-        return Outcome::fail("cargo metadata did not identify the root package.");
+    // Compare Cargo's resolved default set, not the TOML spelling: `["*"]`
+    // lists both shipped crates and host-only `xtask`.
+    if metadata
+        .workspace_default_packages()
+        .iter()
+        .any(|package| package.name.as_str() == "xtask")
+    {
+        return Outcome::fail(
+            "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
+        );
+    }
+    let Some(crate_package) = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == expected.name)
+    else {
+        return Outcome::fail(format!(
+            "cargo metadata did not identify the `{}` package.",
+            expected.name
+        ));
     };
-    let mut dependencies: Vec<String> = root_package
+    if crate_package.license.as_deref() != Some(expected.manifest.license.as_str()) {
+        return Outcome::fail(format!(
+            "{CRATE_MANIFEST} license must resolve to `{}`.",
+            expected.manifest.license
+        ));
+    }
+    if crate_package.edition.as_str() != expected.manifest.edition {
+        return Outcome::fail(format!(
+            "{CRATE_MANIFEST} edition must resolve to `{}`.",
+            expected.manifest.edition
+        ));
+    }
+    match crate_package.rust_version.as_ref() {
+        Some(version) if version.to_string() == expected.manifest.rust_version => {}
+        _ => {
+            return Outcome::fail(format!(
+                "{CRATE_MANIFEST} rust-version must resolve to `{}`.",
+                expected.manifest.rust_version
+            ));
+        }
+    }
+    let mut dependencies: Vec<String> = crate_package
         .dependencies
         .iter()
         .map(|dependency| dependency.name.to_string())
@@ -173,7 +240,7 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
     expected_dependencies.sort();
     if dependencies != expected_dependencies {
         return Outcome::fail(format!(
-            "Cargo.toml dependencies differ: expected {expected_dependencies:?}, found {dependencies:?}."
+            "{CRATE_MANIFEST} dependencies differ: expected {expected_dependencies:?}, found {dependencies:?}."
         ));
     }
 
@@ -193,7 +260,10 @@ fn metadata(ctx: &Ctx, no_deps: bool) -> Result<cargo_metadata::Metadata, String
     if no_deps {
         command.no_deps();
     } else {
-        command.other_options(vec!["--offline".into(), "--all-features".into()]);
+        // `--locked` (not `--offline`): the workspace lockfile includes xtask
+        // host crates, some of them target-specific, and those must be
+        // fetchable. The lockfile still pins every version.
+        command.other_options(vec!["--locked".into(), "--all-features".into()]);
     }
     command
         .exec()

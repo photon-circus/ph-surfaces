@@ -2,4 +2,4 @@
 # invocation in this repository, silently change codegen, and invalidate
 # docs/code-size-snapshot.txt. Do not add one.
 [alias]
-xtask = "run --quiet --manifest-path tools/xtask/Cargo.toml --"
+xtask = "run --quiet --manifest-path xtask/Cargo.toml --"

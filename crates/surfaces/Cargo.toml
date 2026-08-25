@@ -1,0 +1,47 @@
+[package]
+name = "ph-surfaces"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Deterministic no-std, no-alloc integer surface mappings for embedded Rust"
+repository = "https://github.com/photon-circus/ph-surfaces"
+documentation = "https://docs.rs/ph-surfaces"
+readme = "README.md"
+keywords = ["no-std", "no-alloc", "embedded", "interpolation"]
+categories = ["no-std", "no-std::no-alloc", "embedded", "mathematics"]
+publish = ["crates-io"]
+
+# Allowlist, not a denylist: anything new stays out of the packaged crate until
+# it is added here on purpose. Agent notes, CI, and deny config must not ship.
+# Paths are crate-relative so the `.crate` file set stays independent of the
+# worktree layout.
+include = [
+    "src/**/*.rs",
+    "examples/**/*.rs",
+    "Cargo.toml",
+    "LICENSE",
+    "/README.md",
+]
+
+# docs.rs builds the default host target plus the two representative
+# bare-metal targets the contract names, so the published docs prove the
+# crate documents (and compiles) on what it claims to serve. This table must
+# stay below every plain `[package]` key: a key placed after it would belong
+# to this table, not to the package.
+[package.metadata.docs.rs]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "thumbv7em-none-eabi",
+    "riscv32imac-unknown-none-elf",
+]
+
+# Runtime, tests, and build scripts stay free of `ph-curves` and of any other
+# crate. Do not add optional, target-specific, path, or Git dependencies.
+# Do not take anything from `[workspace.dependencies]`.
+[dependencies]
+
+[dev-dependencies]
+
+[build-dependencies]

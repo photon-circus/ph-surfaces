@@ -1,5 +1,5 @@
 # Clippy configuration for ph-surfaces.
-# Lint levels are defined in src/lib.rs; this file only stores values.
+# Lint levels are defined in crates/surfaces/src/lib.rs; this file only stores values.
 
 msrv = "1.94.0"
 

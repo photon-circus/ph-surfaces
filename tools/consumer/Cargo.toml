@@ -1,7 +1,7 @@
-# Its own workspace root, so the repository manifest never gains a
-# `[workspace]` table. The path dependency points at the working tree here; the
-# `package consumer` check rewrites it to the unpacked .crate so the same source
-# proves both the tree and the packaged artifact.
+# Its own workspace root, so it does not join the repository workspace. The path
+# dependency points at the working tree here; the `package consumer` check
+# rewrites it to the unpacked .crate so the same source proves both the tree
+# and the packaged artifact.
 [workspace]
 
 [package]
@@ -11,4 +11,4 @@ edition = "2024"
 publish = false
 
 [dependencies]
-ph-surfaces = { path = "../.." }
+ph-surfaces = { path = "../../crates/surfaces" }

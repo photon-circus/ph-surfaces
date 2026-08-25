@@ -3,13 +3,16 @@
 # Run with `cargo xtask ci`, or directly:
 #   cargo deny check
 #
-# The runtime graph is empty on purpose. This file is a ratchet: it fails as
-# soon as an undiscussed crate, licence, or source appears. `ph-curves` is
-# banned by name so it cannot return as a direct, transitive, optional, path,
-# or Git dependency.
+# The shipped `ph-surfaces` graph is empty on purpose. This file is a ratchet:
+# it fails as soon as an undiscussed crate, licence, or source appears.
+# `ph-curves` is banned by name so it cannot return as a direct, transitive,
+# optional, path, or Git dependency. Host-only `xtask` dependencies live in
+# `[workspace.dependencies]` and are excluded from this graph; `publish_lock`
+# classifies that member instead.
 
 [graph]
 all-features = true
+exclude = ["xtask"]
 
 [advisories]
 version = 2

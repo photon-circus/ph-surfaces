@@ -13,15 +13,14 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
-use xtask::checks::{history, line_endings, package, ratchets};
+use xtask::checks::{history, line_endings, package, publish_lock, ratchets};
 use xtask::config::{Action, CheckSpec, Config};
 use xtask::runner::{Ctx, Outcome, Profile};
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
-        .and_then(Path::parent)
-        .expect("tools/xtask sits two levels below the repository root")
+        .expect("xtask sits one level below the repository root")
         .to_path_buf()
 }
 
@@ -57,8 +56,8 @@ fn tracked_copy(case: &str) -> PathBuf {
     fs::copy(root.join("Cargo.lock"), destination.join("Cargo.lock"))
         .expect("could not copy Cargo.lock");
     fs::copy(
-        root.join("tools/xtask/config.ron"),
-        destination.join("tools/xtask/config.ron"),
+        root.join("xtask/config.ron"),
+        destination.join("xtask/config.ron"),
     )
     .expect("could not copy xtask configuration");
 
@@ -109,7 +108,7 @@ fn rewrite(path: &Path, edit: impl Fn(&str) -> String) {
 #[test]
 fn conditional_no_std_is_rejected() {
     let root = tracked_copy("no_std-conditional");
-    rewrite(&root.join("src/lib.rs"), |text| {
+    rewrite(&root.join("crates/surfaces/src/lib.rs"), |text| {
         text.replace("#![no_std]", "#![cfg_attr(not(feature = \"std\"), no_std)]")
     });
     assert_fires(
@@ -122,7 +121,7 @@ fn conditional_no_std_is_rejected() {
 #[test]
 fn a_features_table_is_rejected() {
     let root = tracked_copy("features-table");
-    rewrite(&root.join("Cargo.toml"), |text| {
+    rewrite(&root.join("crates/surfaces/Cargo.toml"), |text| {
         format!("{text}\n[features]\ndefault = []\n")
     });
     assert_fires(
@@ -135,7 +134,7 @@ fn a_features_table_is_rejected() {
 #[test]
 fn runtime_allocator_paths_are_rejected() {
     let root = tracked_copy("alloc");
-    rewrite(&root.join("src/lib.rs"), |text| {
+    rewrite(&root.join("crates/surfaces/src/lib.rs"), |text| {
         format!("{text}\npub fn leak() -> alloc::vec::Vec<u8> {{ alloc::vec::Vec::new() }}\n")
     });
     assert_fires(
@@ -148,9 +147,10 @@ fn runtime_allocator_paths_are_rejected() {
 #[test]
 fn example_floating_point_is_rejected() {
     let root = tracked_copy("example-float");
-    rewrite(&root.join("examples/firmware_quickstart.rs"), |text| {
-        text.replacen("fn main() {", "fn main() {\n    let _probe = 0.5f32;", 1)
-    });
+    rewrite(
+        &root.join("crates/surfaces/examples/firmware_quickstart.rs"),
+        |text| text.replacen("fn main() {", "fn main() {\n    let _probe = 0.5f32;", 1),
+    );
     assert_fires(
         "example-float",
         "integer only",
@@ -161,13 +161,16 @@ fn example_floating_point_is_rejected() {
 #[test]
 fn example_host_paths_are_rejected() {
     let root = tracked_copy("example-host-path");
-    rewrite(&root.join("examples/firmware_quickstart.rs"), |text| {
-        text.replacen(
-            "fn main() {",
-            "fn main() {\n    let _probe: std::vec::Vec<u8> = std::vec::Vec::new();",
-            1,
-        )
-    });
+    rewrite(
+        &root.join("crates/surfaces/examples/firmware_quickstart.rs"),
+        |text| {
+            text.replacen(
+                "fn main() {",
+                "fn main() {\n    let _probe: std::vec::Vec<u8> = std::vec::Vec::new();",
+                1,
+            )
+        },
+    );
     assert_fires(
         "example-host-path",
         "integer only",
@@ -181,7 +184,7 @@ fn wide_arithmetic_outside_the_kernel_is_rejected() {
     // Inject into the runtime region of `evaluate`, not the file tail: the
     // scanner deliberately exempts each file's `#[cfg(test)]` tail, so an
     // appended line would not prove the guard.
-    rewrite(&root.join("src/evaluate.rs"), |text| {
+    rewrite(&root.join("crates/surfaces/src/evaluate.rs"), |text| {
         text.replacen(
             "let x_cell = self.locate_x(x)?;",
             "let _wide: i64 = 0;\n        let x_cell = self.locate_x(x)?;",
@@ -199,8 +202,8 @@ fn wide_arithmetic_outside_the_kernel_is_rejected() {
 fn a_128_bit_integer_in_runtime_code_is_rejected() {
     let root = tracked_copy("wide-int-128");
     // The kernel itself may widen to 64 bits, never to 128; prove the ban
-    // holds even inside `src/interp.rs`.
-    rewrite(&root.join("src/interp.rs"), |text| {
+    // holds even inside `crates/surfaces/src/interp.rs`.
+    rewrite(&root.join("crates/surfaces/src/interp.rs"), |text| {
         text.replacen(
             "let span = i64::from(x1) - i64::from(x0);",
             "let _widest: i128 = 0;\n    let span = i64::from(x1) - i64::from(x0);",
@@ -217,7 +220,7 @@ fn a_128_bit_integer_in_runtime_code_is_rejected() {
 #[test]
 fn runtime_code_after_a_test_item_is_rejected() {
     let root = tracked_copy("runtime-after-test");
-    rewrite(&root.join("src/evaluate.rs"), |text| {
+    rewrite(&root.join("crates/surfaces/src/evaluate.rs"), |text| {
         format!("{text}\npub fn hidden_wide_integer() -> i64 {{ 0 }}\n")
     });
     assert_fires(
@@ -230,7 +233,7 @@ fn runtime_code_after_a_test_item_is_rejected() {
 #[test]
 fn a_ph_curves_dependency_is_rejected() {
     let root = tracked_copy("ph-curves");
-    rewrite(&root.join("Cargo.toml"), |text| {
+    rewrite(&root.join("crates/surfaces/Cargo.toml"), |text| {
         format!("{text}\n[dependencies.ph-curves]\npath = \"../ph-curves\"\n")
     });
     assert_fires(
@@ -245,13 +248,84 @@ fn a_manifest_floor_change_is_rejected() {
     let root = tracked_copy("manifest-version");
     let configuration = Config::load(&root).unwrap();
     let current = format!("version = \"{}\"", configuration.package.version);
-    rewrite(&root.join("Cargo.toml"), |text| {
+    rewrite(&root.join("crates/surfaces/Cargo.toml"), |text| {
         text.replace(&current, "version = \"0.0.0-mutated\"")
     });
     assert_fires(
         "manifest-version",
         "manifest floor",
         ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_missing_default_members_list_is_rejected() {
+    let root = tracked_copy("missing-default-members");
+    rewrite(&root.join("Cargo.toml"), |text| {
+        let next: String = text
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("default-members"))
+            .flat_map(|line| [line, "\n"])
+            .collect();
+        assert_ne!(text, next, "expected a default-members line to remove");
+        next
+    });
+    assert_fires(
+        "missing-default-members",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_glob_default_members_list_including_xtask_is_rejected() {
+    let root = tracked_copy("glob-default-members");
+    rewrite(&root.join("Cargo.toml"), |text| {
+        let next: String = text
+            .lines()
+            .map(|line| {
+                if line.trim_start().starts_with("default-members") {
+                    "default-members = [\"*\"]".to_string()
+                } else {
+                    line.to_string()
+                }
+            })
+            .flat_map(|line| [line, "\n".to_string()])
+            .collect();
+        assert_ne!(text, next, "expected a default-members line to rewrite");
+        next
+    });
+    assert_fires(
+        "glob-default-members",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn an_unclassified_workspace_member_is_rejected() {
+    let root = tracked_copy("unclassified-member");
+    fs::create_dir_all(root.join("crates/unclassified"))
+        .expect("could not create the unclassified member");
+    fs::write(
+        root.join("crates/unclassified/Cargo.toml"),
+        "[package]\n\
+         name = \"unclassified\"\n\
+         version = \"0.0.0\"\n\
+         edition = \"2024\"\n\
+         publish = false\n",
+    )
+    .expect("could not write the unclassified member manifest");
+    rewrite(&root.join("Cargo.toml"), |text| {
+        text.replace(
+            "members = [\"crates/surfaces\", \"xtask\"]",
+            "members = [\"crates/surfaces\", \"crates/unclassified\", \"xtask\"]",
+        )
+    });
+    assert_fires(
+        "unclassified-member",
+        "publish lock",
+        publish_lock::publish_lock(&ctx(&root, Profile::Full)),
     );
 }
 

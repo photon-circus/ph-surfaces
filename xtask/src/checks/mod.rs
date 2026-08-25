@@ -7,6 +7,7 @@ pub mod embedded;
 pub mod history;
 pub mod line_endings;
 pub mod package;
+pub mod publish_lock;
 pub mod ratchets;
 
 use crate::config::Action;
@@ -35,6 +36,7 @@ pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
         Action::GuardSelftest => guard_selftest(ctx),
         Action::Deny => deny::deny(ctx),
         Action::SecretScan => history::secret_scan(ctx),
+        Action::PublishLock => publish_lock::publish_lock(ctx),
         Action::CoreOnly { target } => {
             let triple = &ctx.config.target(target).expect("validated target").triple;
             embedded::core_only(ctx, triple)
@@ -52,7 +54,7 @@ fn guard_selftest(ctx: &Ctx) -> Outcome {
     cargo::step(
         ctx,
         &crate::proc::cargo(),
-        &["test", "--manifest-path", "tools/xtask/Cargo.toml"],
+        &["test", "--manifest-path", "xtask/Cargo.toml"],
         &[("CARGO_TARGET_DIR", target_dir.as_str())],
     )
 }
