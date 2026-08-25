@@ -658,6 +658,7 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "hex",
+ "ph-surfaces-bake",
  "proc-macro2",
  "ron",
  "serde",

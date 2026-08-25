@@ -34,3 +34,4 @@ syn.workspace = true
 time.workspace = true
 toml.workspace = true
 walkdir.workspace = true
+ph-surfaces-bake = { path = "../crates/surfaces-bake", version = "0.1.0" }

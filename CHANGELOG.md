@@ -4,6 +4,14 @@
 
 ### Added
 
+- Host-side baker Rust emission in `ph-surfaces-bake`: `--emit-rust` writes
+  deterministic static knot arrays, a row-major `values[y][x]` grid,
+  `PAYLOAD_BYTES` for the selected pairing, and `MAX_ERR_LSB` to stdout.
+  `cargo xtask generate` writes the baker-owned checked-in fixture; the
+  `generated source` check re-renders it in memory and fails with
+  `run cargo xtask generate` when it drifts. The bound is an i32 value LSB
+  of sample deviation, not a device or accuracy claim. This is not a
+  runtime API change.
 - Host-side baker quantization in `ph-surfaces-bake`: fill each declared
   grid node from on-knot samples, apply the caller-stated scale with
   round-to-nearest (exact half-way away from zero; values just below a

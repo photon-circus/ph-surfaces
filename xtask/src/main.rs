@@ -27,6 +27,8 @@ enum Command {
     Asm(WriteArgs),
     /// Print the configured check registry.
     List,
+    /// Rewrite the checked-in baker generated module.
+    Generate,
 }
 
 #[derive(Args)]
@@ -102,6 +104,17 @@ fn dispatch(command: Command) -> Result<u8, String> {
                 false,
             )?;
             runner::list(&ctx.config.checks);
+            Ok(0)
+        }
+        Command::Generate => {
+            let ctx = context(
+                current_root()?,
+                Profile::Full,
+                "nightly".into(),
+                false,
+                false,
+            )?;
+            xtask::checks::generated::write(&ctx)?;
             Ok(0)
         }
     }
@@ -224,5 +237,6 @@ mod tests {
     #[test]
     fn unknown_options_are_usage_errors() {
         assert!(Cli::try_parse_from(["xtask", "ci", "--unknown"]).is_err());
+        assert!(Cli::try_parse_from(["xtask", "generate"]).is_ok());
     }
 }
