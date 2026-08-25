@@ -896,6 +896,32 @@ mod tests {
     }
 
     #[test]
+    fn a_subnormal_lerp_rms_does_not_double_round() {
+        // Five-sample RMS of a three-unit residual is one minimum-subnormal
+        // unit. Double-rounding the residual to four units would report two.
+        let x = f64::from_bits(0x0088_0000_0000_0000);
+        let value = f64::from_bits(0x0046_9696_9696_9697);
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(17.0, 0.0, 1.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(17.0, 1.0, 1.0),
+                Sample::new(x, 0.5, value),
+            ],
+            Axis::knots(vec![0, 17]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, 1], vec![0, 1]]);
+        assert_eq!(table.max_err_lsb, 1);
+        assert_eq!(table.rms_lsb, f64::from_bits(1));
+    }
+
+    #[test]
     fn a_finite_residual_too_wide_for_i32_is_bound_overflow() {
         let err = BakeInput::new(
             vec![

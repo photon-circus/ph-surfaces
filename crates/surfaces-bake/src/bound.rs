@@ -48,7 +48,9 @@ impl Ratio {
     /// Take a 53-bit window of each limb and restore `2^{n_shift - d_shift}`
     /// without first materializing `2^exp` when `exp` is below `-1022`:
     /// `2.0.powi(-1075)` underflows even when `(nf / df) * 2^exp` is the
-    /// smallest subnormal. This is not the bound.
+    /// smallest subnormal. The remainder is applied while the significand is
+    /// still normal so there is only one subnormal rounding. This is not the
+    /// bound.
     pub(crate) fn to_f64(&self) -> f64 {
         if self.is_zero() {
             return 0.0;
@@ -92,16 +94,20 @@ impl Ratio {
 }
 
 /// `x * 2^exp` without letting `2^exp` underflow before `x` is applied.
+///
+/// When `exp <= -1022`, apply `2^{exp + 1022}` first so the significand stays
+/// normal, then multiply by `2^-1022` once. Multiplying by `MIN_POSITIVE`
+/// first can make `x` subnormal and round a second time on the remainder.
 fn scale_by_pow2(mut x: f64, mut exp: i32) -> f64 {
     if x == 0.0 || !x.is_finite() || exp == 0 {
         return x;
     }
-    while exp <= -1022 {
-        x *= f64::MIN_POSITIVE;
-        exp += 1022;
-        if x == 0.0 {
-            return x;
+    if exp <= -1022 {
+        let rem = exp + 1022;
+        if rem != 0 {
+            x *= 2.0_f64.powi(rem);
         }
+        return x * f64::MIN_POSITIVE;
     }
     while exp >= 1024 {
         x *= 2.0_f64.powi(1023);
@@ -161,7 +167,7 @@ fn dyadic(x: f64) -> Option<BigRational> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Ratio, scaled_sample};
+    use super::{Ratio, lerp_ratio, ratio_from_f64, scaled_sample};
 
     #[test]
     fn ceil_of_half_is_one() {
@@ -220,5 +226,26 @@ mod tests {
         let x = scaled_sample(value, scale).unwrap().to_f64();
         assert!(x.is_finite());
         assert_eq!(x, f64::from_bits(1));
+    }
+
+    #[test]
+    fn a_subnormal_lerp_residual_rounds_once_to_three_units() {
+        // Knots [0, 17] × [0, 1], rows [0, 1] / [0, 1]. The off-knot sample
+        // at x = 0x0088_0000_0000_0000, y = 0.5 has an exact residual of three
+        // minimum-subnormal units. Applying 2^-1022 first rounds the
+        // intermediate to seven units and the remaining ×0.5 to four.
+        let x = ratio_from_f64(f64::from_bits(0x0088_0000_0000_0000)).unwrap();
+        let y = ratio_from_f64(0.5).unwrap();
+        let sample = scaled_sample(f64::from_bits(0x0046_9696_9696_9697), 1.0).unwrap();
+        let x0 = Ratio::from_i128(0);
+        let x1 = Ratio::from_i128(17);
+        let y0 = Ratio::from_i128(0);
+        let y1 = Ratio::from_i128(1);
+        let v0 = Ratio::from_i128(0);
+        let v1 = Ratio::from_i128(1);
+        let row = lerp_ratio(&x, &x0, &x1, &v0, &v1).unwrap();
+        let reconstructed = lerp_ratio(&y, &y0, &y1, &row, &row).unwrap();
+        let residual = sample.sub(&reconstructed).unwrap();
+        assert_eq!(residual.to_f64().abs(), f64::from_bits(3));
     }
 }

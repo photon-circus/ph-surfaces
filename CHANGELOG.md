@@ -35,8 +35,10 @@
   lookup is binary search on the ordered knot lists. The operator RMS
   statistic scales before squaring so a representable tiny residual does
   not underflow to 0, and converting the residual to `f64` applies the
-  binary exponent without first underflowing `2^exp`, so a significand
-  just above `2^-1075` still becomes the smallest subnormal. The bound is an
+  binary exponent without first underflowing `2^exp` and applies any
+  remaining negative exponent while the significand is still normal, so a
+  significand just above `2^-1075` still becomes the smallest subnormal
+  with only one subnormal rounding. The bound is an
   upper bound on deviation from the supplied samples, not a device or
   accuracy claim. This is not a runtime API change.
 - Reviewed host crates on `ph-surfaces-bake` (`num-bigint`, `num-rational`,
