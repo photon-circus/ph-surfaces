@@ -4,6 +4,13 @@
 
 ### Added
 
+- Host-side baker ingest in `ph-surfaces-bake`: delimited sample points
+  (X, Y, value as host `f64`), an explicit per-axis grid (knot list or
+  uniform origin/step/count), and a caller-stated output scale that is
+  stored and not applied. Grid validation matches the runtime constructors
+  in the same vocabulary; samples outside the declared domain are reported;
+  failures are a closed `BakeError` enum. No third-party parser. This is
+  not a runtime API change.
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:
   `[lib]` plus a thin CLI, zero third-party dependencies, a mechanically
   checked 1,500-line implementation budget, and a packaged-file allowlist

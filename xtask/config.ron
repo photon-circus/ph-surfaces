@@ -73,8 +73,11 @@
             "Cargo.toml.orig",
             "LICENSE",
             "README.md",
+            "src/error.rs",
+            "src/grid.rs",
             "src/lib.rs",
             "src/main.rs",
+            "src/samples.rs",
         ],
     ),
     targets: [
