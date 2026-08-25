@@ -9,7 +9,9 @@
   `PAYLOAD_BYTES` for the selected pairing, and `MAX_ERR_LSB` to stdout.
   `--x-bucketed` / `--y-bucketed` reject a bucket count outside the runtime
   `1..=65_536` bound so the emitter does not print uncompilable
-  `BucketedAxis` source.
+  `BucketedAxis` source; `emit_rust_with` returns the same closed
+  `BakeError::InvalidBucketCount`. Packaged baker tests do not
+  `include!` the unpackaged generated fixture.
   `cargo xtask generate` writes the baker-owned checked-in fixture; the
   `generated source` check re-renders it in memory and fails with
   `run cargo xtask generate` when it drifts. The bound is an i32 value LSB

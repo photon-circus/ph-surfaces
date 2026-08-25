@@ -51,9 +51,11 @@
 //! not a device, vendor, sensor, calibration, or accuracy claim.
 //!
 //! [`emit_rust`] writes BinaryAxis × BinaryAxis static tables, `PAYLOAD_BYTES`,
-//! and `MAX_ERR_LSB` as source text. The baker prints that text on stdout;
-//! `cargo xtask generate` places the checked-in copy. Frozen golden vectors:
-//! issue #42.
+//! and `MAX_ERR_LSB` as source text. [`emit_rust_with`] is the same for an
+//! explicit pairing and returns [`BakeError::InvalidBucketCount`] when a
+//! bucketed axis is outside `1..=65_536`. The baker prints that text on
+//! stdout; `cargo xtask generate` places the checked-in copy. Frozen golden
+//! vectors: issue #42.
 
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]

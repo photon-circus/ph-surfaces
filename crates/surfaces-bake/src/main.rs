@@ -46,9 +46,8 @@ fn ingest(args: &[String]) -> Result<String, (u8, String)> {
     })?;
     match BakeInput::parse(&text, parsed.x, parsed.y, parsed.scale) {
         Ok(input) => match input.quantize() {
-            Ok(table) if parsed.emit_rust => {
-                Ok(emit_rust_with(&table, parsed.x_axis, parsed.y_axis))
-            }
+            Ok(table) if parsed.emit_rust => emit_rust_with(&table, parsed.x_axis, parsed.y_axis)
+                .map_err(|error| (1, bake_error(error))),
             Ok(table) => Ok(summary(&input, &table)),
             Err(error) => Err((1, bake_error(error))),
         },
@@ -146,7 +145,7 @@ fn parse_buckets(raw: &str) -> Result<usize, String> {
     let buckets: usize = raw
         .parse()
         .map_err(|_| "invalid bucket count".to_string())?;
-    if buckets == 0 || buckets > 65_536 {
+    if !(1..=EmitAxis::MAX_BUCKETS).contains(&buckets) {
         Err("invalid bucket count".to_string())
     } else {
         Ok(buckets)
