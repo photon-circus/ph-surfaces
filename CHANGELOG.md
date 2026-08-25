@@ -7,6 +7,9 @@
 - Host-side baker Rust emission in `ph-surfaces-bake`: `--emit-rust` writes
   deterministic static knot arrays, a row-major `values[y][x]` grid,
   `PAYLOAD_BYTES` for the selected pairing, and `MAX_ERR_LSB` to stdout.
+  `--x-bucketed` / `--y-bucketed` reject a bucket count outside the runtime
+  `1..=65_536` bound so the emitter does not print uncompilable
+  `BucketedAxis` source.
   `cargo xtask generate` writes the baker-owned checked-in fixture; the
   `generated source` check re-renders it in memory and fails with
   `run cargo xtask generate` when it drifts. The bound is an i32 value LSB

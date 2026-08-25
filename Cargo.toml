@@ -31,3 +31,5 @@ syn = { version = "3.0.3", features = ["full", "visit"] }
 time = { version = "0.3.55", features = ["macros", "parsing"] }
 toml = "1.1.4"
 walkdir = "2.5.0"
+# Host gate only. The runtime crate must not name this package.
+ph-surfaces-bake = { path = "crates/surfaces-bake", version = "0.1.0" }

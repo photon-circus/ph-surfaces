@@ -146,7 +146,7 @@ fn parse_buckets(raw: &str) -> Result<usize, String> {
     let buckets: usize = raw
         .parse()
         .map_err(|_| "invalid bucket count".to_string())?;
-    if buckets == 0 {
+    if buckets == 0 || buckets > 65_536 {
         Err("invalid bucket count".to_string())
     } else {
         Ok(buckets)
@@ -266,8 +266,8 @@ fn help() -> String {
      --y-uniform    Y axis as origin,step,count (runtime UniformAxis)\n\
      --scale        output scale for the i32 value domain (applied at quantize)\n\
      --emit-rust    write static Rust tables to stdout (BinaryAxis × BinaryAxis)\n\
-     --x-bucketed   emit X as BucketedAxis with this many buckets (requires --emit-rust)\n\
-     --y-bucketed   emit Y as BucketedAxis with this many buckets (requires --emit-rust)\n\
+     --x-bucketed   emit X as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
+     --y-bucketed   emit Y as BucketedAxis with B in 1..=65536 (requires --emit-rust)\n\
      --emit-golden  not implemented yet\n\
      \n\
      Each axis takes either a knot list or a uniform descriptor, never both.\n\
@@ -538,6 +538,44 @@ mod tests {
         assert!(out.contains("bucket_index(&X)"));
         assert!(out.contains("Pairing: BucketedAxis × BinaryAxis."));
         assert!(!out.contains("Y_INDEX"));
+    }
+
+    #[test]
+    fn bucket_count_above_the_runtime_limit_is_rejected() {
+        let err = parse_ingest(&[
+            "--samples".to_string(),
+            "p.txt".to_string(),
+            "--x-knots".to_string(),
+            "0,10".to_string(),
+            "--y-knots".to_string(),
+            "0,5".to_string(),
+            "--scale".to_string(),
+            "1".to_string(),
+            "--emit-rust".to_string(),
+            "--x-bucketed".to_string(),
+            "65537".to_string(),
+        ])
+        .unwrap_err();
+        assert!(err.contains("invalid bucket count"));
+    }
+
+    #[test]
+    fn max_runtime_bucket_count_is_accepted() {
+        let parsed = parse_ingest(&[
+            "--samples".to_string(),
+            "p.txt".to_string(),
+            "--x-knots".to_string(),
+            "0,10".to_string(),
+            "--y-knots".to_string(),
+            "0,5".to_string(),
+            "--scale".to_string(),
+            "1".to_string(),
+            "--emit-rust".to_string(),
+            "--y-bucketed".to_string(),
+            "65536".to_string(),
+        ])
+        .unwrap();
+        assert_eq!(parsed.y_axis, EmitAxis::Bucketed { buckets: 65_536 });
     }
 
     #[test]
