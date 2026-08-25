@@ -48,22 +48,24 @@ evidence from the resulting commit.
 
 For the release commit:
 
-- set `version = "0.1.0"` in `Cargo.toml`;
+- set `version = "0.1.0"` in `crates/surfaces/Cargo.toml`;
 - regenerate the matching `version` line in `Cargo.lock` (for example with
-  `cargo update --workspace`); a stale lockfile fails `cargo package --locked`
-  and `cargo publish --locked`;
-- replace `publish = false` with `publish = ["crates-io"]`;
-- do not restore the deprecated Cargo `authors` field;
+  `cargo update --workspace`); a stale lockfile fails `cargo package -p ph-surfaces --locked`
+  and `cargo publish -p ph-surfaces --locked`;
+- keep `publish = ["crates-io"]` on `ph-surfaces` and `publish = false` on
+  `xtask`; `publish_lock` classifies every workspace member;
+- inherit `edition`, `license`, `rust-version`, and `authors` from
+  `[workspace.package]`; do not duplicate those fields on the shipped crate;
 - add `documentation = "https://docs.rs/ph-surfaces"`;
 - pin unpackaged guide links from `blob/main/` to immutable `blob/v0.1.0/`
   URLs everywhere they appear in packaged files — `README.md`, the crate docs
-  in `src/lib.rs`, and the five `examples/*.rs` headers (do not package
-  `docs/`);
+  in `crates/surfaces/src/lib.rs`, and the five `crates/surfaces/examples/*.rs`
+  headers (do not package `docs/`);
 - move accumulated changelog entries into `## 0.1.0 - YYYY-MM-DD` (UTC),
   retaining an empty `Unreleased` section and a value statement under the
   release heading;
 - update `package.version` and `package.manifest.publish` in
-  `tools/xtask/config.ron`; the manifest-floor and package checks read those
+  `xtask/config.ron`; the manifest-floor and package checks read those
   declarative expectations, and mutation fixtures load the same file.
 
 After this step, `grep -r "0.1.0-incubating" --include="*.rs" --include="*.toml"
@@ -135,8 +137,8 @@ cargo tree --locked --edges all
 gitleaks git . --redact --log-opts=--all
 git fsck --full
 git-sizer --verbose
-cargo package --locked
-cargo publish --dry-run --locked
+cargo package -p ph-surfaces --locked
+cargo publish -p ph-surfaces --dry-run --locked
 ```
 
 The strict gate must prove the host suites, five examples, all sixteen strategy
@@ -179,7 +181,7 @@ Run one final clean dry run from the tagged commit. Then publish manually with a
 short-lived token scoped as narrowly as crates.io permits:
 
 ```sh
-cargo publish --locked
+cargo publish -p ph-surfaces --locked
 ```
 
 Do not expose the token in history, issue/PR text, captured command arguments,

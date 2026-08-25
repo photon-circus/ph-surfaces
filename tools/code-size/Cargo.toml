@@ -1,5 +1,5 @@
-# Its own workspace root, so the repository manifest never gains a
-# `[workspace]` table. Extracted from the heredoc in the retired
+# Its own workspace root, so it does not join the repository workspace.
+# Extracted from the heredoc in the retired
 # scripts/measure-code-size.sh so this code can be formatted and linted.
 [workspace]
 
@@ -13,7 +13,7 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
-ph-surfaces = { path = "../.." }
+ph-surfaces = { path = "../../crates/surfaces" }
 
 [features]
 pairing-binary = []

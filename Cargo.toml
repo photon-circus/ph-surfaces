@@ -1,43 +1,33 @@
-[package]
-name = "ph-surfaces"
-version = "0.1.0"
+[workspace]
+resolver = "2"
+members = ["crates/surfaces", "xtask"]
+
+# The gate runner is a host tool, not a product crate. Keeping it out of
+# `default-members` means a bare `cargo build` / `cargo check` at the root
+# still operates on shipped packages only.
+default-members = ["crates/surfaces"]
+
+[workspace.package]
 edition = "2024"
-rust-version = "1.94.0"
-description = "Deterministic no-std, no-alloc integer surface mappings for embedded Rust"
 license = "MIT"
-repository = "https://github.com/photon-circus/ph-surfaces"
-documentation = "https://docs.rs/ph-surfaces"
-readme = "README.md"
-keywords = ["no-std", "no-alloc", "embedded", "interpolation"]
-categories = ["no-std", "no-std::no-alloc", "embedded", "mathematics"]
-publish = ["crates-io"]
+rust-version = "1.94.0"
+authors = ["Steven Giacomelli <steve@giacomelli.ca>"]
 
-# Allowlist, not a denylist: anything new stays out of the packaged crate until
-# it is added here on purpose. Agent notes, CI, and deny config must not ship.
-include = [
-    "src/**/*.rs",
-    "examples/**/*.rs",
-    "Cargo.toml",
-    "LICENSE",
-    "/README.md",
-]
-
-# docs.rs builds the default host target plus the two representative
-# bare-metal targets the contract names, so the published docs prove the
-# crate documents (and compiles) on what it claims to serve. This table must
-# stay below every plain `[package]` key: a key placed after it would belong
-# to this table, not to the package.
-[package.metadata.docs.rs]
-targets = [
-    "x86_64-unknown-linux-gnu",
-    "thumbv7em-none-eabi",
-    "riscv32imac-unknown-none-elf",
-]
-
-# Runtime, tests, and build scripts stay free of `ph-curves` and of any other
-# crate. Do not add optional, target-specific, path, or Git dependencies.
-[dependencies]
-
-[dev-dependencies]
-
-[build-dependencies]
+# Host-tool dependencies for `xtask` only. Shipped crates use nothing from
+# this table; `[workspace.dependencies]` is not a shared product graph.
+[workspace.dependencies]
+anstream = "1.0.0"
+anstyle = "1.0.14"
+cargo_metadata = "0.23.1"
+clap = { version = "4.6.6", features = ["derive"] }
+hex = "0.4.3"
+proc-macro2 = "1.0.107"
+ron = "0.12.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+similar = "3.2.0"
+syn = { version = "3.0.3", features = ["full", "visit"] }
+time = { version = "0.3.55", features = ["macros", "parsing"] }
+toml = "1.1.4"
+walkdir = "2.5.0"

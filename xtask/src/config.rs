@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::runner::Profile;
 
-pub const RELATIVE_PATH: &str = "tools/xtask/config.ron";
+pub const RELATIVE_PATH: &str = "xtask/config.ron";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -118,6 +118,7 @@ pub enum Action {
     GuardSelftest,
     Deny,
     SecretScan,
+    PublishLock,
     CoreOnly { target: String },
     EmbeddedTarget { target: String },
 }
@@ -146,6 +147,7 @@ impl Action {
             Self::GuardSelftest => "GuardSelftest",
             Self::Deny => "Deny",
             Self::SecretScan => "SecretScan",
+            Self::PublishLock => "PublishLock",
             Self::CoreOnly { .. } | Self::EmbeddedTarget { .. } => return None,
         })
     }
@@ -336,6 +338,7 @@ impl Config {
             "GuardSelftest",
             "Deny",
             "SecretScan",
+            "PublishLock",
         ] {
             if singleton_counts.get(required) != Some(&1) {
                 return Err(format!(
@@ -402,8 +405,7 @@ mod tests {
     fn committed_configuration_is_valid() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .and_then(Path::parent)
-            .unwrap();
+            .expect("xtask sits one level below the repository root");
         Config::load(root).unwrap();
     }
 

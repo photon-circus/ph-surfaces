@@ -117,7 +117,7 @@ The gate proves the absence rather than asserting it. `cargo xtask ci` rejects
 the name in the manifest text (every dependency kind, `[patch]`, `[replace]`),
 in `Cargo.lock`, and in `cargo metadata --all-features`; `deny.toml` bans it as
 a fourth layer; the downstream consumer's fresh lockfile may name only two
-packages; and the mutation tests in `tools/xtask` show the guard fires when a
+packages; and the mutation tests in `xtask` show the guard fires when a
 `ph-curves` dependency is injected into a copy of the tree.
 
 ## Contract
@@ -704,7 +704,7 @@ authoritative. It gates:
   package on the host, and is built for both embedded targets — ordinarily and
   against a core-only sysroot, which is what proves the pairings themselves are
   allocation-free;
-- a guard self-test (`tools/xtask/tests/mutation.rs`) that mutates a copy of the
+- a guard self-test (`xtask/tests/mutation.rs`) that mutates a copy of the
   tree — feature-conditional `no_std`, an allocator path, a `ph-curves`
   dependency — and requires the matching guard to fail;
 - a code-size snapshot (`cargo xtask code-size`) that records single-pairing

@@ -66,14 +66,16 @@ cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD
 
 ## Tests and evidence
 
-- Put implementation-focused unit tests beside the source under `src/`.
-- Keep `tests/conformance/` black-box: use only public `ph_surfaces::*` APIs and
+- Put implementation-focused unit tests beside the source under
+  `crates/surfaces/src/`.
+- Keep `crates/surfaces/tests/conformance/` black-box: use only public
+  `ph_surfaces::*` APIs and
   the independent integer reference already present there.
 - Keep every Rust README block runnable; the README is included in doctests.
 - Preserve all sixteen lookup-strategy pairings and both ordinary and
   core-only embedded target builds.
-- Add a guard mutation case in `tools/xtask/tests/mutation.rs` whenever a new
-  source or manifest invariant is added to `tools/xtask`.
+- Add a guard mutation case in `xtask/tests/mutation.rs` whenever a new
+  source or manifest invariant is added to `xtask`.
 - Do not introduce float, allocator, host-I/O, or `ph-curves` test or example
   paths to make expected values easier to calculate.
 
