@@ -16,7 +16,7 @@ const ROUNDING: &str = include_str!("golden/rounding.csv");
 
 #[test]
 fn baker_rounding_golden_matches_public_evaluate_on_the_declared_domain() {
-    let mut rows = 0usize;
+    let mut seen = [[false; 3]; 3];
     for line in ROUNDING.lines() {
         if line.is_empty() || line == "x,y,expected" {
             continue;
@@ -35,8 +35,11 @@ fn baker_rounding_golden_matches_public_evaluate_on_the_declared_domain() {
             .and_then(|t| t.parse().ok())
             .expect("golden expected is i32");
         assert!(parts.next().is_none(), "golden rows are x,y,expected");
+        assert!(x <= 2 && y <= 2, "golden coordinate is on the 3x3 domain");
+        let slot = &mut seen[usize::from(y)][usize::from(x)];
+        assert!(!*slot, "golden coordinate appears once");
+        *slot = true;
         assert_eq!(SURFACE.evaluate(x, y), Ok(expected));
-        rows += 1;
     }
-    assert_eq!(rows, 9);
+    assert!(seen.iter().all(|row| row.iter().all(|cell| *cell)));
 }

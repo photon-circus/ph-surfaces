@@ -360,7 +360,9 @@ mod tests {
     fn emit_golden_out_does_not_rewrite_the_freeze() {
         let freeze = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../surfaces/tests/conformance/golden/rounding.csv");
-        let before = std::fs::read_to_string(&freeze).unwrap();
+        let before = freeze
+            .is_file()
+            .then(|| std::fs::read_to_string(&freeze).unwrap());
         let dir = std::env::temp_dir().join(format!(
             "ph-surfaces-bake-cli-golden-{}",
             std::process::id()
@@ -372,8 +374,10 @@ mod tests {
         ])
         .unwrap();
         assert!(message.contains("wrote goldens under"));
-        let after = std::fs::read_to_string(&freeze).unwrap();
-        assert_eq!(before, after);
+        if let Some(before) = before {
+            let after = std::fs::read_to_string(&freeze).unwrap();
+            assert_eq!(before, after);
+        }
         let written = std::fs::read_to_string(dir.join("rounding.csv")).unwrap();
         assert_eq!(written, ph_surfaces_bake::rounding_csv());
     }

@@ -20,7 +20,8 @@
 - Host-side baker golden vectors in `ph-surfaces-bake`: `--emit-golden`
   writes frozen integer CSV under `crates/surfaces/tests/conformance/golden/`,
   located from the working directory or `--out DIR`. Packaged tests write
-  only to a temporary directory and do not rewrite the freeze. The runtime
+  only to a temporary directory and do not rewrite the freeze; they also do
+  not `unwrap` the unpackaged runtime golden path. The runtime
   conformance suite consumes them through `ph_surfaces::*` only.
   Those files are read-only: a failing test is an implementation defect
   until proven otherwise; regenerating them is a dedicated freeze commit
