@@ -18,8 +18,9 @@
 //! Firmware-first usage lives in the packaged README ("Start here") and the
 //! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
 //! `mixed_calibration_map`, `fail_safe_boundaries`, and
-//! `firmware_cost_budget`. The repository also carries task-oriented guides
-//! that are not part of the crate artifact:
+//! `firmware_cost_budget`. Host table generation lives in the sibling crate
+//! `ph-surfaces-bake` and is never linked into firmware. The repository also
+//! carries task-oriented guides that are not part of the crate artifact:
 //! [usage](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md),
 //! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md),
 //! and [choosing a strategy](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/choosing-a-strategy.md).
@@ -418,7 +419,8 @@
 //! meshes, bicubic interpolation, extrapolation, or fitting; dynamic or
 //! runtime-loaded grids, mutation, caching, allocation, `unsafe`, or floating
 //! point; runtime metadata, units, or provenance; host generation or CLI
-//! tooling; runtime-selectable strategies or runtime-generated indexes; and a
+//! tooling inside this crate (that work lives in `ph-surfaces-bake`);
+//! runtime-selectable strategies or runtime-generated indexes; and a
 //! direct coordinate-to-cell LUT before a concrete consumer supplies its
 //! coordinate domain and latency bound, measurements showing Bucketed misses
 //! that bound on a named target/profile, an adequate static-data budget, and a

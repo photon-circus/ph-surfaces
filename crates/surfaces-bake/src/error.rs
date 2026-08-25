@@ -11,6 +11,17 @@ pub enum AxisName {
     Y,
 }
 
+/// Which `f64` field of a [`Sample`](crate::Sample) failed a finite check.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SampleField {
+    /// [`Sample::x`](crate::Sample::x).
+    X,
+    /// [`Sample::y`](crate::Sample::y).
+    Y,
+    /// [`Sample::value`](crate::Sample::value).
+    Value,
+}
+
 /// Host bake failure.
 ///
 /// Closed: every ingest rejection class is a variant. This enum is not
@@ -80,6 +91,13 @@ pub enum BakeError {
         /// 1-based physical line number in the sample text.
         line: usize,
     },
+    /// A sample coordinate or value was NaN or infinite.
+    NonFiniteSample {
+        /// Which sample field failed.
+        field: SampleField,
+    },
+    /// The caller-stated output scale was NaN or infinite.
+    NonFiniteScale,
 }
 
 impl Display for BakeError {
@@ -132,6 +150,12 @@ impl Display for BakeError {
             Self::MalformedLine { line } => {
                 write!(f, "malformed sample line {line}: expected three numbers")
             }
+            Self::NonFiniteSample { field } => match field {
+                SampleField::X => f.write_str("sample x is not a finite f64"),
+                SampleField::Y => f.write_str("sample y is not a finite f64"),
+                SampleField::Value => f.write_str("sample value is not a finite f64"),
+            },
+            Self::NonFiniteScale => f.write_str("output scale is not a finite f64"),
         }
     }
 }
@@ -140,7 +164,7 @@ impl std::error::Error for BakeError {}
 
 #[cfg(test)]
 mod tests {
-    use super::{AxisName, BakeError};
+    use super::{AxisName, BakeError, SampleField};
 
     #[test]
     fn constructor_messages_match_the_runtime_vocabulary() {
@@ -219,6 +243,21 @@ mod tests {
         assert_eq!(
             BakeError::MalformedLine { line: 4 }.to_string(),
             "malformed sample line 4: expected three numbers"
+        );
+    }
+
+    #[test]
+    fn non_finite_variants_name_the_field() {
+        assert_eq!(
+            BakeError::NonFiniteSample {
+                field: SampleField::Value
+            }
+            .to_string(),
+            "sample value is not a finite f64"
+        );
+        assert_eq!(
+            BakeError::NonFiniteScale.to_string(),
+            "output scale is not a finite f64"
         );
     }
 

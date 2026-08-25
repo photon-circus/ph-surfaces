@@ -40,7 +40,7 @@ mod error;
 mod grid;
 mod samples;
 
-pub use error::{AxisName, BakeError};
+pub use error::{AxisName, BakeError, SampleField};
 pub use grid::Axis;
 pub use samples::{Sample, parse_samples};
 
@@ -57,16 +57,38 @@ impl BakeInput {
     /// Validates `x` and `y` as the runtime constructors would, then rejects
     /// any sample whose X or Y falls outside that inclusive domain.
     ///
-    /// `scale` is retained and not applied to [`Sample::value`].
+    /// `scale` is retained and not applied to [`Sample::value`]. Both `scale`
+    /// and every sample field must be finite; the text parser already rejects
+    /// non-finite numbers, and this constructor is the same gate for library
+    /// callers.
     ///
     /// # Errors
     ///
-    /// Returns a [`BakeError`] for an axis the runtime would reject, or for a
-    /// sample outside the declared grid.
+    /// Returns a [`BakeError`] for an axis the runtime would reject, a
+    /// non-finite sample or scale, or a sample outside the declared grid.
     pub fn new(samples: Vec<Sample>, x: Axis, y: Axis, scale: f64) -> Result<Self, BakeError> {
+        require_finite(scale, BakeError::NonFiniteScale)?;
         let (x_first, x_last) = x.bounds(AxisName::X)?;
         let (y_first, y_last) = y.bounds(AxisName::Y)?;
         for sample in &samples {
+            require_finite(
+                sample.x,
+                BakeError::NonFiniteSample {
+                    field: SampleField::X,
+                },
+            )?;
+            require_finite(
+                sample.y,
+                BakeError::NonFiniteSample {
+                    field: SampleField::Y,
+                },
+            )?;
+            require_finite(
+                sample.value,
+                BakeError::NonFiniteSample {
+                    field: SampleField::Value,
+                },
+            )?;
             in_domain(
                 sample.x,
                 x_first,
@@ -137,6 +159,14 @@ impl BakeInput {
     }
 }
 
+fn require_finite(value: f64, error: BakeError) -> Result<(), BakeError> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(error)
+    }
+}
+
 fn in_domain(
     coordinate: f64,
     first: u16,
@@ -157,7 +187,7 @@ fn in_domain(
 
 #[cfg(test)]
 mod tests {
-    use super::{Axis, BakeError, BakeInput, Sample};
+    use super::{Axis, BakeError, BakeInput, Sample, SampleField};
     use ph_surfaces::BilinearSurface;
 
     fn explicit() -> (Axis, Axis) {
@@ -262,6 +292,26 @@ mod tests {
             Err(BakeError::SampleYAbove {
                 coordinate: 5.1,
                 bound: 5
+            })
+        );
+    }
+
+    #[test]
+    fn non_finite_scale_is_rejected() {
+        let (x, y) = explicit();
+        assert_eq!(
+            BakeInput::new(vec![Sample::new(0.0, 0.0, 1.0)], x, y, f64::INFINITY),
+            Err(BakeError::NonFiniteScale)
+        );
+    }
+
+    #[test]
+    fn non_finite_sample_value_is_rejected() {
+        let (x, y) = explicit();
+        assert_eq!(
+            BakeInput::new(vec![Sample::new(0.0, 0.0, f64::NAN)], x, y, 1.0),
+            Err(BakeError::NonFiniteSample {
+                field: SampleField::Value
             })
         );
     }
