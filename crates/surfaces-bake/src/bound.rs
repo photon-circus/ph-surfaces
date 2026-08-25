@@ -170,21 +170,29 @@ mod arith {
         pub(crate) fn add(self, o: Self) -> Option<Self> {
             if self.is_zero() { return Some(o); }
             if o.is_zero() { return Some(self); }
-            let dominant = || Some(if self.cmp_abs(o)? == Ordering::Less { o } else { self });
             let (left, right, exp) = if self.exp >= o.exp {
                 let sh = u32::try_from(self.exp - o.exp).ok()?;
                 match self.n.mul_i128(o.d)?.checked_shl(sh) {
                     Some(l) => (l, o.n.mul_i128(self.d)?, o.exp),
-                    None => return dominant(),
+                    None => return self.add_unaligned(o),
                 }
             } else {
                 let sh = u32::try_from(o.exp - self.exp).ok()?;
                 match o.n.mul_i128(self.d)?.checked_shl(sh) {
                     Some(r) => (self.n.mul_i128(o.d)?, r, self.exp),
-                    None => return dominant(),
+                    None => return self.add_unaligned(o),
                 }
             };
             Self::new(left.add(right)?, self.d.checked_mul(o.d)?, exp)
+        }
+        /// Dropping a same-sign addend can shrink `ceil`; bump an exact integer.
+        fn add_unaligned(self, o: Self) -> Option<Self> {
+            let (big, small) = if self.cmp_abs(o)? == Ordering::Less { (o, self) } else { (self, o) };
+            if small.is_zero() || big.n.neg != small.n.neg { return Some(big); }
+            let k = big.ceil_abs()?;
+            if big.cmp_abs_int(k)? != Ordering::Equal { return Some(big); }
+            let mag = i128::from(k) + 1;
+            Some(Self::from_i128(if big.n.neg { -mag } else { mag }))
         }
         pub(crate) fn sub(self, o: Self) -> Option<Self> {
             self.add(Self::new(o.n.wrapping_neg(), o.d, o.exp)?)
@@ -287,5 +295,6 @@ mod tests {
         let tiny = scaled_sample(1e-300, 1.0).unwrap();
         assert_eq!(one.sub(tiny).unwrap().ceil_abs(), Some(1));
         assert_eq!(tiny.sub(one).unwrap().ceil_abs(), Some(1));
+        assert_eq!(one.add(tiny).unwrap().ceil_abs(), Some(2));
     }
 }

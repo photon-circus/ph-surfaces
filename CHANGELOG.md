@@ -18,7 +18,8 @@
   not fit in `i32` is `BakeError::BoundOverflow`, not
   `NonFiniteDeviation`. Subtracting a tiny dyadic from an ordinary
   reconstruction does not expand a 1e3-bit exponent gap into the
-  numerator. Missing or
+  numerator; adding a same-sign tiny to an exact integer residual
+  raises the ceil by one rather than discarding the addend. Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
   lookup is binary search on the ordered knot lists. The bound is an

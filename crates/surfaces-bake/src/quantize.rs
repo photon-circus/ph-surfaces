@@ -453,6 +453,27 @@ mod tests {
     }
 
     #[test]
+    fn a_tiny_negative_reconstruct_bumps_an_integer_residual() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, -1.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, -1.0),
+                Sample::new(1e-300, 0.5, 1.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, -1], vec![0, -1]]);
+        assert_eq!(table.max_err_lsb, 2);
+    }
+
+    #[test]
     fn missing_node_is_a_closed_error() {
         let (x, y) = (Axis::knots(vec![0, 10]), Axis::knots(vec![0, 5]));
         assert_eq!(
