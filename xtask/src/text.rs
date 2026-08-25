@@ -38,6 +38,36 @@ pub fn rust_sources(dir: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(found)
 }
 
+/// Count physical lines of implementation in a Rust source file.
+///
+/// A trailing `#[cfg(test)]` region is excluded, matching the integer-only
+/// scanner: test items live at the file tail, so the first file-level
+/// `#[cfg(test)]` starts the excluded suffix. Nested test attributes inside
+/// already-excluded modules do not get a second look.
+pub fn implementation_line_count(source: &str) -> Result<usize, String> {
+    let file = syn::parse_file(source).map_err(|error| error.to_string())?;
+    let total = source.lines().count();
+    if !file.items.iter().any(|item| has_cfg_test(item_attrs(item))) {
+        return Ok(total);
+    }
+    match file_level_cfg_test_line(source) {
+        Some(tail) => Ok(tail.saturating_sub(1)),
+        None => Ok(total),
+    }
+}
+
+fn file_level_cfg_test_line(source: &str) -> Option<usize> {
+    source.lines().enumerate().find_map(|(index, line)| {
+        let trimmed = line.trim_start();
+        let indent = line.len() - trimmed.len();
+        if indent == 0 && trimmed.starts_with("#[cfg(test)]") {
+            Some(index + 1)
+        } else {
+            None
+        }
+    })
+}
+
 #[derive(Clone, Copy)]
 pub enum Scan {
     AllCode,
@@ -325,5 +355,17 @@ mod tests {
         }
         .visit_file(&file);
         assert_eq!(findings.len(), 2);
+    }
+
+    #[test]
+    fn cfg_test_tails_are_excluded_from_the_implementation_count() {
+        let source = "fn impl_fn() {}\n\n#[cfg(test)]\nmod tests {\n    fn t() {}\n}\n";
+        assert_eq!(implementation_line_count(source).unwrap(), 2);
+
+        let no_tests = "fn only_impl() {}\n";
+        assert_eq!(implementation_line_count(no_tests).unwrap(), 1);
+
+        let indented = "fn impl_fn() {\n    #[cfg(test)]\n    fn nested() {}\n}\n";
+        assert_eq!(implementation_line_count(indented).unwrap(), 4);
     }
 }

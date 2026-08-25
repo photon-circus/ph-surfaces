@@ -1,0 +1,26 @@
+[package]
+name = "ph-surfaces-bake"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Host-side generator for auditable ph-surfaces tables and golden vectors"
+repository = "https://github.com/photon-circus/ph-surfaces"
+documentation = "https://docs.rs/ph-surfaces-bake"
+readme = "README.md"
+publish = ["crates-io"]
+default-run = "ph-surfaces-bake"
+keywords = ["embedded", "interpolation", "code-generation"]
+categories = ["development-tools::build-utils", "command-line-utilities"]
+
+[lib]
+name = "ph_surfaces_bake"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ph-surfaces-bake"
+path = "src/main.rs"
+
+[dev-dependencies]
+ph-surfaces = { path = "../surfaces" }

@@ -17,6 +17,7 @@ pub struct Config {
     pub package: Package,
     pub examples: Vec<String>,
     pub source_policy: SourcePolicy,
+    pub baker: Baker,
     pub targets: Vec<Target>,
     pub code_size: CodeSize,
     pub checks: Vec<CheckSpec>,
@@ -52,6 +53,13 @@ pub struct SourcePolicy {
     pub forbidden_example_types: Vec<String>,
     pub forbidden_example_macros: Vec<String>,
     pub dependency_manifests: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Baker {
+    pub src: String,
+    pub max_implementation_lines: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,6 +109,7 @@ pub enum Action {
     NoStdUnconditional,
     IntegerOnly,
     NoPhCurves,
+    BakeLineBudget,
     ManifestFloor,
     Fmt,
     Test,
@@ -130,6 +139,7 @@ impl Action {
             Self::NoStdUnconditional => "NoStdUnconditional",
             Self::IntegerOnly => "IntegerOnly",
             Self::NoPhCurves => "NoPhCurves",
+            Self::BakeLineBudget => "BakeLineBudget",
             Self::ManifestFloor => "ManifestFloor",
             Self::Fmt => "Fmt",
             Self::Test => "Test",
@@ -220,6 +230,7 @@ impl Config {
             .chain(self.source_policy.example_roots.iter())
             .chain([&self.source_policy.arithmetic_kernel])
             .chain(self.source_policy.dependency_manifests.iter())
+            .chain([&self.baker.src])
             .chain([&self.code_size.snapshot])
         {
             relative_path(path)?;
@@ -321,6 +332,7 @@ impl Config {
             "NoStdUnconditional",
             "IntegerOnly",
             "NoPhCurves",
+            "BakeLineBudget",
             "ManifestFloor",
             "Fmt",
             "Test",

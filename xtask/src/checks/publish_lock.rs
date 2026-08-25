@@ -1,9 +1,10 @@
 //! Publication policy for every resolved workspace member.
 //!
-//! `ph-surfaces` may publish only to crates.io. The gate runner remains
-//! permanently unpublished. Membership and Cargo's resolved `publish` values
-//! come from `cargo metadata --no-deps`, so an implicitly admitted workspace
-//! member cannot escape classification.
+//! `ph-surfaces` may publish only to crates.io. `ph-surfaces-bake` may publish
+//! only to crates.io. The gate runner remains permanently unpublished.
+//! Membership and Cargo's resolved `publish` values come from `cargo metadata
+//! --no-deps`, so an implicitly admitted workspace member cannot escape
+//! classification.
 
 use std::path::Path;
 
@@ -12,7 +13,7 @@ use serde::Deserialize;
 use crate::proc;
 use crate::runner::{Ctx, Outcome};
 
-const CRATES_IO_PACKAGES: &[&str] = &["ph-surfaces"];
+const CRATES_IO_PACKAGES: &[&str] = &["ph-surfaces", "ph-surfaces-bake"];
 const LOCKED_PACKAGES: &[&str] = &["xtask"];
 
 /// The slice of `cargo metadata` output this check needs.
@@ -150,6 +151,17 @@ mod tests {
         ));
         assert!(matches!(
             policy_outcome(&package("ph-surfaces", None)),
+            Outcome::Fail(_)
+        ));
+        assert!(matches!(
+            policy_outcome(&package(
+                "ph-surfaces-bake",
+                Some(vec!["crates-io".to_owned()])
+            )),
+            Outcome::Pass
+        ));
+        assert!(matches!(
+            policy_outcome(&package("ph-surfaces-bake", None)),
             Outcome::Fail(_)
         ));
     }

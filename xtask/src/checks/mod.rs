@@ -1,5 +1,6 @@
 //! Check implementations and the closed dispatch from declarative actions.
 
+pub mod bake;
 pub mod cargo;
 pub mod code_size;
 pub mod deny;
@@ -19,6 +20,7 @@ pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
         Action::NoStdUnconditional => ratchets::no_std_unconditional(ctx),
         Action::IntegerOnly => ratchets::integer_only(ctx),
         Action::NoPhCurves => ratchets::no_ph_curves(ctx),
+        Action::BakeLineBudget => bake::baker_line_budget(ctx),
         Action::ManifestFloor => ratchets::manifest_floor(ctx),
         Action::Fmt => cargo::fmt(ctx),
         Action::Test => cargo::test(ctx),

@@ -7,7 +7,8 @@ changing code.
 
 `ph-surfaces` gives firmware deterministic, allocation-free two-dimensional
 integer mappings. **The `no_std` + no-alloc runtime is the product**, not a
-nice-to-have.
+nice-to-have. `ph-surfaces-bake` is the host-side baker: it requires `std`
+and `f64`, and must never be linked into target firmware.
 
 Human-facing docs describe a public Active crate published at `0.1.0`. Version,
 `publish`, changelog close-out, GitHub visibility, and the crates.io upload
@@ -72,6 +73,18 @@ greps the manifest
 text outside comments, `Cargo.lock`, and `cargo metadata --all-features`, and
 the mutation tests in `xtask/tests/mutation.rs` prove that guard fires.
 
+The same four-layer vocabulary also rejects `ph-surfaces-bake` on the
+**runtime** crate. `crates/surfaces/Cargo.toml` must not name it in any
+dependency kind (including optional, path, Git, target-specific, or
+dev/build). The runtime package's `Cargo.lock` entry and `cargo metadata`
+graph must not resolve it. Do not add `{ name = "ph-surfaces-bake" }` to
+`deny.toml` `[bans] deny`: that would deny the baker package itself. The
+baker stays in the deny graph so its empty third-party tree is evidence.
+
+Do not add a `gen` feature, optional dependency, or `cfg` on `ph-surfaces`
+that reaches the baker. That shape is used by other org crates and is
+forbidden here.
+
 ### 2. `#![no_std]` is unconditional
 
 Never make it feature-conditional. Cargo unifies features across the whole
@@ -133,18 +146,25 @@ assert the storage figures without assuming a pointer width.
 and `SKIP` distinctly. A skipped check is not a passed check.
 
 The repository is a virtual Cargo workspace: `crates/surfaces` (package
-`ph-surfaces`) and `xtask` (the host gate). `default-members` omits the gate,
-so a bare `cargo build` at the root operates on shipped packages only.
-`[workspace.dependencies]` holds xtask host dependencies and nothing a
-shipped crate uses. `publish_lock` classifies every resolved workspace
-member — `ph-surfaces` publishes only to crates.io, `xtask` stays
-`publish = false`, and an unclassified member fails the gate. Declarative
-policy lives in `xtask/config.ron`; reviewed host dependencies are locked in
-the root `Cargo.lock`. Those tooling dependencies may use `std` and
-allocation; they are isolated from the runtime crate by membership and
-publication policy, not by a second lockfile. There is no shell script and no
+`ph-surfaces`), `crates/surfaces-bake` (package `ph-surfaces-bake`), and
+`xtask` (the host gate). `default-members` includes the two shipped
+packages and omits the gate, so a bare `cargo build` at the root operates
+on shipped packages only. `[workspace.dependencies]` holds xtask host
+dependencies and nothing a shipped crate uses. `publish_lock` classifies
+every resolved workspace member — `ph-surfaces` and `ph-surfaces-bake`
+publish only to crates.io, `xtask` stays `publish = false`, and an
+unclassified member fails the gate. Declarative policy lives in
+`xtask/config.ron`; reviewed host dependencies are locked in the root
+`Cargo.lock`. Those tooling dependencies may use `std` and allocation;
+they are isolated from the runtime crate by membership and publication
+policy, not by a second lockfile. There is no shell script and no
 PowerShell twin. `tools/consumer` and `tools/code-size` keep empty
 `[workspace]` tables so they do not join the root workspace.
+
+`crates/surfaces-bake/src` is capped at 1,500 lines of implementation,
+excluding `#[cfg(test)]` tails (the same exemption as the integer-only
+scanner), fixtures, and generated output directories. Exceeding the budget
+is a FAIL, not a quiet raise.
 
 `cargo xtask ci --profile release --nightly nightly-YYYY-MM-DD` is the
 release-evidence mode: every check must run, a would-be `SKIP` is recorded as
@@ -186,7 +206,7 @@ bounded hosted subset is not the complete release evidence.
 | Example map values (`ELEVATION`, `CORRECTION`) | `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, `README.md` "Examples", `crates/surfaces/src/lib.rs` § Examples, `tools/consumer/src/lib.rs` |
 | Firmware example fixtures (quickstart, uniform, mixed, fail-safe, cost) | `crates/surfaces/examples/*.rs`, `crates/surfaces/tests/conformance/fixtures.rs` and `examples.rs`, README "Start here", `docs/usage-guide.md` / `interpolation-walkthrough.md` / `choosing-a-strategy.md`, `tools/consumer/src/lib.rs`, and `examples` in `xtask/config.ron` when the Cargo example set changes |
 | Contract wording or acceptance claim | `README.md` "Contract", `crates/surfaces/src/lib.rs` § Contract, `docs/v0.1-traceability.md` |
-| New workspace member | An explicit `publish_lock` classification (`ph-surfaces` → crates.io, `xtask` → locked, anything else fails by name) |
+| New workspace member | An explicit `publish_lock` classification (`ph-surfaces` and `ph-surfaces-bake` → crates.io, `xtask` → locked, anything else fails by name) |
 
 ## Validating
 

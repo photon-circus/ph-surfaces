@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
 
-use xtask::checks::{history, line_endings, package, publish_lock, ratchets};
+use xtask::checks::{bake, history, line_endings, package, publish_lock, ratchets};
 use xtask::config::{Action, CheckSpec, Config};
 use xtask::runner::{Ctx, Outcome, Profile};
 
@@ -244,6 +244,35 @@ fn a_ph_curves_dependency_is_rejected() {
 }
 
 #[test]
+fn a_runtime_dependency_on_the_baker_is_rejected() {
+    let root = tracked_copy("runtime-bake-dep");
+    rewrite(&root.join("crates/surfaces/Cargo.toml"), |text| {
+        format!("{text}\n[dependencies.ph-surfaces-bake]\npath = \"../surfaces-bake\"\n")
+    });
+    assert_fires(
+        "runtime-bake-dep",
+        "no ph-curves",
+        ratchets::no_ph_curves(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn exceeding_the_baker_line_budget_is_rejected() {
+    let root = tracked_copy("baker-line-budget");
+    rewrite(&root.join("xtask/config.ron"), |text| {
+        text.replace(
+            "max_implementation_lines: 1500",
+            "max_implementation_lines: 1",
+        )
+    });
+    assert_fires(
+        "baker-line-budget",
+        "baker line budget",
+        bake::baker_line_budget(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
 fn a_manifest_floor_change_is_rejected() {
     let root = tracked_copy("manifest-version");
     let configuration = Config::load(&root).unwrap();
@@ -274,8 +303,8 @@ fn an_unclassified_workspace_member_is_rejected() {
     .expect("could not write the unclassified member manifest");
     rewrite(&root.join("Cargo.toml"), |text| {
         text.replace(
-            "members = [\"crates/surfaces\", \"xtask\"]",
-            "members = [\"crates/surfaces\", \"crates/unclassified\", \"xtask\"]",
+            "members = [\"crates/surfaces\", \"crates/surfaces-bake\", \"xtask\"]",
+            "members = [\"crates/surfaces\", \"crates/surfaces-bake\", \"crates/unclassified\", \"xtask\"]",
         )
     });
     assert_fires(

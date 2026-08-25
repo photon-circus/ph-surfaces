@@ -59,7 +59,10 @@ pub fn release_test(ctx: &Ctx) -> Outcome {
 
 pub fn examples(ctx: &Ctx) -> Outcome {
     for example in &ctx.config.examples {
-        match cargo_step(ctx, &["run", "--locked", "--example", example]) {
+        match cargo_step(
+            ctx,
+            &["run", "--locked", "-p", "ph-surfaces", "--example", example],
+        ) {
             Outcome::Pass | Outcome::PassWithNote(_) => continue,
             failure => return failure,
         }

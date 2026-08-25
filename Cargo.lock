@@ -296,6 +296,13 @@ name = "ph-surfaces"
 version = "0.1.0"
 
 [[package]]
+name = "ph-surfaces-bake"
+version = "0.1.0"
+dependencies = [
+ "ph-surfaces",
+]
+
+[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/surfaces", "xtask"]
+members = ["crates/surfaces", "crates/surfaces-bake", "xtask"]
 
 # The gate runner is a host tool, not a product crate. Keeping it out of
 # `default-members` means a bare `cargo build` / `cargo check` at the root
 # still operates on shipped packages only.
-default-members = ["crates/surfaces"]
+default-members = ["crates/surfaces", "crates/surfaces-bake"]
 
 [workspace.package]
 edition = "2024"
