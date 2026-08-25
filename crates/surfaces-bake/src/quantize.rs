@@ -848,6 +848,30 @@ mod tests {
     }
 
     #[test]
+    fn the_smallest_subnormal_is_not_non_finite_deviation() {
+        let tiny = f64::from_bits(1);
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, tiny),
+                Sample::new(1.0, 0.0, tiny),
+                Sample::new(0.0, 1.0, tiny),
+                Sample::new(1.0, 1.0, tiny),
+                Sample::new(0.5, 0.5, tiny),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![0, 0], vec![0, 0]]);
+        assert_eq!(table.max_err_lsb, 1);
+        assert!(table.rms_lsb.is_finite());
+        assert_eq!(table.rms_lsb, tiny);
+    }
+
+    #[test]
     fn a_finite_residual_too_wide_for_i32_is_bound_overflow() {
         let err = BakeInput::new(
             vec![
