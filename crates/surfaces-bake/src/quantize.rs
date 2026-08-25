@@ -26,7 +26,9 @@ pub struct QuantizedTable {
     pub scale: f64,
     /// Durable bound: ceil of the exact rational `|sample*scale − reconstruct|`.
     pub max_err_lsb: i32,
-    /// RMS of sample deviations in i32 value LSBs. Operator statistic.
+    /// RMS of sample deviations in i32 value LSBs. Operator statistic;
+    /// scaled before squaring so a tiny representable residual does not
+    /// underflow to 0. Not `MAX_ERR_LSB`.
     pub rms_lsb: f64,
     /// X coordinate of the sample with the largest absolute LSB deviation.
     pub worst_x: f64,
@@ -229,7 +231,7 @@ fn deviation(
             }
         }
     }
-    let mut sum_sq = 0.0;
+    let mut lsbs = Vec::with_capacity(samples.len());
     let mut max_ratio: Option<Ratio> = None;
     let mut max_err_lsb = 0i32;
     let mut worst_x = samples[0].x;
@@ -252,7 +254,7 @@ fn deviation(
         if !lsb.is_finite() {
             return Err(BakeError::NonFiniteDeviation);
         }
-        sum_sq += lsb * lsb;
+        lsbs.push(lsb);
     }
     Ok(QuantizedTable {
         x,
@@ -260,11 +262,29 @@ fn deviation(
         values,
         scale,
         max_err_lsb,
-        rms_lsb: (sum_sq / samples.len() as f64).sqrt(),
+        rms_lsb: rms_lsb(&lsbs),
         worst_x,
         worst_y,
         per_knot_lsb,
     })
+}
+
+/// Operator RMS in LSB. Scale before squaring so values near `1e-200` do not
+/// underflow the sum to zero. This is not `MAX_ERR_LSB`.
+fn rms_lsb(lsbs: &[f64]) -> f64 {
+    let n = lsbs.len() as f64;
+    let scale = lsbs.iter().fold(0.0_f64, |m, x| m.max(x.abs()));
+    if n == 0.0 || scale == 0.0 {
+        return 0.0;
+    }
+    let sum_unit_sq: f64 = lsbs
+        .iter()
+        .map(|x| {
+            let u = x / scale;
+            u * u
+        })
+        .sum();
+    (sum_unit_sq / n).sqrt() * scale
 }
 
 fn sample_residual(
@@ -779,6 +799,29 @@ mod tests {
         .unwrap();
         assert_eq!(table.values, vec![vec![1, 1], vec![1, 1]]);
         assert_eq!(table.max_err_lsb, 1);
+    }
+
+    #[test]
+    fn a_tiny_rms_does_not_underflow_to_zero() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, 0.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, 0.0),
+                Sample::new(0.5, 0.5, 1e-200),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.max_err_lsb, 1);
+        let expected = 1e-200 / 5.0_f64.sqrt();
+        assert!(table.rms_lsb > 0.0);
+        assert!((table.rms_lsb - expected).abs() / expected < 1e-9);
     }
 
     #[test]

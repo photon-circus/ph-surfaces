@@ -19,7 +19,9 @@
   `BakeError::BoundOverflow`, not `NonFiniteDeviation`. Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
-  lookup is binary search on the ordered knot lists. The bound is an
+  lookup is binary search on the ordered knot lists. The operator RMS
+  statistic scales before squaring so a representable tiny residual does
+  not underflow to 0. The bound is an
   upper bound on deviation from the supplied samples, not a device or
   accuracy claim. This is not a runtime API change.
 - Reviewed host crates on `ph-surfaces-bake` (`num-bigint`, `num-rational`,

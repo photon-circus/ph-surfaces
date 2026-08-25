@@ -25,8 +25,8 @@ exact `u16` values, that includes the runtime's rounded X-then-Y path. It
 is not a typical error. It is not a device, vendor, sensor, calibration,
 accuracy, timing, flash, or WCET claim.
 
-Residual arithmetic uses `num-bigint` and `num-rational`. Those crates stay
-off the runtime graph.
+Residual arithmetic uses `num-bigint`, `num-rational`, and `num-traits`.
+Those crates stay off the runtime graph.
 
 The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
 `emit_max_err_lsb` for the const fragment.
