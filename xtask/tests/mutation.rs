@@ -288,6 +288,24 @@ fn a_manifest_floor_change_is_rejected() {
 }
 
 #[test]
+fn a_missing_default_members_list_is_rejected() {
+    let root = tracked_copy("missing-default-members");
+    rewrite(&root.join("Cargo.toml"), |text| {
+        const LINE: &str = "default-members = [\"crates/surfaces\"]\n";
+        assert!(
+            text.contains(LINE),
+            "expected a default-members line to remove"
+        );
+        text.replace(LINE, "")
+    });
+    assert_fires(
+        "missing-default-members",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
 fn an_unclassified_workspace_member_is_rejected() {
     let root = tracked_copy("unclassified-member");
     fs::create_dir_all(root.join("crates/unclassified"))

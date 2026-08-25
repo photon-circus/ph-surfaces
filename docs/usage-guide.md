@@ -102,7 +102,7 @@ use ph_surfaces::BilinearSurface;
 static SURFACE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES);
 ```
 
-The runnable form of this table is `examples/firmware_quickstart.rs`.
+The runnable form of this table is `crates/surfaces/examples/firmware_quickstart.rs`.
 
 ## 6. Name all four boundary sides
 
@@ -127,7 +127,7 @@ static FAIL_SAFE: BilinearSurface<2, 2> = BilinearSurface::new(&X, &Y, &VALUES)
     );
 ```
 
-The four sides are independent. See `examples/fail_safe_boundaries.rs` for
+The four sides are independent. See `crates/surfaces/examples/fail_safe_boundaries.rs` for
 reject versus hold-last-edge, X-before-Y precedence, and the no-extrapolation
 proof.
 
@@ -183,8 +183,8 @@ static EVEN_Y: BilinearSurface<2, 2, BinaryAxis<2>, UniformAxis<2, 10, 20>> =
 `EVEN_Y.evaluate(125, 20)` is still `Ok(50)`. Starting recommendations and
 Bucketed tuning are in [choosing a strategy](choosing-a-strategy.md). The
 Uniform/Uniform and mixed Bucketed/Uniform shapes are
-`examples/uniform_sensor_compensation.rs` and
-`examples/mixed_calibration_map.rs`.
+`crates/surfaces/examples/uniform_sensor_compensation.rs` and
+`crates/surfaces/examples/mixed_calibration_map.rs`.
 
 ## 10. Put every cost figure in the correct budget
 
@@ -202,7 +202,7 @@ number:
 
 Worked comparisons for a tiny Linear/Linear 3×2, a Uniform/Uniform 17×9, and a
 mixed Bucketed/Uniform 17×9 are asserted in
-`examples/firmware_cost_budget.rs`.
+`crates/surfaces/examples/firmware_cost_budget.rs`.
 
 ## 11. Cross-compile the instantiated types and measure the real target
 

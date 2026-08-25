@@ -41,14 +41,14 @@ The four strategies in one line:
 - `BucketedAxis<N, B>` — stored knots plus `2*B` index bytes; one bucket read
   plus a local scan bounded by `max_local_comparisons` for those knots.
 
-Runnable illustrations: `examples/uniform_sensor_compensation.rs`,
-`examples/mixed_calibration_map.rs`, `examples/firmware_cost_budget.rs`.
+Runnable illustrations: `crates/surfaces/examples/uniform_sensor_compensation.rs`,
+`crates/surfaces/examples/mixed_calibration_map.rs`, `crates/surfaces/examples/firmware_cost_budget.rs`.
 
 ## Independent axes
 
 X and Y choose separately. A mixed pairing is normal: an irregular
 characterized X axis can be Bucketed while an evenly coded Y axis is Uniform.
-`examples/mixed_calibration_map.rs` is that shape, and it evaluates identically
+`crates/surfaces/examples/mixed_calibration_map.rs` is that shape, and it evaluates identically
 to the default Binary/Binary surface over the same tables.
 
 ## Tiny Linear versus Binary
@@ -57,7 +57,7 @@ On a 3×2 surface both Linear/Linear and Binary/Binary reference **34** bytes
 and perform the same worst-case knot-comparison count (four endpoint
 comparisons plus three search comparisons). Choosing between them is a
 target-code and measured-timing question, not a universal threshold on `N`.
-`examples/firmware_cost_budget.rs` asserts those figures and refuses to turn
+`crates/surfaces/examples/firmware_cost_budget.rs` asserts those figures and refuses to turn
 them into a cycle count.
 
 ## Uniform when the axis is an exact progression
@@ -70,7 +70,7 @@ dropped. Location is a subtraction and a division by a compile-time `STEP`,
 not zero work in cycles. Measure that division on the target if latency
 matters.
 
-`examples/uniform_sensor_compensation.rs` shows a small Uniform/Uniform
+`crates/surfaces/examples/uniform_sensor_compensation.rs` shows a small Uniform/Uniform
 compensation map, endpoint accessors on described (not stored) knots, and
 equality with the equivalent default surface.
 
@@ -112,9 +112,9 @@ Procedure:
    Bucketed search also performs one bucket read and the arithmetic mapping
    into a bucket.
 
-`examples/mixed_calibration_map.rs` asserts `max_local_comparisons == 3` for
+`crates/surfaces/examples/mixed_calibration_map.rs` asserts `max_local_comparisons == 3` for
 `B = 8`, equality with Binary/Binary, and that coarser nested indexes do not
-beat Binary. `examples/firmware_cost_budget.rs` places the mixed pairing in
+beat Binary. `crates/surfaces/examples/firmware_cost_budget.rs` places the mixed pairing in
 the payload / handle / work / target-measurement budgets: referenced payload
 **662** bytes versus **664** for all-binary, worst search comparisons 3 + 0,
 worst total knot comparisons 7 versus 13, plus the bucket read.
