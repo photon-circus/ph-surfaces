@@ -145,9 +145,8 @@ fn fill_nodes(samples: &[Sample], x: &[u16], y: &[u16]) -> Result<Vec<Vec<f64>>,
     Ok(filled)
 }
 
-#[allow(clippy::float_cmp)] // exact f64 equality with f64::from(u16) is the node test
 fn knot_index(knots: &[u16], coord: f64) -> Option<usize> {
-    knots.iter().position(|&knot| coord == f64::from(knot))
+    exact_u16(coord).and_then(|n| knots.binary_search(&n).ok())
 }
 
 fn quantize_grid(
@@ -326,13 +325,13 @@ fn reconstruct_i32(x_knots: &[u16], y_knots: &[u16], values: &[Vec<i32>], x: f64
 
 fn segment(knots: &[u16], coord: f64) -> usize {
     let last = knots.len() - 1;
-    let mut i = 0;
-    for (idx, &knot) in knots.iter().enumerate() {
-        if f64::from(knot) <= coord {
-            i = idx;
-        }
+    match knots.binary_search_by(|knot| f64::from(*knot).total_cmp(&coord)) {
+        Ok(i) if i == last => last - 1,
+        Ok(i) => i,
+        Err(0) => 0,
+        Err(i) if i > last => last - 1,
+        Err(i) => i - 1,
     }
-    if i == last { last - 1 } else { i }
 }
 
 fn lerp(t: f64, t0: f64, t1: f64, v0: f64, v1: f64) -> f64 {
@@ -615,5 +614,23 @@ mod tests {
                 ny: 65_536
             })
         );
+    }
+
+    #[test]
+    fn a_long_uniform_axis_fills_by_binary_search() {
+        let nx = 256usize;
+        let mut text = String::new();
+        for i in 0..nx {
+            text.push_str(&format!("{i} 0 {i}\n{i} 1 {}\n", i + 1000));
+        }
+        let table = BakeInput::parse(&text, Axis::uniform(0, 1, nx), Axis::uniform(0, 1, 2), 1.0)
+            .unwrap()
+            .quantize()
+            .unwrap();
+        assert_eq!(table.x.len(), nx);
+        assert_eq!(table.values[0][0], 0);
+        assert_eq!(table.values[0][nx - 1], (nx - 1) as i32);
+        assert_eq!(table.values[1][nx - 1], (nx - 1 + 1000) as i32);
+        assert_eq!(table.max_err_lsb, 0);
     }
 }
