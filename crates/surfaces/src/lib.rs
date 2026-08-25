@@ -19,7 +19,9 @@
 //! Cargo examples `firmware_quickstart`, `uniform_sensor_compensation`,
 //! `mixed_calibration_map`, `fail_safe_boundaries`, and
 //! `firmware_cost_budget`. Host table generation lives in the sibling crate
-//! `ph-surfaces-bake` and is never linked into firmware. The repository also
+//! `ph-surfaces-bake` (it quantizes a caller-stated grid and emits
+//! `MAX_ERR_LSB` as deviation from supplied samples) and is never linked
+//! into firmware. The repository also
 //! carries task-oriented guides that are not part of the crate artifact:
 //! [usage](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/usage-guide.md),
 //! [interpolation walkthrough](https://github.com/photon-circus/ph-surfaces/blob/v0.1.0/docs/interpolation-walkthrough.md),

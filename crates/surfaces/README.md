@@ -11,8 +11,9 @@ Deterministic `no_std`, no-alloc integer surface mappings for embedded Rust.
 > The API is intentionally narrow: one static bilinear surface, four
 > compile-time lookup strategies, and an explicit Error/Clamp boundary
 > policy. There is no 1.0 compatibility promise.
-> Host table generation lives in the sibling crate `ph-surfaces-bake` and
-> is not part of this runtime package.
+> Host table generation lives in the sibling crate `ph-surfaces-bake`
+> (quantize a caller-stated grid and emit `MAX_ERR_LSB` as deviation from
+> supplied samples) and is not part of this runtime package.
 > **Domain:** Libraries.
 
 ```toml
