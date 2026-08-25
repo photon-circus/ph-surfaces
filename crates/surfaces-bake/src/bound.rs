@@ -9,6 +9,8 @@ pub(crate) struct Ratio {
     n: I256,
     d: i128,
     exp: i32,
+    /// Unaligned addend; `|tail|` is more than 256 bits below `|n/d * 2^exp|`.
+    tail: Option<(I256, i128, i32)>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -145,14 +147,25 @@ mod arith {
         pub(super) fn new(n: I256, d: i128, exp: i32) -> Option<Self> {
             if d == 0 { return None; }
             let (n, d) = if d < 0 { (n.wrapping_neg(), -d) } else { (n, d) };
-            Some(Self { n, d, exp }.normalize())
+            Some(Self { n, d, exp, tail: None }.normalize())
         }
         pub(crate) fn from_i128(n: i128) -> Self {
-            Self { n: I256::from_i128(n), d: 1, exp: 0 }.normalize()
+            Self { n: I256::from_i128(n), d: 1, exp: 0, tail: None }.normalize()
         }
-        pub(crate) fn is_zero(self) -> bool { self.n.is_zero() }
+        pub(crate) fn is_zero(self) -> bool { self.n.is_zero() && self.tail_is_zero() }
+        fn tail_is_zero(self) -> bool { self.tail.is_none_or(|(n, _, _)| n.is_zero()) }
+        fn head(self) -> Self { Self { tail: None, ..self } }
+        fn tail_ratio(self) -> Option<Self> {
+            self.tail.filter(|(n, _, _)| !n.is_zero()).map(|(n, d, exp)| Self { n, d, exp, tail: None })
+        }
+        fn with_tail(self, t: Option<Self>) -> Self {
+            Self { tail: t.filter(|t| !t.n.is_zero()).map(|t| (t.n, t.d, t.exp)), ..self }
+        }
+        fn neg(self) -> Self {
+            Self { n: self.n.wrapping_neg(), tail: self.tail.map(|(n, d, exp)| (n.wrapping_neg(), d, exp)), ..self }
+        }
         fn normalize(self) -> Self {
-            if self.n.is_zero() { return Self { n: I256::ZERO, d: 1, exp: 0 }; }
+            if self.n.is_zero() { return Self { n: I256::ZERO, d: 1, exp: 0, tail: None }; }
             let (mut n, mut d, mut exp) = (self.n, self.d, self.exp);
             let tz_d = d.trailing_zeros().min(30);
             d >>= tz_d;
@@ -165,57 +178,88 @@ mod arith {
                 n = div;
                 d /= i128::try_from(g).unwrap_or(1);
             }
-            Self { n, d, exp }
+            Self { n, d, exp, tail: None }
         }
-        pub(crate) fn add(self, o: Self) -> Option<Self> {
-            if self.is_zero() { return Some(o); }
-            if o.is_zero() { return Some(self); }
+        fn add_aligned(self, o: Self) -> Option<Self> {
             let (left, right, exp) = if self.exp >= o.exp {
                 let sh = u32::try_from(self.exp - o.exp).ok()?;
                 match self.n.mul_i128(o.d)?.checked_shl(sh) {
                     Some(l) => (l, o.n.mul_i128(self.d)?, o.exp),
-                    None => return self.add_unaligned(o),
+                    None => return None,
                 }
             } else {
                 let sh = u32::try_from(o.exp - self.exp).ok()?;
                 match o.n.mul_i128(self.d)?.checked_shl(sh) {
                     Some(r) => (self.n.mul_i128(o.d)?, r, self.exp),
-                    None => return self.add_unaligned(o),
+                    None => return None,
                 }
             };
             Self::new(left.add(right)?, self.d.checked_mul(o.d)?, exp)
         }
-        /// Dropping a same-sign addend can shrink `ceil`; bump an exact integer.
-        fn add_unaligned(self, o: Self) -> Option<Self> {
-            let (big, small) = if self.cmp_abs(o)? == Ordering::Less { (o, self) } else { (self, o) };
-            if small.is_zero() || big.n.neg != small.n.neg { return Some(big); }
-            let k = big.ceil_abs()?;
-            if big.cmp_abs_int(k)? != Ordering::Equal { return Some(big); }
-            let mag = i128::from(k) + 1;
-            Some(Self::from_i128(if big.n.neg { -mag } else { mag }))
+        fn add_term(self, t: Self) -> Option<Self> {
+            if t.n.is_zero() { return Some(self); }
+            if self.n.is_zero() && self.tail_is_zero() { return Some(t.head()); }
+            match self.head().add_aligned(t.head()) {
+                Some(sum) => sum.with_tail(self.tail_ratio()).rebalance(),
+                None => match self.tail_ratio() {
+                    None => self.with_tail(Some(t.head())).rebalance(),
+                    Some(lo) => Some(self.with_tail(Some(lo.add_aligned(t.head())?)).rebalance()?),
+                },
+            }
         }
-        pub(crate) fn sub(self, o: Self) -> Option<Self> {
-            self.add(Self::new(o.n.wrapping_neg(), o.d, o.exp)?)
+        fn rebalance(self) -> Option<Self> {
+            let Some(lo) = self.tail_ratio() else { return Some(self.with_tail(None)); };
+            if self.n.is_zero() { return Some(lo); }
+            match self.head().add_aligned(lo) {
+                Some(sum) => Some(sum),
+                None => match self.head().cmp_head_abs(lo)? {
+                    Ordering::Less => Some(lo.with_tail(Some(self.head()))),
+                    _ => Some(self.with_tail(Some(lo))),
+                },
+            }
         }
+        pub(crate) fn add(self, o: Self) -> Option<Self> {
+            let mut acc = self.add_term(o.head())?;
+            if let Some(t) = o.tail_ratio() { acc = acc.add_term(t)?; }
+            Some(acc)
+        }
+        pub(crate) fn sub(self, o: Self) -> Option<Self> { self.add(o.neg()) }
         pub(crate) fn mul(self, o: Self) -> Option<Self> {
-            Self::new(self.n.mul(o.n)?, self.d.checked_mul(o.d)?, self.exp.checked_add(o.exp)?)
+            let mut acc = Self::from_i128(0);
+            for a in [Some(self.head()), self.tail_ratio()].into_iter().flatten() {
+                if a.n.is_zero() { continue; }
+                for b in [Some(o.head()), o.tail_ratio()].into_iter().flatten() {
+                    if b.n.is_zero() { continue; }
+                    acc = acc.add(Self::new(a.n.mul(b.n)?, a.d.checked_mul(b.d)?, a.exp.checked_add(b.exp)?)?)?;
+                }
+            }
+            Some(acc)
         }
         pub(crate) fn div(self, o: Self) -> Option<Self> {
-            if o.is_zero() || o.n.hi != 0 { return None; }
-            let n = self.n.mul_i128(o.d)?;
-            let den = i128::try_from(o.n.lo).ok()?.checked_mul(self.d)?;
-            let n = if o.n.neg { n.wrapping_neg() } else { n };
-            Self::new(n, den, self.exp.checked_sub(o.exp)?)
+            if o.tail_ratio().is_some() || o.is_zero() || o.n.hi != 0 { return None; }
+            let mut acc = Self::from_i128(0);
+            for part in [Some(self.head()), self.tail_ratio()].into_iter().flatten() {
+                if part.n.is_zero() { continue; }
+                let n = part.n.mul_i128(o.d)?;
+                let den = i128::try_from(o.n.lo).ok()?.checked_mul(part.d)?;
+                let n = if o.n.neg { n.wrapping_neg() } else { n };
+                acc = acc.add(Self::new(n, den, part.exp.checked_sub(o.exp)?)?)?;
+            }
+            Some(acc)
         }
         pub(crate) fn to_f64(self) -> f64 {
             if self.is_zero() { return 0.0; }
-            let mag = if self.n.hi == 0 { self.n.lo as f64 } else { (self.n.hi as f64).mul_add(2.0f64.powi(128), self.n.lo as f64) };
-            let signed = if self.n.neg { -mag } else { mag };
-            signed / (self.d as f64) * 2.0f64.powi(self.exp)
+            fn term(n: I256, d: i128, exp: i32) -> f64 {
+                let mag = if n.hi == 0 { n.lo as f64 } else { (n.hi as f64).mul_add(2.0f64.powi(128), n.lo as f64) };
+                let signed = if n.neg { -mag } else { mag };
+                signed / (d as f64) * 2.0f64.powi(exp)
+            }
+            let head = term(self.n, self.d, self.exp);
+            match self.tail { Some((n, d, exp)) => head + term(n, d, exp), None => head }
         }
         pub(crate) fn abs_gt(self, o: Self) -> Option<bool> { Some(self.cmp_abs(o)? == Ordering::Greater) }
-        fn cmp_abs(self, o: Self) -> Option<Ordering> {
-            if self.is_zero() || o.is_zero() { return Some(self.n.cmp_mag(o.n)); }
+        fn cmp_head_abs(self, o: Self) -> Option<Ordering> {
+            if self.n.is_zero() || o.n.is_zero() { return Some(self.n.cmp_mag(o.n)); }
             let (left, right) = (self.n.abs().mul_i128(o.d)?, o.n.abs().mul_i128(self.d)?);
             Some(if self.exp >= o.exp {
                 match u32::try_from(self.exp - o.exp).ok().and_then(|sh| left.checked_shl(sh)) {
@@ -228,6 +272,23 @@ mod arith {
                     None => Ordering::Less,
                 }
             })
+        }
+        fn cmp_abs(self, o: Self) -> Option<Ordering> {
+            if self.is_zero() || o.is_zero() { return Some(self.n.cmp_mag(o.n)); }
+            match self.cmp_head_abs(o)? {
+                Ordering::Equal => match (self.tail_ratio(), o.tail_ratio()) {
+                    (None, None) => Some(Ordering::Equal),
+                    (Some(t), None) => Some(if t.n.neg == self.n.neg { Ordering::Greater } else { Ordering::Less }),
+                    (None, Some(u)) => Some(if u.n.neg == o.n.neg { Ordering::Less } else { Ordering::Greater }),
+                    (Some(t), Some(u)) => match (t.n.neg == self.n.neg, u.n.neg == o.n.neg) {
+                        (true, false) => Some(Ordering::Greater),
+                        (false, true) => Some(Ordering::Less),
+                        (true, true) => t.cmp_head_abs(u),
+                        (false, false) => u.cmp_head_abs(t),
+                    },
+                },
+                other => Some(other),
+            }
         }
         fn cmp_abs_int(self, k: i32) -> Option<Ordering> { self.cmp_abs(Self::from_i128(i128::from(k))) }
         pub(crate) fn ceil_abs(self) -> Option<i32> {
@@ -273,7 +334,7 @@ pub(crate) use arith::{lerp_ratio, ratio_from_f64, scaled_sample};
 
 #[cfg(test)]
 mod tests {
-    use super::{Ratio, scaled_sample};
+    use super::{Ratio, lerp_ratio, scaled_sample};
 
     #[test]
     fn ceil_of_half_is_one() {
@@ -296,5 +357,17 @@ mod tests {
         assert_eq!(one.sub(tiny).unwrap().ceil_abs(), Some(1));
         assert_eq!(tiny.sub(one).unwrap().ceil_abs(), Some(1));
         assert_eq!(one.add(tiny).unwrap().ceil_abs(), Some(2));
+    }
+
+    #[test]
+    fn lerp_keeps_an_unaligned_coordinate_term() {
+        let t = scaled_sample(1e-300, 1.0).unwrap();
+        let z = Ratio::from_i128(0);
+        let one = Ratio::from_i128(1);
+        let two = Ratio::from_i128(2);
+        let r = lerp_ratio(t, z, one, one, two).unwrap();
+        assert_eq!(r.ceil_abs(), Some(2));
+        assert_eq!(two.sub(r).unwrap().ceil_abs(), Some(1));
+        assert_eq!(one.sub(r).unwrap().ceil_abs(), Some(1));
     }
 }

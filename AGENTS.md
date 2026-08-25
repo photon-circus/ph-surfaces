@@ -18,10 +18,10 @@ a host `f64` lerp, `next_up` / one-ULP padding before ceil, an 8-ULP
 envelope, or unreduced `i128` `n/d` without a binary exponent. Ordinary
 decimals overflow 127 bits; `1e-300` needs a `2^1048` integer if the
 exponent is expanded into the denominator. A shift that does not fit in
-256 bits must not drop a same-sign addend that would raise the ceil of
-an integral residual; opposite-signed tiny terms may keep the dominant
-operand. `NonFiniteDeviation` is for a true non-finite residual, not
-the width of a too-narrow integer.
+256 bits keeps the addend as a second term through bilinear reconstruction;
+`ceil` of that two-term residual must not understate. Do not use `ceil_abs`
+as an intermediate arithmetic step. `NonFiniteDeviation` is for a true
+non-finite residual, not the width of a too-narrow integer.
 
 Human-facing docs describe a public Active crate published at `0.1.0`. Version,
 `publish`, changelog close-out, GitHub visibility, and the crates.io upload

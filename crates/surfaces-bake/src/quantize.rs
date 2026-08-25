@@ -474,6 +474,46 @@ mod tests {
     }
 
     #[test]
+    fn an_unaligned_lerp_does_not_collapse_the_reconstruct() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 1.0),
+                Sample::new(1.0, 0.0, 2.0),
+                Sample::new(0.0, 1.0, 1.0),
+                Sample::new(1.0, 1.0, 2.0),
+                Sample::new(1e-300, 0.5, 2.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![1, 2], vec![1, 2]]);
+        assert_eq!(table.max_err_lsb, 1);
+    }
+
+    #[test]
+    fn a_huge_same_sign_tiny_residual_is_bound_overflow() {
+        let err = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, -1.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, -1.0),
+                Sample::new(1e-300, 0.5, 3_000_000_000.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize();
+        assert_eq!(err, Err(BakeError::BoundOverflow));
+    }
+
+    #[test]
     fn missing_node_is_a_closed_error() {
         let (x, y) = (Axis::knots(vec![0, 10]), Axis::knots(vec![0, 5]));
         assert_eq!(

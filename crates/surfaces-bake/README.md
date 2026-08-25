@@ -20,13 +20,13 @@ parse expressions.
 a stored binary exponent; bilinear uses a 256-bit numerator so ordinary
 decimal coordinates do not overflow. Subtracting a tiny dyadic from an
 ordinary reconstruction does not expand the exponent gap into the
-numerator. Adding a same-sign tiny to an exact integer residual raises
-the ceil by one rather than discarding the addend. A finite residual
-whose ceil does not fit in `i32` is `BakeError::BoundOverflow`. Host
-`f64` lerp is not the bound oracle. For samples whose X and Y are exact
-`u16` values, that includes the runtime's rounded X-then-Y path. It is
-not a typical error. It is not a device, vendor, sensor, calibration,
-accuracy, timing, flash, or WCET claim.
+numerator. Unaligned addends stay as a second term through bilinear
+reconstruction; `ceil` of that residual must not understate, and a
+finite residual whose ceil does not fit in `i32` is
+`BakeError::BoundOverflow`. Host `f64` lerp is not the bound oracle. For
+samples whose X and Y are exact `u16` values, that includes the runtime's
+rounded X-then-Y path. It is not a typical error. It is not a device,
+vendor, sensor, calibration, accuracy, timing, flash, or WCET claim.
 
 The public host API is `BakeInput::quantize` → `QuantizedTable`, plus
 `emit_max_err_lsb` for the const fragment.
