@@ -291,7 +291,7 @@ fn a_manifest_floor_change_is_rejected() {
 fn a_missing_default_members_list_is_rejected() {
     let root = tracked_copy("missing-default-members");
     rewrite(&root.join("Cargo.toml"), |text| {
-        const LINE: &str = "default-members = [\"crates/surfaces\"]\n";
+        const LINE: &str = "default-members = [\"crates/surfaces\", \"crates/surfaces-bake\"]\n";
         assert!(
             text.contains(LINE),
             "expected a default-members line to remove"
