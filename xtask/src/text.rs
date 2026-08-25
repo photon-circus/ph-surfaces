@@ -44,8 +44,13 @@ pub fn rust_sources(dir: &Path) -> io::Result<Vec<PathBuf>> {
 /// scanner: test items live at the file tail, so the first file-level
 /// `#[cfg(test)]` starts the excluded suffix. Nested test attributes inside
 /// already-excluded modules do not get a second look.
-pub fn implementation_line_count(source: &str) -> Result<usize, String> {
+pub fn implementation_line_count(relative: &str, source: &str) -> Result<usize, String> {
     let file = syn::parse_file(source).map_err(|error| error.to_string())?;
+    let mut findings = Vec::new();
+    validate_test_tail(relative, &file.items, &mut findings);
+    if !findings.is_empty() {
+        return Err(findings.join("\n"));
+    }
     let total = source.lines().count();
     if !file.items.iter().any(|item| has_cfg_test(item_attrs(item))) {
         return Ok(total);
@@ -360,12 +365,28 @@ mod tests {
     #[test]
     fn cfg_test_tails_are_excluded_from_the_implementation_count() {
         let source = "fn impl_fn() {}\n\n#[cfg(test)]\nmod tests {\n    fn t() {}\n}\n";
-        assert_eq!(implementation_line_count(source).unwrap(), 2);
+        assert_eq!(implementation_line_count("fixture.rs", source).unwrap(), 2);
 
         let no_tests = "fn only_impl() {}\n";
-        assert_eq!(implementation_line_count(no_tests).unwrap(), 1);
+        assert_eq!(
+            implementation_line_count("fixture.rs", no_tests).unwrap(),
+            1
+        );
 
         let indented = "fn impl_fn() {\n    #[cfg(test)]\n    fn nested() {}\n}\n";
-        assert_eq!(implementation_line_count(indented).unwrap(), 4);
+        assert_eq!(
+            implementation_line_count("fixture.rs", indented).unwrap(),
+            4
+        );
+    }
+
+    #[test]
+    fn a_runtime_item_after_cfg_test_fails_the_implementation_count() {
+        let source = "#[cfg(test)]\nmod tests {}\nfn leaked() {}\n";
+        let error = implementation_line_count("fixture.rs", source).unwrap_err();
+        assert!(
+            error.contains("runtime item follows a #[cfg(test)] item"),
+            "{error}"
+        );
     }
 }

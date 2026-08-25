@@ -60,6 +60,7 @@ pub struct SourcePolicy {
 pub struct Baker {
     pub src: String,
     pub max_implementation_lines: usize,
+    pub files: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,6 +111,7 @@ pub enum Action {
     IntegerOnly,
     NoPhCurves,
     BakeLineBudget,
+    BakePackage,
     ManifestFloor,
     Fmt,
     Test,
@@ -140,6 +142,7 @@ impl Action {
             Self::IntegerOnly => "IntegerOnly",
             Self::NoPhCurves => "NoPhCurves",
             Self::BakeLineBudget => "BakeLineBudget",
+            Self::BakePackage => "BakePackage",
             Self::ManifestFloor => "ManifestFloor",
             Self::Fmt => "Fmt",
             Self::Test => "Test",
@@ -196,6 +199,7 @@ impl Config {
         nonempty("package version", &self.package.version)?;
         unique("examples", &self.examples)?;
         unique("package files", &self.package.files)?;
+        unique("baker files", &self.baker.files)?;
         unique("non-consumer prefixes", &self.package.non_consumer_prefixes)?;
         unique("runtime roots", &self.source_policy.runtime_roots)?;
         unique("oracle roots", &self.source_policy.oracle_roots)?;
@@ -231,6 +235,7 @@ impl Config {
             .chain([&self.source_policy.arithmetic_kernel])
             .chain(self.source_policy.dependency_manifests.iter())
             .chain([&self.baker.src])
+            .chain(self.baker.files.iter())
             .chain([&self.code_size.snapshot])
         {
             relative_path(path)?;
@@ -333,6 +338,7 @@ impl Config {
             "IntegerOnly",
             "NoPhCurves",
             "BakeLineBudget",
+            "BakePackage",
             "ManifestFloor",
             "Fmt",
             "Test",

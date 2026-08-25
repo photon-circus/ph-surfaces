@@ -79,7 +79,7 @@ fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
 }
 
 /// Release evidence must describe a commit, not a desk.
-fn clean_release_tree(ctx: &Ctx) -> Result<(), String> {
+pub(crate) fn clean_release_tree(ctx: &Ctx) -> Result<(), String> {
     if !ctx.strict() {
         return Ok(());
     }
@@ -208,7 +208,7 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
 
 /// Files in cargo's verification unpack, excluding the `target/` directory the
 /// verify build may leave behind. That directory is not part of the crate.
-fn packaged_tree(root: &Path) -> Result<Vec<String>, String> {
+pub(crate) fn packaged_tree(root: &Path) -> Result<Vec<String>, String> {
     let mut files = Vec::new();
     let walker = WalkDir::new(root)
         .follow_links(false)

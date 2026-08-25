@@ -21,6 +21,7 @@ pub fn run_action(ctx: &Ctx, action: &Action) -> Outcome {
         Action::IntegerOnly => ratchets::integer_only(ctx),
         Action::NoPhCurves => ratchets::no_ph_curves(ctx),
         Action::BakeLineBudget => bake::baker_line_budget(ctx),
+        Action::BakePackage => bake::baker_package(ctx),
         Action::ManifestFloor => ratchets::manifest_floor(ctx),
         Action::Fmt => cargo::fmt(ctx),
         Action::Test => cargo::test(ctx),

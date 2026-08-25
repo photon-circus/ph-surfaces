@@ -14,6 +14,15 @@ default-run = "ph-surfaces-bake"
 keywords = ["embedded", "interpolation", "code-generation"]
 categories = ["development-tools::build-utils", "command-line-utilities"]
 
+# Allowlist, crate-relative. Host docs and later fixtures stay out until added
+# here on purpose. Tests live in `src/` `#[cfg(test)]` tails, not a `tests/` tree.
+include = [
+    "src/**/*.rs",
+    "Cargo.toml",
+    "LICENSE",
+    "/README.md",
+]
+
 [lib]
 name = "ph_surfaces_bake"
 path = "src/lib.rs"

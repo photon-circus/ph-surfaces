@@ -206,15 +206,25 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         Err(error) => return Outcome::fail(error),
     };
     // Compare Cargo's resolved default set, not the TOML spelling: `["*"]`
-    // lists both shipped crates and host-only `xtask`.
-    if metadata
+    // lists both shipped crates and host-only `xtask`. Unqualified `test`,
+    // `clippy`, and `doc` follow this set, so every shipped package must stay
+    // in it and the gate must stay out.
+    let default_names: Vec<&str> = metadata
         .workspace_default_packages()
         .iter()
-        .any(|package| package.name.as_str() == "xtask")
-    {
+        .map(|package| package.name.as_str())
+        .collect();
+    if default_names.contains(&"xtask") {
         return Outcome::fail(
             "Cargo.toml default-members must omit the gate so a bare cargo build touches shipped packages only.",
         );
+    }
+    for required in ["ph-surfaces", "ph-surfaces-bake"] {
+        if !default_names.contains(&required) {
+            return Outcome::fail(format!(
+                "Cargo.toml default-members must include `{required}` so unqualified cargo test, clippy, and doc cover every shipped package."
+            ));
+        }
     }
     let Some(crate_package) = metadata
         .packages

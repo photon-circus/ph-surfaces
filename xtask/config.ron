@@ -66,6 +66,16 @@
     baker: (
         src: "crates/surfaces-bake/src",
         max_implementation_lines: 1500,
+        files: [
+            ".cargo_vcs_info.json",
+            "Cargo.lock",
+            "Cargo.toml",
+            "Cargo.toml.orig",
+            "LICENSE",
+            "README.md",
+            "src/lib.rs",
+            "src/main.rs",
+        ],
     ),
     targets: [
         (id: "thumb", triple: "thumbv7em-none-eabi", asm_snapshot: "docs/asm-snapshot-thumbv7em-none-eabi.txt"),
@@ -89,6 +99,7 @@
         (name: "integer only", profiles: [Dev, Full, Release], action: IntegerOnly),
         (name: "no ph-curves", profiles: [Dev, Full, Release], action: NoPhCurves),
         (name: "baker line budget", profiles: [Dev, Full, Release], action: BakeLineBudget),
+        (name: "baker package", profiles: [Full, Release], action: BakePackage),
         (name: "manifest floor", profiles: [Dev, Full, Release], action: ManifestFloor),
         (name: "publish lock", profiles: [Dev, Full, Release], action: PublishLock),
         (name: "fmt", profiles: [Dev, Full, Release], action: Fmt),

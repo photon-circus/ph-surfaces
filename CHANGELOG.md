@@ -5,10 +5,11 @@
 ### Added
 
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:
-  `[lib]` plus a thin CLI, zero third-party dependencies, and a mechanically
-  checked 1,500-line implementation budget. This is not a runtime API change.
-  The runtime crate cannot reach the baker through any dependency kind,
-  feature, or `cfg`.
+  `[lib]` plus a thin CLI, zero third-party dependencies, a mechanically
+  checked 1,500-line implementation budget, and a packaged-file allowlist
+  checked independently of the runtime `package *` family. This is not a
+  runtime API change. The runtime crate cannot reach the baker through any
+  dependency kind, feature, or `cfg`.
 
 ### Changed
 
