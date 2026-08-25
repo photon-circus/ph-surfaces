@@ -123,6 +123,8 @@ pub enum BakeError {
     },
     /// A sample deviation was not a finite i32-value-LSB quantity.
     NonFiniteDeviation,
+    /// A finite residual's `ceil` does not fit in `i32`.
+    BoundOverflow,
     /// The declared NX × NY product exceeds [`crate::MAX_GRID_CELLS`].
     GridTooLarge {
         /// Declared X knot count.
@@ -200,6 +202,9 @@ impl Display for BakeError {
             }
             Self::NonFiniteDeviation => {
                 f.write_str("sample deviation is not a finite i32 value LSB")
+            }
+            Self::BoundOverflow => {
+                f.write_str("finite sample residual does not fit in i32 MAX_ERR_LSB")
             }
             Self::GridTooLarge { nx, ny } => {
                 write!(
@@ -344,6 +349,10 @@ mod tests {
         assert_eq!(
             BakeError::NonFiniteDeviation.to_string(),
             "sample deviation is not a finite i32 value LSB"
+        );
+        assert_eq!(
+            BakeError::BoundOverflow.to_string(),
+            "finite sample residual does not fit in i32 MAX_ERR_LSB"
         );
         assert_eq!(
             BakeError::GridTooLarge {

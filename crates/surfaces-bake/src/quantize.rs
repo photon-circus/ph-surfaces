@@ -95,8 +95,9 @@ impl BakeInput {
     /// [`crate::MAX_GRID_CELLS`], [`BakeError::MissingNode`] or
     /// [`BakeError::AmbiguousNode`] for the declared grid,
     /// [`BakeError::QuantizeOverflow`] when a rounded value leaves `i32`,
-    /// or [`BakeError::NonFiniteDeviation`] when a residual is not a
-    /// finite LSB quantity.
+    /// [`BakeError::BoundOverflow`] when a finite residual's ceil does not
+    /// fit in `i32`, or [`BakeError::NonFiniteDeviation`] when a residual
+    /// is not a finite LSB quantity.
     pub fn quantize(&self) -> Result<QuantizedTable, BakeError> {
         if !(1.0 / self.scale()).is_finite() {
             return Err(BakeError::NonInvertibleScale);
@@ -235,7 +236,7 @@ fn deviation(
     let mut worst_y = samples[0].y;
     for sample in samples {
         let residual = sample_residual(&x, &y, &values, scale, sample)?;
-        let ceil = residual.ceil_abs().ok_or(BakeError::NonFiniteDeviation)?;
+        let ceil = residual.ceil_abs().ok_or(BakeError::BoundOverflow)?;
         if ceil > max_err_lsb {
             max_err_lsb = ceil;
         }
@@ -693,6 +694,46 @@ mod tests {
         .quantize()
         .unwrap();
         assert_eq!(table.max_err_lsb, 1);
+    }
+
+    #[test]
+    fn a_tiny_sample_against_a_unit_table_still_emits_a_bound() {
+        let table = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 1.0),
+                Sample::new(1.0, 0.0, 1.0),
+                Sample::new(0.0, 1.0, 1.0),
+                Sample::new(1.0, 1.0, 1.0),
+                Sample::new(0.5, 0.5, 1e-300),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize()
+        .unwrap();
+        assert_eq!(table.values, vec![vec![1, 1], vec![1, 1]]);
+        assert_eq!(table.max_err_lsb, 1);
+    }
+
+    #[test]
+    fn a_finite_residual_too_wide_for_i32_is_bound_overflow() {
+        let err = BakeInput::new(
+            vec![
+                Sample::new(0.0, 0.0, 0.0),
+                Sample::new(1.0, 0.0, 0.0),
+                Sample::new(0.0, 1.0, 0.0),
+                Sample::new(1.0, 1.0, 0.0),
+                Sample::new(0.5, 0.5, 3_000_000_000.0),
+            ],
+            Axis::knots(vec![0, 1]),
+            Axis::knots(vec![0, 1]),
+            1.0,
+        )
+        .unwrap()
+        .quantize();
+        assert_eq!(err, Err(BakeError::BoundOverflow));
     }
 
     #[test]

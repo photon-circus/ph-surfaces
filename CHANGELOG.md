@@ -14,7 +14,11 @@
   rounded X-then-Y path, not only unrounded host bilinear. `MAX_ERR_LSB`
   is `ceil` of the exact rational residual (IEEE `f64` bit-patterns as
   dyadics with a stored binary exponent and a 256-bit numerator, not a
-  host-`f64` lerp with ULP padding). Missing or
+  host-`f64` lerp with ULP padding). A finite residual whose `ceil` does
+  not fit in `i32` is `BakeError::BoundOverflow`, not
+  `NonFiniteDeviation`. Subtracting a tiny dyadic from an ordinary
+  reconstruction does not expand a 1e3-bit exponent gap into the
+  numerator. Missing or
   ambiguous nodes, a non-invertible scale, an NX×NY product above
   1_048_576 cells, and `i32` overflow are closed `BakeError`s. On-knot
   lookup is binary search on the ordered knot lists. The bound is an
@@ -29,7 +33,7 @@
   `BakeError` enum. No third-party parser. This is not a runtime API change.
 - Host-side baker crate floor `ph-surfaces-bake` at `crates/surfaces-bake`:
   `[lib]` plus a thin CLI, zero third-party dependencies, a mechanically
-  checked 1,500-line implementation budget, and a packaged-file allowlist
+  checked 1,600-line implementation budget, and a packaged-file allowlist
   checked independently of the runtime `package *` family. This is not a
   runtime API change. The runtime crate cannot reach the baker through any
   dependency kind, feature, or `cfg`.

@@ -170,12 +170,19 @@ mod arith {
         pub(crate) fn add(self, o: Self) -> Option<Self> {
             if self.is_zero() { return Some(o); }
             if o.is_zero() { return Some(self); }
+            let dominant = || Some(if self.cmp_abs(o)? == Ordering::Less { o } else { self });
             let (left, right, exp) = if self.exp >= o.exp {
                 let sh = u32::try_from(self.exp - o.exp).ok()?;
-                (self.n.mul_i128(o.d)?.checked_shl(sh)?, o.n.mul_i128(self.d)?, o.exp)
+                match self.n.mul_i128(o.d)?.checked_shl(sh) {
+                    Some(l) => (l, o.n.mul_i128(self.d)?, o.exp),
+                    None => return dominant(),
+                }
             } else {
                 let sh = u32::try_from(o.exp - self.exp).ok()?;
-                (self.n.mul_i128(o.d)?, o.n.mul_i128(self.d)?.checked_shl(sh)?, self.exp)
+                match o.n.mul_i128(self.d)?.checked_shl(sh) {
+                    Some(r) => (self.n.mul_i128(o.d)?, r, self.exp),
+                    None => return dominant(),
+                }
             };
             Self::new(left.add(right)?, self.d.checked_mul(o.d)?, exp)
         }
@@ -272,5 +279,13 @@ mod tests {
     fn tiny_dyadic_is_not_non_finite() {
         let r = scaled_sample(1e-300, 1.0).unwrap();
         assert_eq!(r.ceil_abs(), Some(1));
+    }
+
+    #[test]
+    fn subtracting_a_tiny_from_one_does_not_need_a_1049_bit_shift() {
+        let one = Ratio::from_i128(1);
+        let tiny = scaled_sample(1e-300, 1.0).unwrap();
+        assert_eq!(one.sub(tiny).unwrap().ceil_abs(), Some(1));
+        assert_eq!(tiny.sub(one).unwrap().ceil_abs(), Some(1));
     }
 }

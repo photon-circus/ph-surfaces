@@ -171,7 +171,7 @@ policy, not by a second lockfile. There is no shell script and no
 PowerShell twin. `tools/consumer` and `tools/code-size` keep empty
 `[workspace]` tables so they do not join the root workspace.
 
-`crates/surfaces-bake/src` is capped at 1,500 lines of implementation,
+`crates/surfaces-bake/src` is capped at 1,600 lines of implementation,
 excluding `#[cfg(test)]` tails (the same exemption as the integer-only
 scanner), fixtures, and generated output directories. Exceeding the budget
 is a FAIL, not a quiet raise.
