@@ -32,6 +32,11 @@ fn dispatch(args: &[String]) -> Result<String, (u8, String)> {
         [a, b] if a == "--emit-golden" && b == "--out" => {
             Err((2, usage_error("missing --out value")))
         }
+        // A flag-shaped value means the directory operand was dropped; the
+        // ingest flags reject the same mistake through `take_value`.
+        [a, b, c] if a == "--emit-golden" && b == "--out" && c.starts_with("--") => {
+            Err((2, usage_error("missing --out value")))
+        }
         [a, b, c] if a == "--emit-golden" && b == "--out" => emit_golden(Some(PathBuf::from(c))),
         [a, ..] if a == "--emit-golden" => Err((2, usage_error("unknown args"))),
         _ => ingest(args),
@@ -387,6 +392,19 @@ mod tests {
         let err = dispatch(&["--emit-golden".to_string(), "--out".to_string()]).unwrap_err();
         assert_eq!(err.0, 2);
         assert!(err.1.contains("missing --out value"));
+    }
+
+    #[test]
+    fn emit_golden_out_followed_by_a_flag_is_usage() {
+        let err = dispatch(&[
+            "--emit-golden".to_string(),
+            "--out".to_string(),
+            "--emit-rust".to_string(),
+        ])
+        .unwrap_err();
+        assert_eq!(err.0, 2);
+        assert!(err.1.contains("missing --out value"));
+        assert!(!std::path::Path::new("--emit-rust").exists());
     }
 
     #[test]

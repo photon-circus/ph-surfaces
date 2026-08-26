@@ -58,10 +58,14 @@ pub struct SourcePolicy {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Baker {
+    pub version: String,
     pub src: String,
     pub max_implementation_lines: usize,
     pub generated: String,
     pub files: Vec<String>,
+    /// Dependency-name floor for the baker manifest, dev-dependencies
+    /// included. An undiscussed crate on the shipped baker is a FAIL.
+    pub dependencies: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -219,7 +223,9 @@ impl Config {
             "dependency manifests",
             &self.source_policy.dependency_manifests,
         )?;
+        nonempty("baker version", &self.baker.version)?;
         nonempty("baker generated", &self.baker.generated)?;
+        unique("baker dependencies", &self.baker.dependencies)?;
         nonempty("code-size snapshot", &self.code_size.snapshot)?;
         nonempty("kernel symbol", &self.code_size.kernel_symbol)?;
         nonempty("kernel path fragment", &self.code_size.kernel_path_fragment)?;

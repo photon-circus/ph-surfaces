@@ -287,6 +287,9 @@ mod tests {
         let table = corners();
         let src =
             emit_rust_with(&table, EmitAxis::Bucketed { buckets: 2 }, EmitAxis::Binary).unwrap();
+        assert!(src.contains("use ph_surfaces::BilinearSurface;\n"));
+        assert!(src.contains("use ph_surfaces::BinaryAxis;\n"));
+        assert!(src.contains("use ph_surfaces::BucketedAxis;\n"));
         assert!(src.contains("use ph_surfaces::bucket_index;"));
         assert!(src.contains("static X_INDEX: [u16; 2] = bucket_index(&X);"));
         assert!(!src.contains("Y_INDEX"));
@@ -313,6 +316,7 @@ mod tests {
         .unwrap();
         assert!(src.contains("static X_INDEX: [u16; 2] = bucket_index(&X);"));
         assert!(src.contains("static Y_INDEX: [u16; 2] = bucket_index(&Y);"));
+        assert!(src.contains("use ph_surfaces::BucketedAxis;\nuse ph_surfaces::bucket_index;\n"));
         assert!(!src.contains("BinaryAxis"));
         assert!(src.contains("pub const PAYLOAD_BYTES: usize = 32;"));
     }

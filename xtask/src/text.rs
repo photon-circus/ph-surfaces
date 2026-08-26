@@ -52,25 +52,22 @@ pub fn implementation_line_count(relative: &str, source: &str) -> Result<usize, 
         return Err(findings.join("\n"));
     }
     let total = source.lines().count();
-    if !file.items.iter().any(|item| has_cfg_test(item_attrs(item))) {
-        return Ok(total);
-    }
-    match file_level_cfg_test_line(source) {
+    match file_level_cfg_test_line(&file) {
         Some(tail) => Ok(tail.saturating_sub(1)),
         None => Ok(total),
     }
 }
 
-fn file_level_cfg_test_line(source: &str) -> Option<usize> {
-    source.lines().enumerate().find_map(|(index, line)| {
-        let trimmed = line.trim_start();
-        let indent = line.len() - trimmed.len();
-        if indent == 0 && trimmed.starts_with("#[cfg(test)]") {
-            Some(index + 1)
-        } else {
-            None
-        }
-    })
+/// 1-based source line where the first file-level `#[cfg(test)]` item starts,
+/// read from the parsed tree: a raw text scan can match the attribute text
+/// inside a multiline string literal, or miss a differently spaced spelling.
+fn file_level_cfg_test_line(file: &syn::File) -> Option<usize> {
+    use syn::spanned::Spanned as _;
+    file.items
+        .iter()
+        .filter(|item| has_cfg_test(item_attrs(item)))
+        .map(|item| item.span().start().line)
+        .min()
 }
 
 #[derive(Clone, Copy)]
@@ -378,6 +375,18 @@ mod tests {
             implementation_line_count("fixture.rs", indented).unwrap(),
             4
         );
+    }
+
+    #[test]
+    fn cfg_test_text_inside_a_string_literal_does_not_end_the_count() {
+        let source = "const S: &str = \"\n#[cfg(test)]\nnot code\n\";\nfn impl_fn() {}\n\n#[cfg(test)]\nmod tests {}\n";
+        assert_eq!(implementation_line_count("fixture.rs", source).unwrap(), 6);
+    }
+
+    #[test]
+    fn a_spaced_cfg_test_attribute_still_ends_the_count() {
+        let source = "fn impl_fn() {}\n\n#[cfg( test )]\nmod tests {}\n";
+        assert_eq!(implementation_line_count("fixture.rs", source).unwrap(), 2);
     }
 
     #[test]

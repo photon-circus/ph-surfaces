@@ -64,6 +64,7 @@
         dependency_manifests: ["Cargo.toml", "crates/surfaces/Cargo.toml", "crates/surfaces-bake/Cargo.toml", ".cargo/config.toml", ".cargo/config"],
     ),
     baker: (
+        version: "0.1.0",
         src: "crates/surfaces-bake/src",
         max_implementation_lines: 1900,
         generated: "crates/surfaces-bake/generated/rounding.rs",
@@ -84,6 +85,9 @@
             "src/quantize.rs",
             "src/samples.rs",
         ],
+        // Dependency-name floor, dev-dependencies included. Adding a crate to
+        // the shipped baker means adding it here on purpose.
+        dependencies: ["num-bigint", "num-rational", "num-traits", "ph-surfaces"],
     ),
     targets: [
         (id: "thumb", triple: "thumbv7em-none-eabi", asm_snapshot: "docs/asm-snapshot-thumbv7em-none-eabi.txt"),

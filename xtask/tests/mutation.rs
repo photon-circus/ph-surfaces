@@ -259,9 +259,13 @@ fn a_runtime_dependency_on_the_baker_is_rejected() {
 #[test]
 fn exceeding_the_baker_line_budget_is_rejected() {
     let root = tracked_copy("baker-line-budget");
+    let configuration = Config::load(&root).unwrap();
     rewrite(&root.join("xtask/config.ron"), |text| {
         text.replace(
-            "max_implementation_lines: 1900",
+            &format!(
+                "max_implementation_lines: {}",
+                configuration.baker.max_implementation_lines
+            ),
             "max_implementation_lines: 1",
         )
     });
@@ -288,32 +292,49 @@ fn a_production_item_after_the_baker_test_tail_is_rejected() {
 #[test]
 fn a_baker_packaged_file_set_mismatch_is_rejected() {
     let root = tracked_copy("baker-package-files");
+    // The copy needs provenance: without a repository, `cargo package --list`
+    // omits `.cargo_vcs_info.json`, the guard fires on any copy, and the case
+    // proves nothing about the mutation.
+    init_repository(&root);
+    let configuration = Config::load(&root).unwrap();
+    // Anchor on a baker-only entry: the runtime `package.files` list shares
+    // its leading entries, so a shared anchor can mutate the wrong list.
+    let anchor = configuration
+        .baker
+        .files
+        .iter()
+        .find(|file| !configuration.package.files.contains(file))
+        .expect("the baker file set has a baker-specific entry");
     rewrite(&root.join("xtask/config.ron"), |text| {
-        text.replacen(
-            "files: [\n            \".cargo_vcs_info.json\",",
-            "files: [\n            \".cargo_vcs_info.json\",\n            \"src/not-shipped.rs\",",
-            1,
+        text.replace(
+            &format!("\"{anchor}\","),
+            &format!("\"{anchor}\",\n            \"src/not-shipped.rs\","),
         )
     });
-    assert_fires(
-        "baker-package-files",
-        "baker package",
-        bake::baker_package(&ctx(&root, Profile::Full)),
-    );
+    match bake::baker_package(&ctx(&root, Profile::Full)) {
+        Outcome::Fail(reason) => assert!(
+            reason.contains("src/not-shipped.rs"),
+            "baker package must fail on the mutated file set, not something else: {reason}"
+        ),
+        Outcome::Pass | Outcome::PassWithNote(_) => {
+            panic!("baker-package-files: guard \"baker package\" did NOT fire")
+        }
+        Outcome::Skip(reason) => {
+            panic!("baker-package-files: guard skipped instead of firing: {reason}")
+        }
+    }
 }
 
 #[test]
 fn a_stale_generated_source_is_rejected() {
     let root = tracked_copy("generated-source");
-    rewrite(
-        &root.join("crates/surfaces-bake/generated/rounding.rs"),
-        |text| {
-            text.replace(
-                "pub const MAX_ERR_LSB: i32 = 1;",
-                "pub const MAX_ERR_LSB: i32 = 99;",
-            )
-        },
-    );
+    let configuration = Config::load(&root).unwrap();
+    rewrite(&root.join(&configuration.baker.generated), |text| {
+        text.replace(
+            "pub const MAX_ERR_LSB: i32 = 1;",
+            "pub const MAX_ERR_LSB: i32 = 99;",
+        )
+    });
     assert_fires(
         "generated-source",
         "generated source",
@@ -324,7 +345,8 @@ fn a_stale_generated_source_is_rejected() {
 #[test]
 fn a_missing_generated_source_is_rejected() {
     let root = tracked_copy("generated-source-missing");
-    fs::remove_file(root.join("crates/surfaces-bake/generated/rounding.rs"))
+    let configuration = Config::load(&root).unwrap();
+    fs::remove_file(root.join(&configuration.baker.generated))
         .expect("could not delete the generated artifact");
     assert_fires(
         "generated-source-missing",
@@ -343,6 +365,47 @@ fn a_manifest_floor_change_is_rejected() {
     });
     assert_fires(
         "manifest-version",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn an_undeclared_baker_dependency_is_rejected() {
+    let root = tracked_copy("baker-dependency");
+    rewrite(&root.join("crates/surfaces-bake/Cargo.toml"), |text| {
+        format!("{text}\n[dependencies.rand]\nversion = \"0.8\"\n")
+    });
+    assert_fires(
+        "baker-dependency",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_baker_version_drift_is_rejected() {
+    let root = tracked_copy("baker-version");
+    let configuration = Config::load(&root).unwrap();
+    let current = format!("version = \"{}\"", configuration.baker.version);
+    rewrite(&root.join("crates/surfaces-bake/Cargo.toml"), |text| {
+        text.replacen(&current, "version = \"0.0.0-mutated\"", 1)
+    });
+    assert_fires(
+        "baker-version",
+        "manifest floor",
+        ratchets::manifest_floor(&ctx(&root, Profile::Full)),
+    );
+}
+
+#[test]
+fn a_wrong_packaged_license_is_rejected() {
+    let root = tracked_copy("baker-license");
+    rewrite(&root.join("crates/surfaces-bake/LICENSE"), |text| {
+        text.replace("MIT License", "All Rights Reserved")
+    });
+    assert_fires(
+        "baker-license",
         "manifest floor",
         ratchets::manifest_floor(&ctx(&root, Profile::Full)),
     );

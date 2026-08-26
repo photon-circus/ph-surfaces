@@ -7,9 +7,10 @@
 //! and recorded as "not run". Splitting it means only the part that actually
 //! needs a target can skip.
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -27,21 +28,45 @@ pub struct Artifact {
     pub unpacked: PathBuf,
 }
 
-/// Build the archive once per run, so `--only 'package digest'` works on its own
-/// without four checks each re-packaging the crate.
-fn artifact(ctx: &Ctx) -> Result<&'static Artifact, String> {
-    static BUILT: OnceLock<Result<Artifact, String>> = OnceLock::new();
-    BUILT
-        .get_or_init(|| build_artifact(ctx))
-        .as_ref()
-        .map_err(String::clone)
+/// Keyed by (root, package name): the same artifact serves several checks in
+/// one run, but never a caller with a different tree.
+type ArtifactCache = Mutex<HashMap<(PathBuf, String), Result<Arc<Artifact>, String>>>;
+
+/// Build each archive once per (root, package), so `--only 'package digest'`
+/// works on its own without four checks each re-packaging the crate, and so
+/// in-process callers with different roots (the mutation self-tests) never
+/// receive another tree's artifact.
+pub(crate) fn package_artifact(
+    ctx: &Ctx,
+    packages: &[&str],
+    name: &str,
+    version: &str,
+) -> Result<Arc<Artifact>, String> {
+    static CACHE: OnceLock<ArtifactCache> = OnceLock::new();
+    let mut cache = CACHE
+        .get_or_init(Default::default)
+        .lock()
+        .expect("the artifact cache is never poisoned");
+    cache
+        .entry((ctx.root.clone(), name.to_string()))
+        .or_insert_with(|| build_package_artifact(ctx, packages, name, version).map(Arc::new))
+        .clone()
 }
 
-fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
+fn artifact(ctx: &Ctx) -> Result<Arc<Artifact>, String> {
+    let package = &ctx.config.package;
+    package_artifact(ctx, &[&package.name], &package.name, &package.version)
+}
+
+fn build_package_artifact(
+    ctx: &Ctx,
+    packages: &[&str],
+    name: &str,
+    version: &str,
+) -> Result<Artifact, String> {
     clean_release_tree(ctx)?;
 
-    let package = &ctx.config.package;
-    let directory = format!("{}-{}", package.name, package.version);
+    let directory = format!("{name}-{version}");
     let archive = ctx.path(&format!("target/package/{directory}.crate"));
     let unpacked = ctx.path(&format!("target/package/{directory}"));
 
@@ -52,19 +77,24 @@ fn build_artifact(ctx: &Ctx) -> Result<Artifact, String> {
 
     // Cargo's own verify step unpacks the archive and builds it, so a source
     // file missing from `include` fails right here.
-    let mut args = vec!["package", "-p", "ph-surfaces", "--locked"];
+    let mut args = vec!["package"];
+    for package in packages {
+        args.push("-p");
+        args.push(package);
+    }
+    args.push("--locked");
     if !ctx.strict() {
         args.push("--allow-dirty");
     }
     match proc::run(&proc::cargo(), &args, &ctx.root, &[]) {
         Ok(Some(0)) => {}
-        Ok(_) => return Err("cargo package failed.".to_string()),
+        Ok(_) => return Err(format!("cargo package -p {name} failed.")),
         Err(error) => return Err(format!("cargo package could not run: {error}")),
     }
 
     if !archive.is_file() {
         return Err(format!(
-            "expected {} to exist after cargo package.",
+            "expected {} to exist after cargo package -p {name}.",
             archive.display()
         ));
     }
@@ -106,30 +136,51 @@ pub(crate) fn clean_release_tree(ctx: &Ctx) -> Result<(), String> {
     }
 }
 
-/// What `cargo package --list` says will ship.
-pub fn package_list(ctx: &Ctx) -> Outcome {
-    if let Err(message) = clean_release_tree(ctx) {
-        return Outcome::Fail(message);
-    }
-
-    let mut args = vec!["package", "-p", "ph-surfaces", "--locked", "--list"];
+/// `cargo package --list` for one package, native separators normalized.
+pub(crate) fn listed_files(ctx: &Ctx, package: &str) -> Result<Vec<String>, String> {
+    let mut args = vec!["package", "-p", package, "--locked", "--list"];
     if !ctx.strict() {
         args.push("--allow-dirty");
     }
     let listing = match proc::capture(&proc::cargo(), &args, &ctx.root) {
         Ok(output) if output.ok() => output.stdout,
         Ok(output) => {
-            return Outcome::fail(format!("cargo package --list failed.\n{}", output.stderr));
+            return Err(format!(
+                "cargo package -p {package} --list failed.\n{}",
+                output.stderr
+            ));
         }
-        Err(error) => return Outcome::fail(format!("cargo could not run: {error}")),
+        Err(error) => return Err(format!("cargo could not run: {error}")),
     };
-
     // Cargo prints native separators on Windows; compare in one spelling.
-    let files: Vec<String> = listing
+    Ok(listing
         .lines()
         .map(|line| line.trim().replace('\\', "/"))
         .filter(|line| !line.is_empty())
-        .collect();
+        .collect())
+}
+
+/// Unified diff between an expected and an actual packaged file set.
+pub(crate) fn file_set_diff(expected: &[String], actual: &[String], message: &str) -> String {
+    let expected = expected.join("\n") + "\n";
+    let actual = actual.join("\n") + "\n";
+    let diff = TextDiff::from_lines(&expected, &actual)
+        .unified_diff()
+        .header("expected", "actual")
+        .to_string();
+    format!("{diff}{message}")
+}
+
+/// What `cargo package --list` says will ship.
+pub fn package_list(ctx: &Ctx) -> Outcome {
+    if let Err(message) = clean_release_tree(ctx) {
+        return Outcome::Fail(message);
+    }
+
+    let files = match listed_files(ctx, &ctx.config.package.name) {
+        Ok(files) => files,
+        Err(message) => return Outcome::Fail(message),
+    };
     for file in &files {
         println!("{file}");
     }
@@ -188,14 +239,10 @@ pub fn package_build(ctx: &Ctx) -> Outcome {
     expected.sort();
 
     if actual != expected {
-        let expected = expected.join("\n") + "\n";
-        let actual = actual.join("\n") + "\n";
-        let diff = TextDiff::from_lines(&expected, &actual)
-            .unified_diff()
-            .header("expected", "actual")
-            .to_string();
-        return Outcome::fail(format!(
-            "{diff}packaged file set differs from the expected list."
+        return Outcome::fail(file_set_diff(
+            &expected,
+            &actual,
+            "packaged file set differs from the expected list.",
         ));
     }
 
@@ -233,6 +280,23 @@ pub(crate) fn packaged_tree(root: &Path) -> Result<Vec<String>, String> {
     Ok(files)
 }
 
+/// SHA-256 of an archive, read and hashed twice.
+///
+/// Re-read and re-hash: a digest that describes a file which changed while it
+/// was being measured is not evidence.
+pub(crate) fn archive_digest(archive: &Path, label: &str) -> Result<String, String> {
+    let bytes = fs::read(archive)
+        .map_err(|error| format!("could not read the {label} archive: {error}"))?;
+    let digest = hex::encode(Sha256::digest(&bytes));
+    match fs::read(archive) {
+        Ok(again) if hex::encode(Sha256::digest(&again)) == digest => Ok(digest),
+        Ok(_) => Err(format!(
+            "{label} changed while its SHA-256 digest was being verified."
+        )),
+        Err(error) => Err(format!("could not re-read the {label} archive: {error}")),
+    }
+}
+
 /// The archive digest, computed here rather than by whichever hashing utility a
 /// machine happens to carry.
 pub fn package_digest(ctx: &Ctx) -> Outcome {
@@ -241,56 +305,39 @@ pub fn package_digest(ctx: &Ctx) -> Outcome {
         Err(message) => return Outcome::Fail(message),
     };
 
-    let bytes = match fs::read(&artifact.archive) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            return Outcome::fail(format!("could not read the packaged archive: {error}"));
-        }
+    let digest = match archive_digest(&artifact.archive, "package") {
+        Ok(digest) => digest,
+        Err(message) => return Outcome::fail(message),
     };
-    let digest = hex::encode(Sha256::digest(&bytes));
-
-    // Re-read and re-hash: a digest that describes a file which changed while it
-    // was being measured is not evidence.
-    match fs::read(&artifact.archive) {
-        Ok(again) if hex::encode(Sha256::digest(&again)) == digest => {}
-        Ok(_) => {
-            return Outcome::fail("package changed while its SHA-256 digest was being verified.");
-        }
-        Err(error) => return Outcome::fail(format!("could not re-read the archive: {error}")),
-    }
-
     println!("package SHA-256: {digest}");
     Outcome::Pass
 }
 
-/// The packaged commit must be the commit under review.
-pub fn package_provenance(ctx: &Ctx) -> Outcome {
-    let artifact = match artifact(ctx) {
-        Ok(artifact) => artifact,
-        Err(message) => return Outcome::Fail(message),
-    };
-
-    let vcs_info = artifact.unpacked.join(".cargo_vcs_info.json");
+/// `.cargo_vcs_info.json` in the unpack must name HEAD and a clean tree.
+/// Returns the packaged SHA. `label` reads as "{label} crate", "{label} VCS".
+pub(crate) fn verify_provenance(ctx: &Ctx, unpacked: &Path, label: &str) -> Result<String, String> {
+    let vcs_info = unpacked.join(".cargo_vcs_info.json");
     if !vcs_info.is_file() {
-        return Outcome::fail("packaged crate is missing .cargo_vcs_info.json.");
+        return Err(format!("{label} crate is missing .cargo_vcs_info.json."));
     }
-    let info: VcsInfo = match fs::read(&vcs_info)
+    let info: VcsInfo = fs::read(&vcs_info)
         .map_err(serde_json::Error::io)
         .and_then(|bytes| serde_json::from_slice(&bytes))
-    {
-        Ok(info) => info,
-        Err(error) => return Outcome::fail(format!(".cargo_vcs_info.json is unreadable: {error}")),
-    };
+        .map_err(|error| format!("{label} .cargo_vcs_info.json is unreadable: {error}"))?;
 
     let head = match proc::capture("git", &["rev-parse", "--verify", "HEAD"], &ctx.root) {
         Ok(output) if output.ok() => output.stdout.trim().to_string(),
-        _ => return Outcome::fail("could not resolve HEAD to compare packaged provenance."),
+        _ => {
+            return Err(format!(
+                "could not resolve HEAD to compare {label} provenance."
+            ));
+        }
     };
 
     let packaged = info.git.sha1;
     if packaged != head {
-        return Outcome::fail(format!(
-            "packaged VCS SHA does not match HEAD: expected {head}, found {}",
+        return Err(format!(
+            "{label} VCS SHA does not match HEAD: expected {head}, found {}",
             if packaged.is_empty() {
                 "<missing>"
             } else {
@@ -302,9 +349,22 @@ pub fn package_provenance(ctx: &Ctx) -> Outcome {
     // Cargo 1.94 omits the member entirely for a clean tree, so its absence is
     // correct. Only an explicit `true` is a finding.
     if info.git.dirty == Some(true) {
-        return Outcome::fail("packaged VCS provenance is marked dirty.");
+        return Err(format!("{label} VCS provenance is marked dirty."));
     }
+    Ok(packaged)
+}
 
+/// The packaged commit must be the commit under review.
+pub fn package_provenance(ctx: &Ctx) -> Outcome {
+    let artifact = match artifact(ctx) {
+        Ok(artifact) => artifact,
+        Err(message) => return Outcome::Fail(message),
+    };
+
+    let packaged = match verify_provenance(ctx, &artifact.unpacked, "packaged") {
+        Ok(packaged) => packaged,
+        Err(message) => return Outcome::fail(message),
+    };
     println!("package VCS provenance: {packaged} (clean)");
     Outcome::Pass
 }

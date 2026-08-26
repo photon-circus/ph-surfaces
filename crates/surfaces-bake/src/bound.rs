@@ -45,36 +45,12 @@ impl Ratio {
 
     /// Approximate the ratio as `f64` for the RMS statistic only.
     ///
-    /// Take a 53-bit window of each limb and restore `2^{n_shift - d_shift}`
-    /// without first materializing `2^exp` when `exp` is below `-1022`:
-    /// `2.0.powi(-1075)` underflows even when `(nf / df) * 2^exp` is the
-    /// smallest subnormal. The remainder is applied while the significand is
-    /// still normal so there is only one subnormal rounding. This is not the
-    /// bound.
+    /// `num-rational` performs the conversion correctly rounded (round to
+    /// even with sticky bits, subnormal handling, and overflow to infinity).
+    /// A `BigRational` never carries a zero denominator, so the conversion
+    /// cannot fail. This is not the bound.
     pub(crate) fn to_f64(&self) -> f64 {
-        if self.is_zero() {
-            return 0.0;
-        }
-        let n = self.0.numer().abs();
-        let d = self.0.denom();
-        let n_shift = n.bits().saturating_sub(53) as usize;
-        let d_shift = d.bits().saturating_sub(53) as usize;
-        let nf = (&n >> n_shift).to_f64().unwrap_or(f64::INFINITY);
-        let df = (d >> d_shift).to_f64().unwrap_or(f64::INFINITY);
-        if df == 0.0 {
-            return if self.0.is_negative() {
-                f64::NEG_INFINITY
-            } else {
-                f64::INFINITY
-            };
-        }
-        let exp = match (i32::try_from(n_shift), i32::try_from(d_shift)) {
-            (Ok(a), Ok(b)) => a.saturating_sub(b),
-            _ if n_shift > d_shift => return f64::INFINITY,
-            _ => return 0.0,
-        };
-        let x = scale_by_pow2(nf / df, exp);
-        if self.0.is_negative() { -x } else { x }
+        self.0.to_f64().unwrap_or(f64::NAN)
     }
 
     pub(crate) fn abs_gt(&self, other: &Self) -> Option<bool> {
@@ -91,32 +67,6 @@ impl Ratio {
         let one = BigInt::from(1);
         ((n + d - one) / d).to_i32()
     }
-}
-
-/// `x * 2^exp` without letting `2^exp` underflow before `x` is applied.
-///
-/// When `exp <= -1022`, apply `2^{exp + 1022}` first so the significand stays
-/// normal, then multiply by `2^-1022` once. Multiplying by `MIN_POSITIVE`
-/// first can make `x` subnormal and round a second time on the remainder.
-fn scale_by_pow2(mut x: f64, mut exp: i32) -> f64 {
-    if x == 0.0 || !x.is_finite() || exp == 0 {
-        return x;
-    }
-    if exp <= -1022 {
-        let rem = exp + 1022;
-        if rem != 0 {
-            x *= 2.0_f64.powi(rem);
-        }
-        return x * f64::MIN_POSITIVE;
-    }
-    while exp >= 1024 {
-        x *= 2.0_f64.powi(1023);
-        exp -= 1023;
-        if !x.is_finite() {
-            return x;
-        }
-    }
-    x * 2.0_f64.powi(exp)
 }
 
 pub(crate) fn ratio_from_f64(x: f64) -> Option<Ratio> {

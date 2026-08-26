@@ -23,6 +23,7 @@ fn manifest(ctx: &Ctx, relative: &str) -> Result<Value, String> {
 
 const CRATE_LIB: &str = "crates/surfaces/src/lib.rs";
 const CRATE_MANIFEST: &str = "crates/surfaces/Cargo.toml";
+const BAKER_MANIFEST: &str = "crates/surfaces-bake/Cargo.toml";
 
 pub fn no_std_unconditional(ctx: &Ctx) -> Outcome {
     let lib = match text::read_text(&ctx.path(CRATE_LIB)) {
@@ -271,11 +272,60 @@ pub fn manifest_floor(ctx: &Ctx) -> Outcome {
         ));
     }
 
-    match text::read_text(&ctx.path("LICENSE")) {
-        Ok(license) if license.contains("MIT License") => Outcome::Pass,
-        Ok(_) => Outcome::fail("LICENSE must be the MIT License."),
-        Err(error) => Outcome::fail(format!("LICENSE is unreadable: {error}")),
+    // The baker is the second crates.io package; its version and dependency
+    // names (dev-dependencies included) get the same floor.
+    let Some(baker_package) = metadata
+        .packages
+        .iter()
+        .find(|package| package.name.as_str() == "ph-surfaces-bake")
+    else {
+        return Outcome::fail("cargo metadata did not identify the `ph-surfaces-bake` package.");
+    };
+    if baker_package.version.to_string() != ctx.config.baker.version {
+        return Outcome::fail(format!(
+            "{BAKER_MANIFEST} package.version must be `{}`.",
+            ctx.config.baker.version
+        ));
     }
+    let mut baker_dependencies: Vec<String> = baker_package
+        .dependencies
+        .iter()
+        .map(|dependency| dependency.name.to_string())
+        .collect();
+    baker_dependencies.sort();
+    let mut expected_baker_dependencies = ctx.config.baker.dependencies.clone();
+    expected_baker_dependencies.sort();
+    if baker_dependencies != expected_baker_dependencies {
+        return Outcome::fail(format!(
+            "{BAKER_MANIFEST} dependencies differ: expected {expected_baker_dependencies:?}, found {baker_dependencies:?}."
+        ));
+    }
+
+    // The `.crate` archives ship each published crate's own LICENSE file, so
+    // verify the content of every packaged copy, not just the repo root's.
+    let mut license_paths = vec![ctx.path("LICENSE")];
+    for package in &metadata.packages {
+        let publishable = package
+            .publish
+            .as_ref()
+            .is_none_or(|registries| !registries.is_empty());
+        if let (true, Some(directory)) = (publishable, package.manifest_path.parent()) {
+            license_paths.push(directory.join("LICENSE").into_std_path_buf());
+        }
+    }
+    for path in license_paths {
+        let name = path
+            .strip_prefix(&ctx.root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        match text::read_text(&path) {
+            Ok(license) if license.contains("MIT License") => {}
+            Ok(_) => return Outcome::fail(format!("{name} must be the MIT License.")),
+            Err(error) => return Outcome::fail(format!("{name} is unreadable: {error}")),
+        }
+    }
+    Outcome::Pass
 }
 
 fn metadata(ctx: &Ctx, no_deps: bool) -> Result<cargo_metadata::Metadata, String> {
